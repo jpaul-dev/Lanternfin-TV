@@ -200,3 +200,12 @@ LG developer-mode installation is a testing path with a limited session; disable
 - [Targeted tests](targeted-tests.log), [complete tests](full-tests.log), [build result](build.log), and [changed-file lint](changed-lint.log).
 
 Package installation used the frozen lockfile with install scripts disabled. Advisory queries sent package names and versions, not source files or provider credentials, to the registries. The HEVC installers were inspected but not installed. The source snapshot scan archive is retained in the local temporary location recorded in `scan-target.txt`.
+
+
+## TV-port dependency recheck — 2026-10-03
+
+The current root lockfile audit reports **one high advisory**, [GHSA-ch52-4w7c-c8xp / CVE-2026-93748](https://github.com/advisories/GHSA-ch52-4w7c-c8xp), in `http-cache-semantics@4.2.0` through `astro@7.2.9`. The registry and advisory list no patched release as of this check. This updates earlier point-in-time audit totals; it is not a malware finding and has not been suppressed with an ineffective version override. Raw registry evidence is retained in `npm-audit-tv-current.json`.
+
+The advisory concerns cross-user responses in a shared HTTP cache with client-controlled max-stale. In the installed Astro code the only import is its remote build-image helper, which creates its own requests and uses `storable()` / `timeToLive()`; no application `astro:assets` image calls were found. The LG/Samsung entry is a separate Vite library build, without an Astro server or shared response-cache service. Inspection of that build’s module graph found no Astro or http-cache-semantics modules. These observations limit the currently identified exposure; they do not fix the dependency or establish that every possible future Astro deployment is unaffected. Recheck before enabling hosted server features or when a patched package is published.
+
+The new native download path uses public Samsung privileges and app-generated private filenames. It rejects provider file URLs, excludes credentials from its saved metadata, does not copy protected/adaptive streams, verifies native transfer ownership on recovery, and exposes reviewed deletion limited to individual app files. The manual update checker requests only fixed public fork endpoints after a button press, limits response size/time, rejects foreign release-page URLs and does not execute downloaded code. Unit/integration tests cover these boundaries. Physical-device permissions, storage and DRM acceptance remain outstanding; see `../TV_PORTS.md` and `../TV_PARITY.md`.
