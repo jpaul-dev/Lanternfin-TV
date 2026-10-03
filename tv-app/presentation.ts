@@ -26,7 +26,7 @@ export function channelCard(channel: Channel, activate: () => void, library?: TV
     image.onerror = () => image.remove(); art.append(image)
   }
   const name = document.createElement('span'); name.className = 'card-title'; name.textContent = (library?.isFavorite(channel) ? '★ ' : '') + channel.name
-  const meta = document.createElement('small'); meta.textContent = channel.group
+  const meta = document.createElement('small'); meta.textContent = [channel.year, channel.rating ? `${channel.rating.toFixed(1)} / 10` : '', channel.group].filter(Boolean).join(' · ')
   const recent = library?.lastPlayed(channel)
   if (versions && versions.length > 1) { const badge = document.createElement('span'); badge.className = 'version-badge'; badge.textContent = `${versions.length} versions`; art.append(badge) }
   if (library?.isWatched(channel)) { const badge = document.createElement('span'); badge.className = 'watched-badge'; badge.textContent = '✓ Watched'; art.append(badge); card.setAttribute('aria-label', `${channel.name} · ${channel.group} · Watched`) }

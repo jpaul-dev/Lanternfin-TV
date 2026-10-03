@@ -1,5 +1,6 @@
 import { httpUrl, playlistUrl, validateSource, type Catalog, type Channel, type Source } from './catalog'
 import { providerTimestamp } from './provider-date'
+import { titleRating, titleYear } from './title-metadata'
 
 export type MediaKind = 'live' | 'movie' | 'series'
 export type Category = { id: string; name: string }
@@ -93,7 +94,9 @@ export async function loadCategory(source: Source, kind: MediaKind, category: Ca
     try {
       const id = identifier(kind === 'series' ? row.series_id : row.stream_id)
       const addedAt = kind === 'live' ? undefined : providerTimestamp(row.added) ?? (kind === 'series' ? providerTimestamp(row.last_modified) : undefined)
-      channels.push({ name: text(row.name, 'Untitled'), group: category.name, url: kind === 'series' ? '' : mediaUrl(source, kind, id, kind === 'live' ? 'm3u8' : row.container_extension), mediaKind: kind, providerId: id, logo: artwork(row.stream_icon || row.cover), description: text(row.plot), ...(addedAt ? { addedAt } : {}), ...(kind === 'live' && Number(row.tv_archive) === 1 ? { tvArchive: 1, tvArchiveDuration: Math.max(1, Math.min(30, Number(row.tv_archive_duration) || 7)) } : {}) })
+      const rating = titleRating(row.rating, row.rating_5based), year = titleYear(row.year) || titleYear(row.releaseDate || row.releasedate)
+      const facts = kind === 'live' ? {} : { categoryId: category.id, ...(rating !== undefined ? { rating } : {}), ...(year ? { year } : {}) }
+      channels.push({ name: text(row.name, 'Untitled'), group: category.name, url: kind === 'series' ? '' : mediaUrl(source, kind, id, kind === 'live' ? 'm3u8' : row.container_extension), mediaKind: kind, providerId: id, logo: artwork(row.stream_icon || row.cover), description: text(row.plot), ...facts, ...(addedAt ? { addedAt } : {}), ...(kind === 'live' && Number(row.tv_archive) === 1 ? { tvArchive: 1, tvArchiveDuration: Math.max(1, Math.min(30, Number(row.tv_archive_duration) || 7)) } : {}) })
     } catch { skipped++ }
     if (index && index % 1000 === 0) await new Promise<void>(resolve => setTimeout(resolve, 0))
   }
@@ -120,7 +123,7 @@ export async function loadEpisodes(source: Source, series: Channel, signal: Abor
   return parseEpisodes(source, series, record(await request(source, 'get_series_info', signal, { series_id: identifier(series.providerId) }, 8 * 1024 * 1024)))
 }
 export function basicDetails(channel: Channel): TitleDetails {
-  return { channel, description: channel.description || '', poster: channel.logo, metadata: [channel.group], cast: '', director: '' }
+  return { channel, description: channel.description || '', poster: channel.logo, metadata: [channel.year, channel.rating ? `${channel.rating.toFixed(1)} / 10` : '', channel.group].filter(Boolean) as string[], cast: '', director: '' }
 }
 export async function loadTitleDetails(source: Source, channel: Channel, signal: AbortSignal): Promise<TitleDetails> {
   if (source.kind !== 'xtream' || !channel.providerId || !['movie', 'series'].includes(channel.mediaKind || '')) return basicDetails(channel)
@@ -132,9 +135,9 @@ export async function loadTitleDetails(source: Source, channel: Channel, signal:
   details.poster = artwork(info.movie_image || info.cover) || channel.logo
   details.backdrop = artwork(Array.isArray(info.backdrop_path) ? info.backdrop_path[0] : info.backdrop_path)
   details.cast = text(info.cast || info.actors); details.director = text(info.director)
-  const year = String(info.releasedate || info.releaseDate || info.year || '').match(/\b(19|20)\d{2}\b/)?.[0]
-  const rating = Number(info.rating), duration = text(info.duration), genre = text(info.genre)
-  details.metadata = [year, genre, duration, rating > 0 && rating <= 10 ? `${rating.toFixed(1)} / 10` : ''].filter(Boolean) as string[]
+  const year = titleYear(info.releasedate || info.releaseDate || info.year) || channel.year
+  const rating = titleRating(info.rating, info.rating_5based) ?? channel.rating, duration = text(info.duration), genre = text(info.genre)
+  details.metadata = [year, genre || channel.group, duration, rating ? `${rating.toFixed(1)} / 10` : ''].filter(Boolean) as string[]
   if (series) details.episodes = parseEpisodes(source, channel, response).channels
   return details
 }

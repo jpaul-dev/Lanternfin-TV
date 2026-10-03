@@ -20,6 +20,10 @@ export class ProviderIndex {
   cachedAt?: number
   constructor(private source: Source, live: Category[], private loaders: Loader = { categories: loadCategories, category: loadCategory }, private budget = { records: MAX_CHANNELS, characters: 64 * 1024 * 1024 }) { this.categories.live = live }
   cached(kind: MediaKind, category: Category) { return this.cache.get(`${kind}:${category.id}`) }
+  categoryItems(channel: Channel) {
+    const id = channel.categoryId || this.indexed(`${channel.mediaKind}:${channel.providerId}`)?.categoryId
+    return id ? this.cache.get(`${channel.mediaKind}:${id}`)?.channels : undefined
+  }
   private indexed(id: string) { const entry = this.seen.get(id); return entry && this.items[entry.index] === entry.channel ? entry.channel : undefined }
   has(channel: Channel) { const found = this.indexed(`${channel.mediaKind}:${channel.providerId}`); return !!found && (found === channel || found.url === channel.url) }
   async restore(snapshot: CatalogSnapshot, signal?: AbortSignal) {
@@ -35,7 +39,7 @@ export class ProviderIndex {
       check()
       for (const entry of snapshot.entries) {
         for (const item of entry.channels) {
-          check(); records++; retained += item.name.length + item.url.length + item.group.length + (item.logo?.length || 0) + (item.description?.length || 0)
+          check(); records++; retained += item.name.length + item.url.length + item.group.length + (item.logo?.length || 0) + (item.description?.length || 0) + (item.categoryId?.length || 0) + (item.year?.length || 0)
           if (records > this.budget.records || retained > this.budget.characters) throw new IndexBudgetError('The saved library exceeds this TV’s memory budget.')
           const id = `${item.mediaKind}:${item.providerId}`
           if (!seen.has(id)) { seen.set(id, { channel: item, index: items.length }); items.push(item) }
@@ -64,7 +68,7 @@ export class ProviderIndex {
     }
     try {
       for (const item of result.channels) {
-        check(); characters += item.name.length + item.url.length + item.group.length + (item.logo?.length || 0) + (item.description?.length || 0)
+        check(); characters += item.name.length + item.url.length + item.group.length + (item.logo?.length || 0) + (item.description?.length || 0) + (item.categoryId?.length || 0) + (item.year?.length || 0)
         if (this.retained + characters > this.budget.characters) throw budgetError()
         const id = `${item.mediaKind}:${item.providerId}`
         if (!pending.has(id) && !this.indexed(id)) {

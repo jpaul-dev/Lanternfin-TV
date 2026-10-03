@@ -9,7 +9,7 @@ import { mediaUrl } from '../tv-app/xtream'
 import type { Source } from '../tv-app/catalog'
 const crypto = webcrypto as unknown as Crypto, passphrase = 'test backup passphrase only'
 const source: Source = { kind: 'xtream', url: 'https://provider.example/', username: 'private-user', password: 'private-password' }
-const channel = { name: 'A title', group: 'Movies', mediaKind: 'movie' as const, providerId: '42', url: mediaUrl(source, 'movie', '42', 'mp4') }
+const channel = { name: 'A title', group: 'Movies', mediaKind: 'movie' as const, providerId: '42', categoryId: '1', rating: 8.2, year: '2024', url: mediaUrl(source, 'movie', '42', 'mp4') }
 function fixture() {
   const storage = new MemoryStore(); rememberProfile(storage, source, 'My TV', undefined, { guideUrl: 'https://guide.example/list.xml', keepLibrary: true })
   const library = new TVLibrary(storage, source); library.toggleFavorite(channel); library.record(channel, 120, 600); library.markWatched(channel, true)
@@ -20,6 +20,7 @@ it('encrypts and restores byte-authenticated backups with fresh salts and no rea
   const first = await encryptBackup(backup, passphrase, crypto), second = await encryptBackup(backup, passphrase, crypto)
   expect(first).not.toEqual(second); expect(first).not.toContain('private'); expect(first).not.toContain('provider.example')
   expect(await decryptBackup(first, passphrase, crypto)).toEqual(backup)
+  expect(backup.profiles[0].library.references[0]).toMatchObject({ categoryId: '1', rating: 8.2, year: '2024' })
   await expect(decryptBackup(first, 'wrong password long enough', crypto)).rejects.toThrow('incorrect')
   const edited = JSON.parse(first); edited.data = (edited.data[0] === 'A' ? 'B' : 'A') + edited.data.slice(1)
   await expect(decryptBackup(JSON.stringify(edited), passphrase, crypto)).rejects.toThrow('damaged')

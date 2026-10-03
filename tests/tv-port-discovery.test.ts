@@ -42,7 +42,7 @@ it('preserves dates through bounded references and the saved provider catalog', 
   expect(referenceChannel(source, channelReference(source, early)!)).toEqual(early)
   const cache = new CatalogCache(new IDBFactory()), category = { id: '1', name: 'Movies' }
   await cache.save(source, { at: Date.now(), categories: { live: [], movie: [category], series: [] }, entries: [{ kind: 'movie', category, channels: [movie, early, legacy], skipped: 0 }] })
-  expect((await cache.load(source))?.entries[0].channels).toEqual([movie, early, legacy])
+  expect((await cache.load(source))?.entries[0].channels).toEqual([movie, early, legacy].map(item => ({ ...item, categoryId: '1' })))
 })
 
 it('keeps twelve distinct newest titles with stable ties and bounded duplicate updates', () => {

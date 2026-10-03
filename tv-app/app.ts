@@ -13,6 +13,7 @@ import { canSeek, scrubOSD } from './playback-osd'
 import { subtitleUI, EXTERNAL_SUBTITLE } from './subtitle-ui'
 import { mp4SubtitleUI, MP4_SUBTITLE } from './mp4-subtitle-ui'
 import { TrackPreferences } from './track-preferences'
+import { relatedTitles, type RelatedTitle } from './related-titles'
 import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
@@ -70,6 +71,10 @@ let browseView: 'home' | 'all' | 'search' | MediaKind = 'home'
 let providerCategories: Partial<Record<MediaKind, Category[]>> = {}, providerLoading: AbortController | undefined
 let detailInfo: TitleDetails | undefined, detailLoading: AbortController | undefined, episodePage = 0
 let detailVariants: Channel[] = [], catalogVariants = new WeakMap<Channel, VariantGroup>()
+type DetailVisit = { channel: Channel; variants: Channel[]; season: string; page: number; focus: string; scroll: number }
+const detailTrail: DetailVisit[] = []
+let detailGeneration = 0, relatedLoading: AbortController | undefined, relatedFor: Channel | undefined, relatedPool: Channel[] | undefined
+let relatedItems: RelatedTitle[] = [], relatedTask: Promise<void> = Promise.resolve()
 let homeGeneration = 0
 let playbackReturn: 'catalog' | 'detail' | 'programme' | 'downloads' = 'catalog'
 let providerIndex: ProviderIndex | undefined, indexTimer: ReturnType<typeof setTimeout> | undefined
@@ -146,7 +151,8 @@ function show(next: Screen) {
   $('card-menu').hidden = true
   if (next !== 'catalog') cancelGuide()
   if (next !== 'catalog') cancelHomeRows()
-  if (!['detail', 'playback', 'resume', 'downloads'].includes(next)) cancelDetails()
+  if (!['detail', 'playback', 'resume', 'downloads'].includes(next)) { cancelDetails(); detailTrail.length = 0 }
+  if (next !== 'detail') cancelRelated()
   screen = next
   syncNav()
   document.documentElement.dataset.screen = next
@@ -160,6 +166,7 @@ function show(next: Screen) {
   if (next === 'setup') renderProfiles()
   const focus = next === 'setup' ? $('profile-list').querySelector<HTMLElement>('.profile-open') || input('source-name') : [...$(next).querySelectorAll<HTMLElement>('button:not(:disabled), input, select')].find(element => !element.closest('[hidden]'))
   focus?.focus()
+  if (next === 'detail') void refreshRelated()
 }
 function sourceKind() {
   const kind = select('source-kind').value
@@ -730,7 +737,7 @@ async function refreshCards() {
   else await filter(false)
 }
 $('card-menu-close').onclick = closeCardMenu
-$('card-menu-play').onclick = () => { const channel = contextChannel; closeCardMenu(); if (channel) { lastFocusedCard = contextCard; watch(channel) } }
+$('card-menu-play').onclick = () => { const channel = contextChannel; closeCardMenu(); if (channel) { if (contextCard?.closest('#detail-related')) void openTitle(channel, cardVersions(contextCard), 'related'); else { lastFocusedCard = contextCard; watch(channel) } } }
 $('card-menu-download').onclick = () => { const channel = contextChannel; closeCardMenu(); if (channel) openDownloads(channel) }
 for (const [id, action] of [['card-menu-favorite', 'favorite'], ['card-menu-history', 'history'], ['card-menu-watchlist', 'watchlist']] as const) $(id).onclick = async () => {
   if (!contextChannel) return
@@ -753,7 +760,7 @@ bindLifecycle(document, window, () => {
   const interrupted = !!loading || !!providerLoading
   cancelLoad(); cancelProviderLoad(); cancelGuide(); searching?.abort(); clearTimeout(searchTimer)
   clearTimeout(indexTimer); indexTimer = undefined
-  cancelHomeRows(); clearTimeout(holdTimer); heldCard = undefined; holdOpened = false
+  cancelHomeRows(); cancelRelated(); clearTimeout(holdTimer); heldCard = undefined; holdOpened = false
   $('card-menu').hidden = true
   if (detailLoading) { cancelDetails(); $('detail-status').textContent = 'Details loading stopped while the app was away.'; $('detail-retry').hidden = false; renderEpisodes() }
   if (accountLoading) { accountLoading.abort(); accountLoading = undefined; button('account-retry').disabled = false; $('account-status').textContent = 'Account check stopped. Choose Refresh account to try again.' }
@@ -767,6 +774,7 @@ bindLifecycle(document, window, () => {
   syncGuideDays()
   const index = suspendedIndex; suspendedIndex = undefined
   if (index && index === providerIndex) startIndex()
+  if (screen === 'detail') void refreshRelated()
   if (screen === 'catalog') {
     if (browseView === 'home') renderHome()
     else { void filter(false); if (browseView === 'live' && guideChannel) selectGuide(guideChannel) }
@@ -984,7 +992,9 @@ function startIndex() {
     if (indexTimer) return
     indexTimer = setTimeout(() => {
       indexTimer = undefined
-      if (index !== providerIndex || screen !== 'catalog') return
+      if (index !== providerIndex) return
+      if (screen === 'detail') { void refreshRelated(); return }
+      if (screen !== 'catalog') return
       if (browseView === 'home') renderHome()
       else if (['search', 'all'].includes(browseView)) { if (!nativeSelectOpen) updateGroups(); void filter(false) }
       else if (['live', 'movie', 'series'].includes(browseView) && !browseCategory) { channels = index.items.filter(channel => channel.mediaKind === browseView); void filter(false) }
@@ -1050,10 +1060,19 @@ async function openCategory(kind: MediaKind, category: Category) {
   } catch (error) { if (providerLoading === controller) notice((error as Error).message) }
   finally { if (providerLoading === controller) { providerLoading = undefined; $('cancel-category').hidden = true; renderEmpty() } }
 }
-function cancelDetails() { detailLoading?.abort(); detailLoading = undefined }
-async function openTitle(channel: Channel, versions?: Channel[]) {
-  if (!activeSource) return
+function cancelRelated() { if (relatedLoading) { relatedLoading.abort(); relatedLoading = undefined; relatedPool = undefined }; $('detail-related-rail').setAttribute('aria-busy', 'false') }
+function cancelDetails() { detailLoading?.abort(); detailLoading = undefined; cancelRelated() }
+async function openTitle(channel: Channel, versions?: Channel[], navigation: 'new' | 'related' | 'replace' | 'back' = 'new') {
+  if (!activeSource) return false
+  if (navigation === 'new') detailTrail.length = 0
+  if (navigation === 'related' && detailInfo) {
+    detailTrail.push({ channel: detailInfo.channel, variants: detailVariants, season: select('detail-season').value, page: episodePage, focus: channelId(channel), scroll: window.scrollY })
+    if (detailTrail.length > 20) detailTrail.shift()
+  }
+  const generation = ++detailGeneration
   cancelProviderLoad(); cancelDetails(); searching?.abort()
+  relatedItems = []; relatedFor = undefined; relatedPool = undefined; $('detail-related-rail').replaceChildren(); $('detail-related-rail').scrollLeft = 0
+  button('detail-back').textContent = tr(detailTrail.length ? '← Back to previous title' : '← Back to library')
   detailVariants = versions?.includes(channel) && versions.length > 1 ? versions : []
   detailInfo = basicDetails(channel); episodePage = 0; select('detail-season').replaceChildren()
   renderDetails(); show('detail'); button('detail-play').focus()
@@ -1061,11 +1080,38 @@ async function openTitle(channel: Channel, versions?: Channel[]) {
   $('detail-status').textContent = 'Loading details…'; $('detail-retry').hidden = true
   try {
     const result = await loadTitleDetails(activeSource, channel, controller.signal)
-    if (detailLoading !== controller) return
+    if (detailLoading !== controller) return false
     detailLoading = undefined; detailInfo = result; renderDetails(); $('detail-status').textContent = ''
   } catch (error) { if (detailLoading === controller) { $('detail-status').textContent = (error as Error).message; $('detail-retry').hidden = false } }
   finally { if (detailLoading === controller) { detailLoading = undefined; renderEpisodes() } }
+  if (generation !== detailGeneration || screen !== 'detail') return false
+  await refreshRelated()
+  return generation === detailGeneration && screen === 'detail'
 }
+function renderRelated() {
+  const rail = $('detail-related-rail'), active = document.activeElement as HTMLElement | null
+  const focus = active?.closest('#detail-related-rail') ? active.dataset.channel : undefined, scroll = rail.scrollLeft
+  const fragment = document.createDocumentFragment()
+  for (const { channel, versions } of relatedItems) fragment.append(channelCard(channel, () => { void openTitle(channel, versions, 'related') }, library, versions))
+  rail.replaceChildren(fragment); rail.scrollLeft = scroll
+  if (focus) (rail.querySelector<HTMLElement>(`[data-channel="${focus}"]`) || rail.querySelector<HTMLElement>('button') || button('detail-related-refresh')).focus()
+}
+function refreshRelated(force = false): Promise<void> {
+  const channel = detailInfo?.channel, source = activeSource
+  if (!channel || !source || screen !== 'detail' || away) return Promise.resolve()
+  const pool = source.kind === 'xtream' ? providerIndex?.categoryItems(channel) || libraryPool() : channels
+  if (!force && relatedFor === channel && relatedPool === pool) return relatedTask
+  cancelRelated(); const controller = new AbortController(); relatedLoading = controller; relatedFor = channel; relatedPool = pool
+  $('detail-related-note').textContent = tr('Finding titles in this category…'); $('detail-related-rail').setAttribute('aria-busy', 'true')
+  relatedTask = relatedTitles(channel, pool, source.kind, preferences.groupLanguages ? contentLanguage() : undefined, controller.signal).then(items => {
+    if (relatedLoading !== controller || controller.signal.aborted || screen !== 'detail') return
+    relatedItems = items; renderRelated()
+    $('detail-related-note').textContent = tr(items.length ? items.some(item => item.channel.rating) ? 'From the same library category · highest provider ratings first' : 'From the same library category · provider order' : providerIndex && !providerIndex.progress.complete ? 'No matching titles loaded yet. Suggestions update as your library loads.' : 'No other titles in this category are available.')
+  }).catch(() => { if (relatedLoading === controller && !controller.signal.aborted) $('detail-related-note').textContent = tr('Suggestions could not load. Try Refresh suggestions.') })
+    .finally(() => { if (relatedLoading === controller) { relatedLoading = undefined; $('detail-related-rail').setAttribute('aria-busy', 'false') } })
+  return relatedTask
+}
+$('detail-related-refresh').onclick = () => { void refreshRelated(true) }
 function renderDetails() {
   if (!detailInfo) return
   const info = detailInfo, series = info.channel.mediaKind === 'series'
@@ -1093,6 +1139,7 @@ function renderDetails() {
   for (const season of new Set(info.episodes?.map(episode => episode.group))) seasons.add(new Option(season, season))
   if ([...seasons.options].some(option => option.value === selected)) seasons.value = selected
   renderEpisodes()
+  renderRelated()
 }
 function renderEpisodes() {
   const episodes = (detailInfo?.episodes || []).filter(episode => episode.group === select('detail-season').value)
@@ -1104,6 +1151,18 @@ function renderEpisodes() {
   if (detailInfo?.channel.mediaKind === 'series') { button('detail-play').disabled = !episodes.length; button('detail-play').textContent = episodes.some(episode => library?.lastPlayed(episode)?.position) ? '▶ Continue watching' : `▶ Play ${select('detail-season').value.toLowerCase() || 'series'}` }
 }
 function returnFromDetails() {
+  const previous = detailTrail.pop()
+  if (previous) {
+    const opened = openTitle(previous.channel, previous.variants, 'back'), generation = detailGeneration
+    void opened.then(success => {
+      if (!success || generation !== detailGeneration || screen !== 'detail') return
+      if ([...select('detail-season').options].some(option => option.value === previous.season)) select('detail-season').value = previous.season
+      episodePage = previous.page; renderEpisodes()
+      ;($('detail-related-rail').querySelector<HTMLElement>(`[data-channel="${previous.focus}"]`) || button('detail-play')).focus()
+      window.scrollTo(0, previous.scroll)
+    })
+    return
+  }
   cancelDetails(); show('catalog')
   if (browseView === 'home') { renderHome(); $('hero-play').focus() }
   else { render(); ($('channels').querySelectorAll<HTMLElement>('button')[lastChannel] || button('view-all')).focus(); if (libraryView !== 'all') void filter() }
@@ -1117,8 +1176,8 @@ $('detail-play').onclick = () => {
 }
 $('detail-watchlist').onclick = () => { if (!detailInfo) return; try { library?.toggleWatchlist(detailInfo.channel); rememberLibraryChannel(detailInfo.channel); renderDetails() } catch (error) { $('detail-status').textContent = (error as Error).message } }
 $('detail-favorite').onclick = () => { if (!detailInfo) return; try { library?.toggleFavorite(detailInfo.channel); rememberLibraryChannel(detailInfo.channel); renderDetails() } catch (error) { $('detail-status').textContent = (error as Error).message } }
-$('detail-retry').onclick = () => { if (detailInfo) void openTitle(detailInfo.channel, detailVariants) }
-select('detail-version').onchange = () => { const selected = detailVariants[Number(select('detail-version').value)]; if (selected) void openTitle(selected, detailVariants) }
+$('detail-retry').onclick = () => { if (detailInfo) void openTitle(detailInfo.channel, detailVariants, 'replace') }
+select('detail-version').onchange = () => { const selected = detailVariants[Number(select('detail-version').value)]; if (selected) void openTitle(selected, detailVariants, 'replace') }
 select('detail-season').onchange = () => { episodePage = 0; if (detailInfo) try { library?.setSeason(detailInfo.channel, select('detail-season').value) } catch { $('detail-status').textContent = 'Season selection applies for this session.' }; renderEpisodes() }
 for (const [id, delta] of [['episode-previous', -1], ['episode-next', 1]] as const) $(id).onclick = () => { episodePage += delta; renderEpisodes(); $('episode-grid').querySelector<HTMLElement>('button')?.focus() }
 $('nav-home').onclick = goHome
