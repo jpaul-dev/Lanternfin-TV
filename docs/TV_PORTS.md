@@ -252,3 +252,11 @@ Device & playback diagnostics is available from setup and Settings. It exposes t
 Capability checks call only local `canPlayType` / `MediaSource.isTypeSupported`. DRM API presence is not a DRM-system or license test; no `requestMediaKeySystemAccess` probe or license acquisition is triggered by the screen. Native AVPlay support can differ from browser codec reports. Shaka's numeric statistics use the bundled engine's `getStats` API.
 
 Validation: **179 files / 3,188 tests** and TV type checks passed. The browser rendered actual codec/API reports. Tests cover late screen-saver callbacks, duplicated lifecycle events, native playback progress preservation, manual index pauses, transient-secret clearing, diagnostic allowlisting, bounded logs, broken device APIs and copy fallback. Physical TVs are still required for native lifecycle and protected playback acceptance.
+
+### Bulk viewing-data management (2026-10-03)
+
+Manage viewing data shows current-source totals for favorites, recent/resume records, watched marks and saved season choices. Select areas, review totals and explicitly apply. Recent's Clear history button now opens this reviewed path. Other sources, provider catalogs and account settings are unaffected. A backup shortcut is available before changes; session-only sources are still excluded from encrypted backups.
+
+Clearing writes the complete library once and rolls back the in-memory change if storage rejects it. Undo is offered while the screen remains open, refuses to overwrite newer library activity or another window's saved changes, and can retry a failed storage write. Clearing watched marks also clears legacy completed flags in recent records so marks do not reappear after reload. Clearing history alone preserves watched marks. Undo is temporary; encrypted backup is the recovery path after leaving the screen.
+
+Validation includes actual browser review, clear and Undo of the generated test source's favorite. Tests cover persistence/reload, selected-area isolation, reference restoration, failed writes, newer activity, another window, confirmation cancellation and the backup return path. No real user library was cleared.

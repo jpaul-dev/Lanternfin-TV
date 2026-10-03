@@ -2,6 +2,7 @@ import type { Channel, Source } from './catalog'
 import { channelReference, readProviderReference, referenceChannel, type ProviderReference } from './provider-reference'
 
 export type Recent = { id: string; at: number; position: number; duration: number; completed?: boolean }
+export type LibraryArea = 'favorites' | 'history' | 'watched' | 'seasons'
 const PREFIX = 'lanternfin.tv.library.v1.'
 const MAX_FAVORITES = 2000, MAX_RECENT = 100
 const validId = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{16}$/.test(value)
@@ -30,10 +31,13 @@ export class TVLibrary {
   private readonly seasons = new Map<string, string>()
   private readonly references = new Map<string, ProviderReference>()
   private readonly key: string
+  private revision = 0
+  private savedRaw: string | null = null
   constructor(private storage: Storage | null, private source: Source) {
     this.key = PREFIX + libraryId(JSON.stringify(source))
     try {
       const raw = storage?.getItem(this.key)
+      this.savedRaw = raw ?? null
       if (!raw || raw.length > 2 * 1024 * 1024) return
       const data = JSON.parse(raw)
       if (Array.isArray(data.favorites)) for (const id of data.favorites.slice(0, MAX_FAVORITES)) if (validId(id)) this.favorites.add(id)
@@ -88,7 +92,37 @@ export class TVLibrary {
   setSeason(channel: Channel, season: string) { this.seasons.delete(channelId(channel)); this.seasons.set(channelId(channel), season.slice(0, 100)); while (this.seasons.size > 1000) this.seasons.delete(this.seasons.keys().next().value!); this.save() }
   setStorage(storage: Storage | null) { this.storage = storage; this.save() }
   bookmarkedChannels(): Channel[] { return [...this.references.values()].map(reference => referenceChannel(this.source, reference)) }
-  snapshot() { return { favorites: [...this.favorites], recent: [...this.recent.values()].reverse(), references: [...this.references.values()], seasons: [...this.seasons], watched: [...this.watched] } }
+  snapshot() { return { favorites: [...this.favorites], recent: [...this.recent.values()].reverse().map(item => ({ ...item })), references: [...this.references.values()].map(item => ({ ...item })), seasons: [...this.seasons], watched: [...this.watched] } }
+  counts(): Record<LibraryArea, number> { return { favorites: this.favorites.size, history: this.recent.size, watched: this.watched.size, seasons: this.seasons.size } }
+  /** One storage write, with an in-session undo that never overwrites newer activity. */
+  clearAreas(areas: LibraryArea[]) {
+    if (!areas.length || areas.some(area => !['favorites', 'history', 'watched', 'seasons'].includes(area))) throw new Error('Choose library data to clear.')
+    this.checkStoredRevision()
+    const before = this.snapshot()
+    if (areas.includes('favorites')) this.favorites.clear()
+    if (areas.includes('history')) this.recent.clear()
+    if (areas.includes('watched')) { this.watched.clear(); for (const item of this.recent.values()) delete item.completed }
+    if (areas.includes('seasons')) this.seasons.clear()
+    try { this.save() } catch { this.restoreSnapshot(before); throw new Error('TV storage could not save this change. Your library was kept.') }
+    let revision = this.revision
+    return () => {
+      if (revision !== this.revision) throw new Error('The library changed after clearing. Undo is no longer available; restore an encrypted backup if needed.')
+      this.checkStoredRevision()
+      const current = this.snapshot(); this.restoreSnapshot(before)
+      try { this.save() } catch { this.restoreSnapshot(current); revision = this.revision; throw new Error('TV storage could not undo this change. Try again or restore your backup.') }
+    }
+  }
+  private checkStoredRevision() {
+    try { if (!this.storage || this.storage.getItem(this.key) === this.savedRaw) return } catch { throw new Error('TV storage is unavailable. No library data was changed.') }
+    throw new Error('This library changed in another app window. Reopen the source before managing its data.')
+  }
+  private restoreSnapshot(snapshot: ReturnType<TVLibrary['snapshot']>) {
+    this.favorites.clear(); for (const id of snapshot.favorites) this.favorites.add(id)
+    this.recent.clear(); for (const item of [...snapshot.recent].reverse()) this.recent.set(item.id, { ...item })
+    this.watched.clear(); for (const id of snapshot.watched) this.watched.add(id)
+    this.seasons.clear(); for (const [id, season] of snapshot.seasons) this.seasons.set(id, season)
+    this.references.clear(); for (const reference of snapshot.references) this.references.set(channelId(referenceChannel(this.source, reference)), reference)
+  }
   merge(other: TVLibrary) {
     if (JSON.stringify(this.source) !== JSON.stringify(other.source)) throw new Error('Library source mismatch.')
     const favorites = new Set([...this.favorites, ...other.favorites]), watched = new Set([...this.watched, ...other.watched])
@@ -104,8 +138,10 @@ export class TVLibrary {
   }
   private remember(channel: Channel) { const reference = channelReference(this.source, channel); if (reference) this.references.set(channelId(channel), reference) }
   private save() {
+    this.revision++
     for (const id of this.references.keys()) if (!this.favorites.has(id) && !this.recent.has(id)) this.references.delete(id)
-    this.storage?.setItem(this.key, JSON.stringify(this.snapshot()))
+    const serialized = JSON.stringify(this.snapshot())
+    this.storage?.setItem(this.key, serialized); this.savedRaw = serialized
   }
 }
 

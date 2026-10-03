@@ -83,6 +83,7 @@
         <label class="settings-row" for="pref-autonext"><span>Play next episode automatically</span><select id="pref-autonext"><option value="false">Off</option><option value="true">On · 10 second countdown</option></select></label>
         <label class="settings-row" for="pref-clock"><span>Guide clock time zone</span><select id="pref-clock"></select></label>
         <button id="settings-backup" class="settings-row"><span>Backup and restore</span><small>Move saved sources and viewing progress</small></button>
+        <button id="settings-manage" class="settings-row"><span>Manage viewing data</span><small>Review favorites, watched marks and history</small></button>
         <button id="settings-account" class="settings-row"><span>Account status</span><small>Subscription and connection limits</small></button>
         <button id="settings-diagnostics" class="settings-row"><span>Device &amp; playback diagnostics</span><small>Check support and review playback events</small></button>
         <button id="settings-refresh" class="settings-row"><span>Refresh library</span><small>Reload your provider catalog</small></button>
@@ -110,6 +111,19 @@
           <div id="backup-review" hidden><p id="backup-summary"></p><label class="check"><input id="backup-library" type="checkbox" checked>Merge favorites and viewing progress</label><label class="check"><input id="backup-preferences" type="checkbox">Use the backup’s preferences</label><p class="hint">Existing sources keep their names and settings. Favorites and watched marks combine; the latest 100 history entries remain. Current season choices take priority. The app reopens after restore.</p><button id="backup-restore" class="primary">Restore to this TV</button></div>
         </div>
       </div><p id="backup-status" role="status" class="hint"></p><button id="backup-back">Back to settings</button>
+    </section>
+    <section id="manage" class="settings-view" hidden>
+      <button id="manage-back" class="subtle">← Back</button><p class="eyebrow">A FRESH START</p><h1>Manage viewing data</h1><p id="manage-source" class="muted"></p>
+      <p class="hint">Choose what to clear for this source. Review the totals before applying. Saved sources, provider catalogs and other libraries stay as they are.</p>
+      <button id="manage-backup">Create a backup first</button>
+      <div class="settings-list manage-choices">
+        <label class="settings-row check"><input id="manage-favorites" type="checkbox"><span>Favorite marks</span><small id="manage-favorites-count"></small></label>
+        <label class="settings-row check"><input id="manage-history" type="checkbox"><span>Recently watched &amp; resume positions</span><small id="manage-history-count"></small></label>
+        <label class="settings-row check"><input id="manage-watched" type="checkbox"><span>Watched marks</span><small id="manage-watched-count"></small></label>
+        <label class="settings-row check"><input id="manage-seasons" type="checkbox"><span>Saved season choices</span><small id="manage-seasons-count"></small></label>
+      </div><button id="manage-review" disabled>Review selected data</button>
+      <div id="manage-confirmation" class="manage-confirmation" hidden><h2>Clear this data?</h2><p id="manage-summary"></p><p class="hint">Undo is available on this screen until you leave or change the library again. An encrypted backup is needed to restore it later.</p><div class="actions"><button id="manage-cancel" class="primary">Keep my data</button><button id="manage-apply">Clear selected data</button></div></div>
+      <p id="manage-status" class="hint" role="status"></p><button id="manage-undo" hidden>Undo this change</button>
     </section>
     <section id="diagnostics" class="settings-view" hidden>
       <button id="diagnostics-back" class="subtle">← Back</button>

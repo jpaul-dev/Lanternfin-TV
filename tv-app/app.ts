@@ -3,6 +3,7 @@ import { backupUI } from './backup-ui'
 import { ScreenSaver, bindLifecycle, type AppCommon } from './lifecycle'
 import { PlaybackDiagnostics, capabilities, buildInfo, type DiagnosticReport } from './diagnostics'
 import { diagnosticsUI } from './diagnostics-ui'
+import { libraryUI } from './library-ui'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
 import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, sourceId, type SourceProfile } from './profiles'
@@ -37,9 +38,10 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const input = (id: string) => $<HTMLInputElement>(id)
 const select = (id: string) => $<HTMLSelectElement>(id)
 const button = (id: string) => $<HTMLButtonElement>(id)
-type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail' | 'programme' | 'account' | 'backup' | 'diagnostics'
+type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail' | 'programme' | 'account' | 'backup' | 'diagnostics' | 'manage'
 let screen: Screen = 'setup', previousScreen: Screen = 'setup'
-let backupReturn: 'settings' | 'setup' = 'settings'
+let backupReturn: 'settings' | 'setup' | 'manage' = 'settings'
+let manageReturn: 'settings' | 'catalog' = 'settings'
 let diagnosticsReturn: 'settings' | 'setup' = 'settings'
 let channels: Channel[] = [], filtered: Channel[] = [], page = 0, lastChannel = 0
 let state: State = 'idle', player: Player | undefined, loading: AbortController | undefined
@@ -84,9 +86,11 @@ applyPreferences(preferences)
 
 const backups = backupUI($('backup'), () => localStorage, count => { try { sessionStorage.setItem('lanternfin.restored', String(count)) } catch {}; window.location.reload() })
 const diagnostics = diagnosticsUI($('diagnostics'), (): DiagnosticReport => ({ schema: 1, app: buildInfo(__TV_TARGET__), capabilities: capabilities(document.querySelector('video') || document.createElement('video')), samsungPlayer: !!window.webapis?.avplay, screenSaver: screenSaver.status, playback: playbackDiagnostics.snapshot() }), () => playbackDiagnostics.clear())
+const libraryManager = libraryUI($('manage'), () => { void refreshCards() })
 function show(next: Screen) {
   if (screen === 'backup' && next !== 'backup') backups.close()
   if (screen === 'diagnostics' && next !== 'diagnostics') diagnostics.close()
+  if (screen === 'manage' && next !== 'manage') libraryManager.close()
   if (next !== 'account') { accountLoading?.abort(); accountLoading = undefined }
   if (next !== 'programme') { replayLoading?.abort(); replayLoading = undefined }
   $('card-menu').hidden = true
@@ -95,8 +99,8 @@ function show(next: Screen) {
   if (!['detail', 'playback', 'resume'].includes(next)) cancelDetails()
   screen = next
   document.documentElement.dataset.screen = next
-  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics']) $(id).hidden = id !== next
-  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account', 'backup', 'diagnostics'].includes(next)
+  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage']) $(id).hidden = id !== next
+  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account', 'backup', 'diagnostics', 'manage'].includes(next)
   document.documentElement.classList.toggle('in-library', !$('tv-nav').hidden)
   $('player-surface').hidden = next !== 'playback'
   document.documentElement.classList.toggle('watching', next === 'playback')
@@ -264,7 +268,7 @@ $('reset-filters').onclick = () => { input('search').value = ''; for (const id o
 $('change-source').onclick = () => { cancelProviderLoad(); show('setup') }
 $('return-catalog').onclick = () => { cancelLoad(); show('catalog') }
 for (const view of ['all', 'favorites', 'recent'] as const) $(`view-${view}`).onclick = () => { cancelProviderLoad(); libraryView = view; browseView = 'all'; input('search').value = ''; select('group').value = ''; browseLayout(view === 'all' ? 'All streams' : view === 'favorites' ? 'Favorites' : 'Recently watched'); void filter() }
-$('clear-history').onclick = () => { try { library?.clearHistory(); void filter(); notice('Recent streams and saved playback positions cleared.') } catch { notice('History changed for this session, but could not be saved on the TV.') } }
+$('clear-history').onclick = () => openLibraryManager('catalog', 'history')
 $('refresh-catalog').onclick = () => {
   forceFresh = true
   if (!activeSource) return
@@ -495,8 +499,9 @@ function back() {
   else if (screen === 'about') show(previousScreen)
   else if (screen === 'settings') goHome()
   else if (screen === 'account') show('settings')
-  else if (screen === 'backup') show(backupReturn)
+  else if (screen === 'backup') returnFromBackup()
   else if (screen === 'diagnostics') show(diagnosticsReturn)
+  else if (screen === 'manage') { if (!libraryManager.back()) show(manageReturn) }
   else if (screen === 'catalog' && providerLoading) { cancelProviderLoad(); notice('Loading cancelled.') }
   else if (screen === 'catalog' && browseView !== 'home') goHome()
   else if (screen === 'catalog') show('exit')
@@ -537,7 +542,7 @@ document.addEventListener('keydown', event => {
   if (active instanceof HTMLSelectElement && (event.key === 'Enter' || event.keyCode === 13)) { nativeSelectOpen = true; return }
   const action = keyAction(event.key, event.keyCode)
   if (!action) return
-  if (['detail-description', 'programme-description', 'guide-programmes'].some(id => active === $(id)) && ['up', 'down'].includes(action)) {
+  if (['detail-description', 'programme-description', 'guide-programmes', 'diagnostics-events'].some(id => active === $(id)) && ['up', 'down'].includes(action)) {
     const description = active as HTMLElement, remaining = description.scrollHeight - description.clientHeight - description.scrollTop
     if ((action === 'down' && remaining > 1) || (action === 'up' && description.scrollTop > 0)) { event.preventDefault(); description.scrollTop += action === 'down' ? 60 : -60; return }
   }
@@ -960,7 +965,18 @@ $('settings-account').onclick = showAccount; $('account-retry').onclick = showAc
 $('nav-settings').onclick = () => { cancelProviderLoad(); show('settings'); syncNav() }
 $('settings-back').onclick = goHome
 for (const [id, from] of [['settings-backup', 'settings'], ['setup-backup', 'setup']] as const) $(id).onclick = () => { backupReturn = from; backups.open(); button('backup-back').textContent = from === 'setup' ? 'Back to sources' : 'Back to settings'; show('backup') }
-$('backup-back').onclick = () => show(backupReturn)
+function returnFromBackup() { if (backupReturn === 'manage') openLibraryManager(manageReturn); else show(backupReturn) }
+$('backup-back').onclick = returnFromBackup
+function openLibraryManager(from: typeof manageReturn, preset?: 'history') {
+  manageReturn = from
+  let name = 'Current source'
+  try { name = readProfiles(localStorage).find(profile => activeSource && profile.id === sourceId(activeSource))?.name || 'Current session source' } catch {}
+  libraryManager.open(library, name); show('manage')
+  if (preset) { input(`manage-${preset}`).click(); button('manage-review').click() }
+}
+$('settings-manage').onclick = () => openLibraryManager('settings')
+$('manage-back').onclick = () => show(manageReturn)
+$('manage-backup').onclick = () => { backupReturn = 'manage'; backups.open(); button('backup-back').textContent = 'Back to library management'; show('backup') }
 for (const from of ['setup', 'settings'] as const) $(`${from}-diagnostics`).onclick = () => { diagnosticsReturn = from; diagnostics.open(); show('diagnostics') }
 $('diagnostics-back').onclick = () => show(diagnosticsReturn)
 $('settings-source').onclick = () => show('setup')
