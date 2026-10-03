@@ -12,6 +12,7 @@ import { sortCatalog } from './sort'
 import { TVLibrary, durationLabel, forgetLibraries, forgetLibrary } from './library'
 import { channelId } from './library'
 import { ProviderIndex } from './provider-index'
+import { CatalogCache, type CatalogSnapshot } from './catalog-cache'
 import { TVGuide, nowNext, timeRange, guideDate, type Programme } from './guide'
 import { canReplay, replayChannel } from './catchup'
 import { navigationIcons } from './icons'
@@ -61,6 +62,8 @@ let nextTimer: ReturnType<typeof setTimeout> | undefined
 let hasPlayed = false, currentAspect: Aspect = 'fit'
 let guidePage = 0, selectedProgramme: Programme | undefined, programmeChannel: Channel | undefined, replayLoading: AbortController | undefined
 let currentGuideSlot: number | undefined
+const catalogCache = new CatalogCache()
+let keepActiveLibrary = false, cacheSaving: AbortController | undefined, cacheAttempted: ProviderIndex | undefined, forceFresh = false
 const knownLibraryChannels = new Map<string, Channel>()
 const PAGE_SIZE = 24
 const notice = (message: string) => { $('notice').textContent = message }
@@ -91,6 +94,8 @@ function show(next: Screen) {
 function sourceKind() {
   const kind = select('source-kind').value
   $('login-fields').hidden = kind !== 'xtream'
+  $('keep-library-field').hidden = kind !== 'xtream'
+  input('keep-library').disabled = !input('remember').checked
   input('username').required = input('password').required = kind === 'xtream'
   $('url-label').textContent = kind === 'xtream' ? 'Provider server address' : kind === 'direct' ? 'Stream address' : 'Playlist address'
   input('source-url').placeholder = kind === 'xtream' ? 'https://your-provider.example:443' : kind === 'direct' ? 'https://your-provider.example/video.m3u8' : 'https://your-provider.example/playlist.m3u'
@@ -99,8 +104,9 @@ function currentSource(): Source {
   return validateSource({ kind: select('source-kind').value, url: input('source-url').value, username: input('username').value, password: input('password').value })
 }
 function setBusy(busy: boolean) {
-  for (const id of ['connect', 'source-name', 'source-kind', 'source-url', 'username', 'password', 'remember', 'forget', 'profile-new', 'guide-url', 'source-advanced-toggle']) ( $(id) as HTMLInputElement).disabled = busy
+  for (const id of ['connect', 'source-name', 'source-kind', 'source-url', 'username', 'password', 'remember', 'forget', 'profile-new', 'guide-url', 'source-advanced-toggle', 'keep-library']) ( $(id) as HTMLInputElement).disabled = busy
   for (const item of $('profile-list').querySelectorAll<HTMLButtonElement>('button')) item.disabled = busy
+  input('keep-library').disabled = busy || !input('remember').checked
   $('cancel-load').hidden = !busy
   if (busy) button('cancel-load').focus()
 }
@@ -113,8 +119,13 @@ $('source-form').addEventListener('submit', async event => {
   try { source = currentSource(); override = guideAddress(input('guide-url').value) } catch (error) { notice((error as Error).message); return }
   const controller = new AbortController(); loading = controller
   setBusy(true); notice('Opening your playlist…')
+  const fresh = forceFresh; forceFresh = false
+  const useCache = input('remember').checked && input('keep-library').checked && source.kind === 'xtream'
+  let savedCatalog: CatalogSnapshot | undefined
   try {
-    const initialCategories = source.kind === 'xtream' ? await loadCategories(source, 'live', controller.signal) : undefined
+    if (useCache && !fresh) { notice('Checking your saved library…'); try { savedCatalog = await catalogCache.load(source, controller.signal) } catch { /* Live loading is the fallback for missing/corrupt/unavailable storage. */ } }
+    if (controller.signal.aborted) return
+    const initialCategories = source.kind === 'xtream' ? savedCatalog?.categories.live || await loadCategories(source, 'live', controller.signal) : undefined
     const catalog: Catalog = initialCategories ? { channels: [] as Channel[], skipped: 0 } : await loadCatalog(source, controller.signal, progress => {
       if (loading !== controller) return
       const megabytes = (progress.bytes / 1024 / 1024).toFixed(1)
@@ -124,7 +135,7 @@ $('source-form').addEventListener('submit', async event => {
     channels = catalog.channels; page = 0; input('search').value = ''; libraryView = 'all'; browseView = 'home'
     providerCategories = initialCategories ? { live: initialCategories } : {}; detailInfo = undefined
     let storageMessage = '', persisted = false
-    try { if (input('remember').checked) { rememberProfile(localStorage, source, input('source-name').value, editingSource, { guideUrl: override }); if (editingSource && sourceId(editingSource) !== sourceId(source)) forgetLibrary(localStorage, editingSource); persisted = true }; if (!input('remember').checked) { removeProfile(localStorage, source); forgetLibrary(localStorage, source); storeSource(localStorage, null) }; editingSource = source; renderProfiles() }
+    try { if (input('remember').checked) { rememberProfile(localStorage, source, input('source-name').value, editingSource, { guideUrl: override, keepLibrary: useCache }); if (editingSource && sourceId(editingSource) !== sourceId(source)) { forgetLibrary(localStorage, editingSource); void catalogCache.forget(editingSource).catch(() => { notice('The previous saved catalog could not be removed. Use Clear saved catalogs in Settings.') }) }; persisted = true }; if (!input('remember').checked) { removeProfile(localStorage, source); forgetLibrary(localStorage, source); storeSource(localStorage, null) }; editingSource = source; renderProfiles() }
     catch (error) { storageMessage = ` ${error instanceof Error && error.message.startsWith('You can save') ? error.message : 'Your TV could not update saved settings. This session will still work.'}` }
     let storage: Storage | null = null
     try { if (persisted) storage = localStorage } catch { /* Session library. */ }
@@ -133,9 +144,12 @@ $('source-form').addEventListener('submit', async event => {
       library = new TVLibrary(storage, source)
       for (const channel of library.bookmarkedChannels()) knownLibraryChannels.set(channelId(channel), channel)
     } else try { library.setStorage(storage) } catch { storageMessage += ' Library changes could not be saved.' }
+    cacheSaving?.abort(); cacheSaving = undefined; cacheAttempted = undefined; keepActiveLibrary = useCache && persisted
+    if (!keepActiveLibrary) void catalogCache.forget(source).catch(() => { notice('The saved catalog could not be removed. Use Clear saved catalogs in Settings.') })
     activeSource = source; activeGuideUrl = override; episodeContext.clear()
     providerIndex?.pause(); clearTimeout(indexTimer); indexTimer = undefined
     providerIndex = source.kind === 'xtream' ? new ProviderIndex(source, initialCategories || []) : undefined
+    if (savedCatalog && providerIndex) { try { providerIndex.restore(savedCatalog) } catch { providerIndex = new ProviderIndex(source, initialCategories || []) } }
     guide?.clear(); guide = new TVGuide(source, override || catalog.epgUrl); guideChannel = undefined; browseCategory = undefined
     renderIndexStatus()
     $('library-note').textContent = persisted ? 'Favorites and recent streams are saved on this TV.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.'
@@ -149,19 +163,22 @@ $('source-form').addEventListener('submit', async event => {
 })
 $('cancel-load').onclick = () => { cancelLoad(); notice('Loading cancelled.'); button('connect').focus() }
 select('source-kind').onchange = sourceKind
-input('remember').onchange = () => {
+input('remember').onchange = async () => {
+  input('keep-library').disabled = !input('remember').checked
   if (input('remember').checked) return
+  input('keep-library').checked = false
   try {
-    if (editingSource) { removeProfile(localStorage, editingSource); forgetLibrary(localStorage, editingSource); if (activeSource && sourceId(activeSource) === sourceId(editingSource)) library?.setStorage(null) }
+    if (editingSource) { removeProfile(localStorage, editingSource); forgetLibrary(localStorage, editingSource); if (activeSource && sourceId(activeSource) === sourceId(editingSource)) { library?.setStorage(null); keepActiveLibrary = false; cacheSaving?.abort() }; await catalogCache.forget(editingSource) }
     renderProfiles(); $('library-note').textContent = 'Favorites and recent streams last for this session.'
   }
   catch { notice('The TV could not remove saved settings. Try clearing app data in TV settings.') }
 }
-$('forget').onclick = () => {
+$('forget').onclick = async () => {
+  keepActiveLibrary = false; cacheSaving?.abort()
   episodeContext.clear()
   cancelGuide(); guide?.clear(); guide = undefined; guideChannel = undefined; guideItems = []
   providerIndex?.pause(); providerIndex = undefined; clearTimeout(indexTimer); indexTimer = undefined; cancelDetails(); detailInfo = undefined
-  try { forgetProfiles(localStorage); forgetLibraries(localStorage); library = undefined; activeSource = undefined; editingSource = undefined; activeGuideUrl = undefined; knownLibraryChannels.clear(); providerCategories = {}; channels = []; filtered = []; $('return-catalog').hidden = true; input('remember').checked = false; input('source-name').value = input('source-url').value = input('username').value = input('password').value = input('guide-url').value = ''; renderProfiles(); notice('Saved sources, favorites, and history removed.'); input('source-url').focus() }
+  try { forgetProfiles(localStorage); forgetLibraries(localStorage); library = undefined; activeSource = undefined; editingSource = undefined; activeGuideUrl = undefined; knownLibraryChannels.clear(); providerCategories = {}; channels = []; filtered = []; $('return-catalog').hidden = true; input('remember').checked = false; input('source-name').value = input('source-url').value = input('username').value = input('password').value = input('guide-url').value = ''; renderProfiles(); await catalogCache.forget(); notice('Saved sources, catalogs, favorites, and history removed.'); input('source-url').focus() }
   catch { notice('The TV could not remove its saved settings. Try clearing app data in TV settings.') }
 }
 
@@ -215,10 +232,11 @@ $('return-catalog').onclick = () => { cancelLoad(); show('catalog') }
 for (const view of ['all', 'favorites', 'recent'] as const) $(`view-${view}`).onclick = () => { cancelProviderLoad(); libraryView = view; browseView = 'all'; input('search').value = ''; select('group').value = ''; browseLayout(view === 'all' ? 'All streams' : view === 'favorites' ? 'Favorites' : 'Recently watched'); void filter() }
 $('clear-history').onclick = () => { try { library?.clearHistory(); void filter(); notice('Recent streams and saved playback positions cleared.') } catch { notice('History changed for this session, but could not be saved on the TV.') } }
 $('refresh-catalog').onclick = () => {
+  forceFresh = true
   if (!activeSource) return
   let profile: SourceProfile | undefined
   try { profile = readProfiles(localStorage).find(item => item.id === sourceId(activeSource!)) } catch { /* Session-only refresh. */ }
-  editingSource = activeSource; input('guide-url').value = activeGuideUrl || ''; input('source-name').value = profile?.name || ''; input('remember').checked = !!profile
+  editingSource = activeSource; input('guide-url').value = activeGuideUrl || ''; input('source-name').value = profile?.name || ''; input('remember').checked = !!profile; input('keep-library').checked = !!profile?.keepLibrary
   select('source-kind').value = activeSource.kind; input('source-url').value = activeSource.url
   input('username').value = activeSource.username; input('password').value = activeSource.password; sourceKind()
   show('setup'); $('source-form').dispatchEvent(new Event('submit', { cancelable: true }))
@@ -255,6 +273,7 @@ function watch(channel: Channel) {
 
 function fillProfile(profile: SourceProfile) {
   editingSource = profile.source
+  input('keep-library').checked = !!profile.keepLibrary
   input('guide-url').value = profile.guideUrl || ''; $('source-advanced').hidden = !profile.guideUrl; button('source-advanced-toggle').setAttribute('aria-expanded', String(!!profile.guideUrl))
   select('source-kind').value = profile.source.kind; input('source-name').value = profile.name; input('source-url').value = profile.source.url
   input('username').value = profile.source.username; input('password').value = profile.source.password; input('remember').checked = true; sourceKind()
@@ -271,14 +290,14 @@ function renderProfiles() {
     open.onclick = () => { fillProfile(profile); $('source-form').dispatchEvent(new Event('submit', { cancelable: true })) }
     const edit = document.createElement('button'); edit.textContent = 'Edit'; edit.setAttribute('aria-label', `Edit ${profile.name}`); edit.onclick = () => { fillProfile(profile); input('source-name').focus() }
     const remove = document.createElement('button'); remove.textContent = 'Remove'; remove.setAttribute('aria-label', `Remove ${profile.name}`)
-    remove.onclick = () => {
-      try { removeProfile(localStorage, profile.source); forgetLibrary(localStorage, profile.source); if (activeSource && sourceId(activeSource) === profile.id) library?.setStorage(null); if (editingSource && sourceId(editingSource) === profile.id) input('remember').checked = false; renderProfiles(); $('saved-sources').hidden ? input('source-name').focus() : button('profile-new').focus(); notice('Source removed from TV storage. An already open source stays available for this session.') }
+    remove.onclick = async () => {
+      try { removeProfile(localStorage, profile.source); forgetLibrary(localStorage, profile.source); if (activeSource && sourceId(activeSource) === profile.id) { library?.setStorage(null); keepActiveLibrary = false; cacheSaving?.abort() }; if (editingSource && sourceId(editingSource) === profile.id) input('remember').checked = false; renderProfiles(); await catalogCache.forget(profile.source); $('saved-sources').hidden ? input('source-name').focus() : button('profile-new').focus(); notice('Source removed from TV storage. An already open source stays available for this session.') }
       catch { notice('The TV could not remove this source. Try again or clear app data in TV settings.') }
     }
     row.append(open, edit, remove); list.append(row)
   }
 }
-$('profile-new').onclick = () => { editingSource = undefined; input('source-name').value = input('source-url').value = input('username').value = input('password').value = input('guide-url').value = ''; input('remember').checked = false; select('source-kind').value = 'playlist'; sourceKind(); input('source-name').focus() }
+$('profile-new').onclick = () => { input('keep-library').checked = false; editingSource = undefined; input('source-name').value = input('source-url').value = input('username').value = input('password').value = input('guide-url').value = ''; input('remember').checked = false; select('source-kind').value = 'playlist'; sourceKind(); input('source-name').focus() }
 function playChannel(channel: Channel) {
   playbackReturn = screen === 'detail' ? 'detail' : 'catalog'
   const recent = library?.lastPlayed(channel)
@@ -713,7 +732,7 @@ function renderIndexStatus() {
   const progress = providerIndex?.progress
   $('library-loading').hidden = !progress
   if (!progress) return
-  $('index-status').textContent = progress.complete ? `${progress.titles.toLocaleString()} titles · Library ready` : `${progress.running ? 'Loading library' : 'Library paused'} · ${progress.titles.toLocaleString()} titles · ${progress.loaded}/${progress.total} categories${progress.failed ? ` · ${progress.failed} unavailable` : ''}`
+  $('index-status').textContent = progress.complete ? `${progress.titles.toLocaleString()} titles · ${providerIndex?.cachedAt ? 'Saved library · refresh for updates' : 'Library ready'}` : `${progress.running ? 'Loading library' : 'Library paused'} · ${progress.titles.toLocaleString()} titles · ${progress.loaded}/${progress.total} categories${progress.failed ? ` · ${progress.failed} unavailable` : ''}`
   $('index-message').textContent = progress.message
   button('index-toggle').hidden = progress.complete
   button('index-toggle').textContent = progress.running ? 'Pause loading' : 'Continue loading'
@@ -724,6 +743,11 @@ function startIndex() {
   void index.start(() => {
     if (index !== providerIndex) return
     renderIndexStatus()
+    if (keepActiveLibrary && index.progress.complete && !index.cachedAt && cacheAttempted !== index && activeSource) {
+      cacheAttempted = index; cacheSaving?.abort(); const controller = new AbortController(); cacheSaving = controller
+      const snapshot = index.snapshot()
+      if (snapshot) void catalogCache.save(activeSource, snapshot, controller.signal).then(() => { if (providerIndex === index && keepActiveLibrary) $('index-message').textContent = 'Library saved for faster startup. Refresh checks for new titles.' }).catch(() => { if (providerIndex === index && keepActiveLibrary && !controller.signal.aborted) $('index-message').textContent = 'The TV could not save this library. It remains available for this session.' })
+    }
     if (indexTimer) return
     indexTimer = setTimeout(() => {
       indexTimer = undefined
@@ -862,7 +886,7 @@ async function showAccount() {
     const info = await loadAccount(activeSource, controller.signal)
     if (accountLoading !== controller || screen !== 'account') return
     $('account-status').textContent = info.accepted ? 'Account details reported by your provider.' : 'The provider did not accept this account. Check the saved login.'
-    for (const [name, value] of [['Status', info.status], ['Subscription', info.trial ? 'Trial' : 'Standard'], ['Expires', info.expires ? new Date(info.expires).toLocaleString() : 'No date reported'], ['Active connections', info.connections ?? 'Not reported'], ['Connection limit', info.maximum === 0 ? 'No limit reported' : info.maximum ?? 'Not reported'], ['Server time zone', info.timezone || 'Not reported'], ['Stream formats', info.formats.join(', ') || 'Not reported']]) {
+    for (const [name, value] of [['Status', info.status], ['Subscription', info.trial === undefined ? 'Not reported' : info.trial ? 'Trial' : 'Standard'], ['Expires', info.expires ? new Date(info.expires).toLocaleString() : 'No date reported'], ['Active connections', info.connections ?? 'Not reported'], ['Connection limit', info.maximum === 0 ? 'No limit reported' : info.maximum ?? 'Not reported'], ['Server time zone', info.timezone || 'Not reported'], ['Stream formats', info.formats.join(', ') || 'Not reported']]) {
       const row = document.createElement('div'); row.className = 'account-row'; const label = document.createElement('dt'), detail = document.createElement('dd'); label.textContent = String(name); detail.textContent = String(value); row.append(label, detail); $('account-values').append(row)
     }
   } catch (error) { if (accountLoading === controller) $('account-status').textContent = (error as Error).message }
@@ -872,6 +896,7 @@ $('settings-account').onclick = showAccount; $('account-retry').onclick = showAc
 $('nav-settings').onclick = () => { cancelProviderLoad(); show('settings'); syncNav() }
 $('settings-back').onclick = goHome
 $('settings-source').onclick = () => show('setup')
+$('settings-clear-cache').onclick = async () => { cacheSaving?.abort(); try { await catalogCache.forget(); $('settings-note').textContent = 'Saved catalogs cleared. Sources, favorites and playback progress are retained. The next library refresh can save a new catalog.' } catch { $('settings-note').textContent = 'Saved catalogs could not be cleared. Try clearing app data in TV settings.' } }
 $('settings-refresh').onclick = () => button('refresh-catalog').click()
 $('settings-reset').onclick = () => { preferences = { ...DEFAULTS }; syncPreferences(); persistPreferences() }
 function syncPreferences() {

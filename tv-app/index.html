@@ -41,6 +41,7 @@
         </div>
         <button id="source-advanced-toggle" type="button" class="subtle" aria-expanded="false" aria-controls="source-advanced">Guide options</button><div id="source-advanced" hidden><label for="guide-url">XMLTV guide address <span class="hint">(optional)</span></label><input id="guide-url" type="text" inputmode="url" spellcheck="false" autocomplete="off" maxlength="8192" placeholder="https://your-provider.example/guide.xml.gz"><p class="hint">Overrides the built-in guide for this source. Channel IDs or names must match your playlist. Saved only with Remember this source.</p></div>
         <label class="check"><input id="remember" type="checkbox">Remember this source on this TV</label>
+        <label id="keep-library-field" class="check" hidden><input id="keep-library" type="checkbox" disabled>Keep the catalog for faster startup</label><p class="hint">Saved catalogs include titles and artwork addresses, expire after six hours, and can be cleared in Settings.</p>
         <p class="hint">Save this source, favorites, and viewing progress. Saved addresses and passwords are not encrypted; leave this off on a shared TV.</p>
         <div class="actions"><button id="connect" class="primary" type="submit">Open my streams</button><button id="cancel-load" type="button" hidden>Cancel</button><button id="return-catalog" type="button" hidden>Back to my streams</button><button id="forget" type="button" hidden>Forget all saved sources</button></div>
       </form>
@@ -83,6 +84,7 @@
         <label class="settings-row" for="pref-clock"><span>Guide clock time zone</span><select id="pref-clock"></select></label>
         <button id="settings-account" class="settings-row"><span>Account status</span><small>Subscription and connection limits</small></button>
         <button id="settings-refresh" class="settings-row"><span>Refresh library</span><small>Reload your provider catalog</small></button>
+        <button id="settings-clear-cache" class="settings-row"><span>Clear saved catalogs</span><small>Keep sources and viewing progress</small></button>
         <button id="settings-reset" class="settings-row"><span>Reset preferences</span><small>Restore appearance and language defaults</small></button>
         <button id="settings-about" class="settings-row"><span>About Lanternfin TV</span><small>Version, credits, and playback support</small></button>
       </div>

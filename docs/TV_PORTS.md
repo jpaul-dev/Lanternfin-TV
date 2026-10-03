@@ -155,7 +155,7 @@ Build output for LG’s simulator remains `dist/tv/webos`. Reload that folder us
 
 For UI-only provider tests, run the preview server with `--fixtures --port 4324` and enter an Xtream account at `http://127.0.0.1:4324/_test/provider` with username/password `demo`. The generated artwork is labelled UI TEST LIBRARY and media URLs deliberately fail. These fixtures are not included in TV packages.
 
-Remaining acceptance work: physical LG and Samsung DRM/license/codec/header matrix; persistent provider library indexing and EPG; comparison against the original UI at each screen; extended remote navigation and playback soak tests. The broader readiness goal remains open.
+Remaining acceptance work: physical LG and Samsung DRM/license/codec/header matrix; broader provider catalog/EPG tests; comparison against the original UI at each screen; extended remote navigation and playback soak tests. The broader readiness goal remains open.
 
 ## Details, bookmarks, and track controls checkpoint
 
@@ -172,7 +172,7 @@ Validation: **158 test files / 3,115 tests** and TV type checks passed locally. 
 
 The Live TV screen now follows Android’s compact navigation rail, category column, channel list and programme panel. The guide decodes Xtream programme data and reuses the original streamed XMLTV worker for M3U feeds. XMLTV has a 64 MiB decoded-data budget, a 25,000-channel budget, cancellation and idle timeouts; only requested channel schedules return to the UI. Raw gzip feeds use the browser decompression API when available, with a locally bundled, bounded fflate fallback for older engines. Refresh guide downloads a new XMLTV feed; feeds also expire after six hours. Guide data is session-only.
 
-Xtream indexing visits categories sequentially, retains at most 500,000 titles / 64 Mi characters, retries failed categories and exposes pause/resume. Search reports whether the library is complete. A failed category does not discard successful categories. This index is session-only; persistent caching remains pending.
+Xtream indexing visits categories sequentially, retains at most 500,000 titles / 64 Mi characters, retries failed categories and exposes pause/resume. Search reports whether the library is complete. A failed category does not discard successful categories. This index is session-only by default. An explicit per-source option can now save a bounded catalog for faster startup.
 
 Settings now include dark/light/device themes, twelve accents, interface size, screen margins, reduced animation, preferred audio/subtitles, and guide clock time zone. Appearance preferences are separate from credential storage. The browser check covered whole-library search, both guide paths, light theme at 130% size with 5% margins, and restored defaults. The complete suite passed **162 files / 3,129 tests** before final layout/focus refinements; a fresh checkpoint run follows those refinements. Real-TV decoder, DRM and remote behavior remain unverified.
 
@@ -204,3 +204,12 @@ The player has a remote/pointer seek bar and a Playback settings menu with audio
 Guide options on the source form accept an optional XMLTV override without changing its library identity. It is persisted only with the source. Settings also exposes provider-reported Xtream account status, expiry and connection limits without displaying credentials or raw provider messages.
 
 Validation: TV type checks and **170 files / 3,156 tests** passed. Tests cover cold episode restoration, cancellation/source-switch races, independent watched retention, native display state restrictions, quality/audio separation, seek controls and account sanitization. Browser playback of Shaka's public DASH sample verified available resolutions, 360p selection, zoom, preserved French audio and remote seeking. No physical-TV quality/display behavior is claimed verified.
+
+
+## Saved catalog checkpoint
+
+Remembered Xtream sources can separately opt into **Keep the catalog for faster startup**. The IndexedDB cache uses 500-record chunks, a 500,000-record / 64 Mi-character serialized budget, bounded metadata, and a six-hour expiry. Only complete indexes are published. Stream addresses are rebuilt from account settings; cached records include bounded titles, groups, provider IDs, archive metadata and artwork addresses. Artwork addresses may contain provider tokens, so this is opt-in, unencrypted storage alongside the separately saved account. No downloaded video, license keys or copied stream URLs are cached.
+
+Opening a fresh cache labels the library as saved and immediately makes all its categories searchable. Refresh bypasses the cache. Storage failures or rejected caches fall back to ordinary provider loading. Clear saved catalogs preserves source settings and viewing progress. Removing a source, turning Remember off, or Forget all removes the corresponding cache and cancels writes that could recreate it.
+
+Validation: **171 files / 3,160 tests**, TV type checks, and a real browser cold reload of the 30-title test-provider cache. The UI reported Saved library after restart and confirmed clearing saved catalogs. Database tests cover chunk restoration, per-account isolation, six-hour expiry, invalid/incomplete metadata, cancellation, and forgetting during a pending write. fake-indexeddb 6.2.5 is a test-only dependency and is not bundled on TVs. IndexedDB quotas/availability on physical TVs remain to be measured; failure does not prevent session use.

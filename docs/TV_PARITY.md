@@ -7,8 +7,8 @@ This is the implementation checklist for the standalone TV ports. Reference: the
 | Shell / Home | Compact icon rail, dark canvas, pink focus, artwork hero, live/movie/series/favorite/recent rails, continue-watching progress and card actions | Closer empty/loading states |
 | Live TV | Category column, channel list, now/next programme panel, favorites, channel up/down, number tuning, playback programme OSD, programme details and archive replay | Broader archive-provider/device validation |
 | Movies / Series | Artwork grids, details, credits, season/episode browsing, resume, last-season restoration, next episode after cold resume and optional countdown, natural title sorting | Detail enrichment where provider data is absent |
-| Search | Cancellable M3U search and whole-provider Xtream index, explicit partial status, content-kind and watched filters | Persistent index, improved large-library browsing |
-| Sources | M3U, Xtream and direct URL, explicit Remember, cancel/refresh/forget, up to 20 named sources, source switching, per-source XMLTV override and account status | Optional catalog cache |
+| Search | Cancellable M3U search and whole-provider Xtream index, explicit partial status, opt-in bounded catalog cache, content-kind and watched filters | Improved large-library browsing |
+| Sources | M3U, Xtream and direct URL, explicit Remember, cancel/refresh/forget, up to 20 named sources, source switching, per-source XMLTV override and account status | Backup/restore workflow |
 | Library | Favorites, last 100 watched, VOD progress, saved Xtream references, continue-watching rail, card menus individual history removal and 10,000 independent watched marks | Watched-list management |
 | Guide | Xtream fallbacks and original streaming XMLTV worker; bounded cache, refresh, guide dates, manual feed override and bounded gzip fallback | Broader provider guide validation |
 | Playback | Shaka HLS/DASH and DRM configuration, Samsung native path, safe HTML fallback, seek, retry, track menu, now/next OSD, episode continuation, seek bar, quality and picture size | Further OSD parity, supported speed controls |

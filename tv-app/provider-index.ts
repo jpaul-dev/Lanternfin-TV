@@ -1,5 +1,6 @@
 import { MAX_CHANNELS, type Catalog, type Channel, type Source } from './catalog'
 import { loadCategories, loadCategory, type Category, type MediaKind } from './xtream'
+import type { CatalogSnapshot } from './catalog-cache'
 
 export type IndexProgress = { running: boolean; complete: boolean; loaded: number; total: number; titles: number; failed: number; message: string }
 type Loader = { categories: typeof loadCategories; category: typeof loadCategory }
@@ -14,8 +15,32 @@ export class ProviderIndex {
   private seen = new Set<string>()
   private retained = 0
   private records = 0
+  cachedAt?: number
   constructor(private source: Source, live: Category[], private loaders: Loader = { categories: loadCategories, category: loadCategory }, private budget = { records: MAX_CHANNELS, characters: 64 * 1024 * 1024 }) { this.categories.live = live }
   cached(kind: MediaKind, category: Category) { return this.cache.get(`${kind}:${category.id}`) }
+  restore(snapshot: CatalogSnapshot) {
+    if (this.items.length || this.controller) throw new Error('A saved catalog can only initialize an empty index.')
+    Object.assign(this.categories, snapshot.categories)
+    for (const entry of snapshot.entries) this.store(entry.kind, entry.category, { channels: entry.channels, skipped: entry.skipped })
+    this.cachedAt = snapshot.at
+    this.progress = { running: false, complete: true, loaded: this.cache.size, total: this.cache.size, titles: this.items.length, failed: 0, message: '' }
+  }
+  snapshot(): CatalogSnapshot | undefined {
+    if (!this.progress.complete) return
+    const categories = this.categories as Record<MediaKind, Category[]>
+    return { at: Date.now(), categories, entries: (['live', 'movie', 'series'] as const).flatMap(kind => categories[kind].map(category => ({ kind, category, ...this.cache.get(`${kind}:${category.id}`)! }))) }
+  }
+  private store(kind: MediaKind, category: Category, result: Catalog) {
+    let characters = 0
+    for (const item of result.channels) characters += item.name.length + item.url.length + item.group.length + (item.logo?.length || 0) + (item.description?.length || 0)
+    if (this.records + result.channels.length > this.budget.records || this.retained + characters > this.budget.characters) throw new IndexBudgetError('The library reached this TV’s memory budget. Loaded titles remain searchable; other categories can still be opened individually.')
+    this.records += result.channels.length; this.retained += characters; this.cache.set(`${kind}:${category.id}`, result)
+    for (const item of result.channels) {
+      const id = `${item.mediaKind}:${item.providerId}`
+      if (!this.seen.has(id)) { this.seen.add(id); this.items.push(item) }
+    }
+    this.progress.loaded = this.cache.size; this.progress.titles = this.items.length
+  }
   pause() { this.controller?.abort(); this.controller = undefined; this.progress.running = false }
   async start(changed: (progress: IndexProgress) => void) {
     if (this.controller || this.progress.complete) return
@@ -36,15 +61,7 @@ export class ProviderIndex {
           if (this.cache.has(key)) continue
           try {
             const result = await this.loaders.category(this.source, kind, category, controller.signal); check()
-            let characters = 0
-            for (const item of result.channels) characters += item.name.length + item.url.length + item.group.length + (item.logo?.length || 0) + (item.description?.length || 0)
-            if (this.records + result.channels.length > this.budget.records || this.retained + characters > this.budget.characters) throw new IndexBudgetError('The library reached this TV’s memory budget. Loaded titles remain searchable; other categories can still be opened individually.')
-            this.records += result.channels.length; this.retained += characters; this.cache.set(key, result)
-            for (const item of result.channels) {
-              const id = `${item.mediaKind}:${item.providerId}`
-              if (!this.seen.has(id)) { this.seen.add(id); this.items.push(item) }
-            }
-            this.progress.loaded = this.cache.size; this.progress.titles = this.items.length
+            this.store(kind, category, result)
           } catch (error) {
             check(); if (error instanceof IndexBudgetError) throw error
             this.progress.failed++; this.progress.message = (error as Error).message
