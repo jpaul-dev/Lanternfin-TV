@@ -3,6 +3,7 @@
 import type { Channel } from './catalog'
 import { channelId, type TVLibrary } from './library'
 import { groupVariants } from './variants'
+import { tr } from './i18n'
 const cardChannels = new WeakMap<HTMLElement, Channel>()
 const cardVariantGroups = new WeakMap<HTMLElement, Channel[]>()
 export function cardChannel(element: HTMLElement) { return cardChannels.get(element) }
@@ -57,7 +58,7 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
   for (const [title, entries] of [['Continue watching', recent.filter(channel => !!library?.lastPlayed(channel)?.position).slice(0, 12)], ['Recently watched', recent.slice(0, 12)], ['Your favorites', favorites], ['Live TV', live], ['Movies', movies], ['Series & episodes', series]] as const) {
     if (!entries.length) continue
     const section = document.createElement('section'); section.className = 'home-row'
-    const heading = document.createElement('h2'); heading.textContent = title
+    const heading = document.createElement('h2'); heading.textContent = tr(title)
     const rail = document.createElement('div'); rail.className = 'poster-rail'
     for (const channel of entries) {
       const group = title === 'Movies' || title === 'Series & episodes' ? grouped?.groups.get(channel) : undefined

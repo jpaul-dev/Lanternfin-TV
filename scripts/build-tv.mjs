@@ -4,6 +4,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { buildTranslations } from './tv-translations.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const target = process.argv[2]
@@ -29,6 +30,7 @@ for (const bundle of Array.isArray(worker) ? worker : [worker]) for (const outpu
 const html = (await readFile(resolve(root, 'tv-app/index.html'), 'utf8'))
   .replace('<!-- PLATFORM_SCRIPT -->', target === 'tizen' ? '<script src="$WEBAPIS/webapis/webapis.js"></script>' : '')
 await writeFile(resolve(out, 'index.html'), html)
+await buildTranslations(root, out)
 await copyFile(resolve(root, 'LICENSE'), resolve(out, 'LICENSE'))
 // Bundle the pinned engine; playback never fetches executable code from a CDN.
 await copyFile(resolve(root, 'node_modules/shaka-player/dist/shaka-player.compiled.js'), resolve(out, 'shaka-player.compiled.js'))

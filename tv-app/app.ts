@@ -4,6 +4,7 @@ import { ScreenSaver, bindLifecycle, type AppCommon } from './lifecycle'
 import { PlaybackDiagnostics, capabilities, buildInfo, type DiagnosticReport } from './diagnostics'
 import { diagnosticsUI } from './diagnostics-ui'
 import { libraryUI } from './library-ui'
+import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
 import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, sourceId, type SourceProfile } from './profiles'
@@ -84,6 +85,7 @@ const knownLibraryChannels = new Map<string, Channel>()
 const PAGE_SIZE = 24
 const notice = (message: string) => { $('notice').textContent = message }
 navigationIcons($('tv-nav'))
+const translateStatic = staticTranslations($('app'))
 try { preferenceStorage = localStorage; preferences = readPreferences(localStorage) } catch { /* Session settings still work. */ }
 applyPreferences(preferences)
 
@@ -297,7 +299,7 @@ function report(next: State, detail?: string) {
   if (['playing', 'paused', 'buffering'].includes(next)) playbackDiagnostics.sample(player?.diagnostics?.())
   screenSaver.update(!away && !document.hidden && (next === 'playing' || next === 'buffering' && hasPlayed))
   $('player-status').textContent = detail || ({ loading: 'Opening stream…', playing: 'Playing', paused: 'Paused', buffering: 'Buffering…', ended: 'Stream ended', error: 'Playback unavailable', idle: '' })[next]
-  button('toggle').textContent = next === 'paused' ? 'Resume' : 'Pause'
+  button('toggle').textContent = tr(next === 'paused' ? 'Resume' : 'Pause')
   button('toggle').disabled = !['playing', 'paused', 'buffering'].includes(next)
   button('forward').disabled = button('rewind').disabled = !['playing', 'paused'].includes(next)
   button('hide-controls').disabled = next !== 'playing'
@@ -848,13 +850,13 @@ function goHome() {
   cancelProviderLoad(); cancelGuide(); searching?.abort(); clearTimeout(searchTimer); browseView = 'home'; libraryView = 'all'
   document.documentElement.dataset.browse = 'home'
   $('home-content').hidden = false; $('browse-content').hidden = true
-  $('section-title').textContent = 'Home'; $('section-kicker').textContent = 'WELCOME BACK'
+  $('section-title').textContent = tr('Home'); $('section-kicker').textContent = 'WELCOME BACK'
   renderHome(); show('catalog'); syncNav(); $('hero-play').focus()
 }
 async function browse(kind: 'search' | MediaKind) {
   cancelProviderLoad(); cancelGuide(); browseCategory = undefined; browseView = kind; libraryView = 'all'; input('search').value = ''; select('group').value = ''
   const title = { live: 'Live TV', movie: 'Movies', series: 'Series', search: 'Search' }[kind]
-  browseLayout(title)
+  browseLayout(tr(title))
   if (activeSource?.kind !== 'xtream' || kind === 'search') {
     updateGroups(); await filter()
     if (kind === 'search') input('search').focus()
@@ -1005,10 +1007,11 @@ $('settings-clear-cache').onclick = async () => { cacheSaving?.abort(); try { aw
 $('settings-refresh').onclick = () => button('refresh-catalog').click()
 $('settings-reset').onclick = () => { preferences = { ...DEFAULTS }; syncPreferences(); persistPreferences() }
 function syncPreferences() {
-  for (const [id, value] of Object.entries({ theme: preferences.theme, accent: preferences.accent, scale: preferences.scale, overscan: preferences.overscan, motion: preferences.reducedMotion, audio: preferences.audio, subtitles: preferences.subtitles, clock: preferences.guideClock, autonext: preferences.autoNext, grouping: preferences.groupLanguages, content: preferences.contentLanguage })) select(`pref-${id}`).value = String(value)
+  for (const [id, value] of Object.entries({ theme: preferences.theme, accent: preferences.accent, scale: preferences.scale, overscan: preferences.overscan, motion: preferences.reducedMotion, audio: preferences.audio, subtitles: preferences.subtitles, clock: preferences.guideClock, autonext: preferences.autoNext, grouping: preferences.groupLanguages, content: preferences.contentLanguage, language: preferences.interfaceLanguage })) select(`pref-${id}`).value = String(value)
 }
 function persistPreferences() {
   applyPreferences(preferences)
+  void applyInterfaceLanguage()
   syncGuideDays()
   try { savePreferences(preferenceStorage, preferences); $('settings-note').textContent = preferenceStorage ? 'Preferences saved. Language choices apply when the next stream starts.' : 'Preferences apply for this session.' }
   catch { $('settings-note').textContent = 'TV storage is unavailable. Preferences apply for this session.' }
@@ -1017,14 +1020,28 @@ for (const accent of Object.keys(ACCENTS)) select('pref-accent').add(new Option(
 for (let value = 0; value <= 8; value++) select('pref-overscan').add(new Option(value ? `${value}%` : 'Off', String(value)))
 select('pref-subtitles').add(new Option('Off', 'off'))
 for (const [code, label] of Object.entries(LANGUAGES)) { select('pref-audio').add(new Option(label, code)); select('pref-subtitles').add(new Option(label, code)); select('pref-content').add(new Option(label, code)) }
+for (const [code, label] of Object.entries(INTERFACE_LANGUAGES)) select('pref-language').add(new Option(label, code))
 select('pref-clock').add(new Option('Device time zone', 'auto'))
 for (let offset = -720; offset <= 840; offset += 30) select('pref-clock').add(new Option(`UTC${offset < 0 ? '−' : '+'}${String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0')}:${String(Math.abs(offset) % 60).padStart(2, '0')}`, String(offset)))
 for (const option of select('pref-clock').options) if (option.value !== 'auto') select('replay-clock').add(new Option(option.text, option.value))
 for (const element of $('settings').querySelectorAll<HTMLSelectElement>('select')) element.onchange = () => {
   preferences = normalizePreferences({ theme: select('pref-theme').value, accent: select('pref-accent').value, scale: Number(select('pref-scale').value), overscan: Number(select('pref-overscan').value), reducedMotion: select('pref-motion').value === 'true', audio: select('pref-audio').value, subtitles: select('pref-subtitles').value, guideClock: select('pref-clock').value, autoNext: select('pref-autonext').value === 'true', groupLanguages: select('pref-grouping').value === 'true', contentLanguage: select('pref-content').value })
+  preferences = normalizePreferences({ ...preferences, interfaceLanguage: select('pref-language').value })
   persistPreferences()
 }
 syncPreferences()
+async function applyInterfaceLanguage() {
+  const requested = preferences.interfaceLanguage
+  try {
+    if (!await setInterfaceLanguage(requested)) return
+    translateStatic()
+    for (const option of select('pref-accent').options) option.text = tr(option.value[0].toUpperCase() + option.value.slice(1))
+    select('pref-overscan').options[0].text = tr('Off')
+    select('pref-subtitles').options[0].text = tr('Off')
+    if (screen === 'catalog') { if (browseView === 'home') renderHome(); else void filter(false) }
+  } catch { $('settings-note').textContent = 'This language file could not be loaded. The current interface language is still available; reinstall the complete package to try again.' }
+}
+void applyInterfaceLanguage()
 function contentLanguage() { return preferences.contentLanguage === 'auto' ? navigator.language || 'en' : preferences.contentLanguage }
 window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change', () => applyPreferences(preferences))
 function applyTrackPreferences() {

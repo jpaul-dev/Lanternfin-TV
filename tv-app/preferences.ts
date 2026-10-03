@@ -1,7 +1,8 @@
 export const ACCENTS = { fuchsia: ['#e68bdf', '#96368f'], rose: ['#ffa0b9', '#a82b50'], ember: ['#ffba86', '#9f480b'], emerald: ['#7cddba', '#126448'], cyan: ['#82dce7', '#086876'], blue: ['#98bcff', '#285eac'], violet: ['#bdabff', '#6743b9'], gold: ['#f2d279', '#795b00'], lime: ['#c4df85', '#536f09'], teal: ['#8dddd0', '#106a5c'], silver: ['#c3ccd6', '#566473'], white: ['#f4f6f8', '#343e49'] } as const
 export const LANGUAGES = { auto: 'Automatic', en: 'English', es: 'Español', fr: 'Français', de: 'Deutsch', it: 'Italiano', 'pt-BR': 'Português', nl: 'Nederlands', pl: 'Polski', tr: 'Türkçe', ru: 'Русский', ar: 'العربية', hi: 'हिन्दी', ja: '日本語', zh: '中文' } as const
-export type Preferences = { theme: 'dark' | 'light' | 'system'; accent: keyof typeof ACCENTS; scale: number; overscan: number; reducedMotion: boolean; audio: string; subtitles: string; guideClock: string; autoNext: boolean; groupLanguages: boolean; contentLanguage: string }
-export const DEFAULTS: Preferences = { theme: 'dark', accent: 'fuchsia', scale: 1, overscan: 0, reducedMotion: false, audio: 'auto', subtitles: 'off', guideClock: 'auto', autoNext: false, groupLanguages: false, contentLanguage: 'auto' }
+import { INTERFACE_LANGUAGES } from './i18n'
+export type Preferences = { theme: 'dark' | 'light' | 'system'; accent: keyof typeof ACCENTS; scale: number; overscan: number; reducedMotion: boolean; audio: string; subtitles: string; guideClock: string; autoNext: boolean; groupLanguages: boolean; contentLanguage: string; interfaceLanguage: string }
+export const DEFAULTS: Preferences = { theme: 'dark', accent: 'fuchsia', scale: 1, overscan: 0, reducedMotion: false, audio: 'auto', subtitles: 'off', guideClock: 'auto', autoNext: false, groupLanguages: false, contentLanguage: 'auto', interfaceLanguage: 'auto' }
 const KEY = 'lanternfin.tv.preferences.v1'
 const owns = (object: object, key: string) => Object.prototype.hasOwnProperty.call(object, key)
 export function normalizePreferences(raw: unknown): Preferences {
@@ -14,6 +15,7 @@ export function normalizePreferences(raw: unknown): Preferences {
   if (typeof value.autoNext === 'boolean') result.autoNext = value.autoNext
   if (typeof value.groupLanguages === 'boolean') result.groupLanguages = value.groupLanguages
   if (owns(LANGUAGES, value.contentLanguage || '')) result.contentLanguage = value.contentLanguage!
+  if (owns(INTERFACE_LANGUAGES, value.interfaceLanguage || '')) result.interfaceLanguage = value.interfaceLanguage!
   if (owns(LANGUAGES, value.audio || '')) result.audio = value.audio!
   if (value.subtitles === 'off' || owns(LANGUAGES, value.subtitles || '')) result.subtitles = value.subtitles!
   if (value.guideClock === 'auto' || (typeof value.guideClock === 'string' && /^-?\d+$/.test(value.guideClock) && Number(value.guideClock) >= -720 && Number(value.guideClock) <= 840 && Number(value.guideClock) % 30 === 0)) result.guideClock = value.guideClock!
