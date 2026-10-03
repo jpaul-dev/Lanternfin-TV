@@ -1,0 +1,7 @@
+{
+  "name": "lanternfin-tv-packaging-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isolated official LG packaging CLI; never shipped in the TV app",
+  "devDependencies": { "@webos-tools/cli": "3.2.6" }
+}

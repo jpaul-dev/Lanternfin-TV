@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="https://github.com/jpaul-dev/Lanternfin-TV" version="0.1.0" viewmodes="maximized">
+  <tizen:application id="LantFin001.LanternfinTV" package="LantFin001" required_version="6.5" />
+  <content src="index.html" />
+  <feature name="http://tizen.org/feature/screen.size.all" />
+  <icon src="icon.png" />
+  <name>Lanternfin TV</name>
+  <author href="https://github.com/jpaul-dev/Lanternfin-TV">Lanternfin contributors</author>
+  <license href="LICENSE">GPL-3.0-or-later</license>
+  <access origin="*" subdomains="true" />
+  <tizen:privilege name="http://tizen.org/privilege/internet" />
+  <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice" />
+  <tizen:profile name="tv-samsung" />
+  <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable" />
+  <tizen:content-security-policy>default-src 'self'; script-src 'self' file:; style-src 'self'; img-src 'self'; connect-src https: http:; media-src https: http: blob:; object-src 'self'; base-uri 'none'; form-action 'none'</tizen:content-security-policy>
+</widget>

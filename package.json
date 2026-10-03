@@ -5,6 +5,11 @@
   "license": "GPL-3.0-or-later",
   "packageManager": "pnpm@10.31.0",
   "scripts": {
+    "tv:check": "tsc -p tv-app/tsconfig.json",
+    "tv:preview": "node scripts/preview-tv.mjs",
+    "tv:build": "node scripts/build-tv.mjs webos && node scripts/build-tv.mjs tizen && node scripts/build-tv.mjs browser",
+    "tv:package:webos": "node scripts/package-tv.mjs webos",
+    "tv:package:tizen": "node scripts/package-tv.mjs tizen",
     "dev": "astro dev --host",
     "build": "astro build",
     "preview": "astro preview",

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' file:; style-src 'self'; img-src 'self'; connect-src https: http:; media-src https: http: blob:; object-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Lanternfin TV</title>
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="app.css">
+  <!-- PLATFORM_SCRIPT -->
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div id="player-surface" hidden></div>
+  <main id="app">
+    <header><div class="brand"><img src="icon.png" alt="" width="56" height="56"><span>Lanternfin <b>TV</b></span></div><span id="platform" class="badge">TV preview</span></header>
+    <section id="setup" class="panel">
+      <div class="intro"><p class="eyebrow">YOUR STREAMS. YOUR SCREEN.</p><h1>Settle in.</h1><p>Connect your own playlist and watch directly on your TV.</p><p class="muted">No casting device needed. No channels are included.</p></div>
+      <form id="source-form" autocomplete="off">
+        <label for="source-kind">Source type</label>
+        <select id="source-kind"><option value="playlist">M3U playlist</option><option value="xtream">Xtream playlist login</option><option value="direct">Direct stream</option></select>
+        <label id="url-label" for="source-url">Playlist address</label>
+        <input id="source-url" type="text" inputmode="url" spellcheck="false" autocomplete="off" placeholder="https://your-provider.example/playlist.m3u" maxlength="8192" required>
+        <div id="login-fields" hidden>
+          <label for="username">Username</label><input id="username" type="text" autocomplete="off" spellcheck="false" maxlength="1024">
+          <label for="password">Password</label><input id="password" type="password" autocomplete="off" maxlength="1024">
+        </div>
+        <label class="check"><input id="remember" type="checkbox">Remember this source on this TV</label>
+        <p class="hint">Saved addresses and passwords are stored without encryption. Leave this off on a shared TV.</p>
+        <div class="actions"><button id="connect" class="primary" type="submit">Open my streams</button><button id="cancel-load" type="button" hidden>Cancel</button><button id="forget" type="button" hidden>Forget saved source</button></div>
+      </form>
+    </section>
+    <section id="catalog" hidden>
+      <div class="heading"><div><p class="eyebrow">READY WHEN YOU ARE</p><h1>Your streams</h1></div><button id="change-source">Change source</button></div>
+      <div class="filters"><div><label for="search">Find a stream</label><input id="search" type="search" placeholder="Search by name" autocomplete="off"></div><div><label for="group">Group</label><select id="group"><option value="">All groups</option></select></div></div>
+      <p id="result-count" class="muted"></p>
+      <div id="channels" class="grid"></div>
+      <div class="pagination"><button id="previous">Previous page</button><span id="page-label"></span><button id="next">Next page</button></div>
+    </section>
+    <section id="playback" hidden>
+      <div id="controls" class="play-controls"><p class="eyebrow">NOW WATCHING</p><h1 id="playing-title"></h1><p id="player-status" role="status"></p><div class="actions"><button id="toggle" class="primary">Pause</button><button id="rewind">Back 10 seconds</button><button id="forward">Forward 10 seconds</button><button id="hide-controls">Hide controls</button><button id="stop">Back to streams</button></div><p class="hint">Press an arrow to show controls. Back returns to your streams.</p></div>
+    </section>
+    <section id="about" class="info-panel" hidden>
+      <p class="eyebrow">AN INDEPENDENT FORK</p><h1>A little light for your screen.</h1>
+      <p>Lanternfin TV — LG / Samsung preview 0.1.0.</p>
+      <p>Based on Extreme InfiniTV by Ludovico Ferrara / infinitel8p and contributors. Original notice: Copyright (c) 2025 Ludovico Ferrara. The shared M3U parser comes from that project.</p>
+      <p>Free software under GPL-3.0-or-later. License and attribution are included in this app package. Corresponding source: github.com/jpaul-dev/Lanternfin-TV.</p>
+      <p>This preview uses your TV’s native player. Formats depend on your TV and provider. DRM, custom stream headers, a programme guide, and series browsing are not implemented yet.</p>
+      <p>Your TV connects to the source you enter. This app adds no analytics, account service, receiver, or update downloads.</p>
+      <button id="about-back" class="primary">Back</button>
+    </section>
+    <section id="exit" class="info-panel" hidden><h1>All done for now?</h1><p>Exit Lanternfin TV?</p><div class="actions"><button id="stay" class="primary">Keep watching</button><button id="leave">Exit app</button></div></section>
+    <p id="notice" role="status" aria-live="polite"></p>
+    <footer><span>Arrows to move · OK to select · Back to return</span><button id="about-open">About this preview</button></footer>
+  </main>
+</body>
+</html>
