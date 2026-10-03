@@ -15,6 +15,7 @@ import { mp4SubtitleUI, MP4_SUBTITLE } from './mp4-subtitle-ui'
 import { TrackPreferences } from './track-preferences'
 import { relatedTitles, type RelatedTitle } from './related-titles'
 import { DEFAULT_BROWSE_CHOICE, type BrowseChoice, type BrowseView } from './browse-options'
+import { BrowseHistory, browseFocus, resolveBrowseVisit, type BrowseFocus, type BrowseSection, type BrowseVisit } from './browse-history'
 import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
@@ -69,6 +70,9 @@ let lastTimeline = { position: 0, duration: 0 }, lastSaved = 0
 let libraryView: 'all' | 'favorites' | 'watchlist' | 'recent' = 'all'
 let nativeSelectOpen = false
 let browseView: 'home' | 'all' | 'search' | MediaKind = 'home'
+const browseHistory = new BrowseHistory()
+let browseGeneration = 0, enteringBrowse = 0, browseInputRevision = 0, temporaryBrowse = false
+let focusedBrowse: BrowseFocus | undefined, pendingBrowseVisit: BrowseVisit | undefined, catalogReturnVisit: BrowseVisit | undefined
 let providerCategories: Partial<Record<MediaKind, Category[]>> = {}, providerLoading: AbortController | undefined
 let detailInfo: TitleDetails | undefined, detailLoading: AbortController | undefined, episodePage = 0
 let detailVariants: Channel[] = [], catalogVariants = new WeakMap<Channel, VariantGroup>()
@@ -84,7 +88,6 @@ let guideLoading: AbortController | undefined, guideTimer: ReturnType<typeof set
 let preferences = readPreferences(null), preferenceStorage: Storage | null = null
 const trackPreferences = new TrackPreferences()
 let trackSnapshot = '', trackMenuDirty = false
-let lastFocusedCard: HTMLElement | undefined
 let editingSource: Source | undefined, activeGuideUrl: string | undefined, accountLoading: AbortController | undefined
 const liveQueue = new LiveQueue(), episodeContext = new EpisodeContext()
 let zapDigits = '', zapTimer: ReturnType<typeof setTimeout> | undefined, playbackGuideLoading: AbortController | undefined
@@ -141,6 +144,8 @@ const updates = updatesUI($('updates'), __TV_TARGET__)
 downloads.load()
 if (away) downloads.suspend()
 function show(next: Screen) {
+  const returningToCatalog = next === 'catalog' && screen !== 'catalog' && !enteringBrowse && browseView !== 'home'
+  if (screen === 'catalog' && next !== 'catalog') { rememberBrowsePosition(); cancelBrowseEntry(); cancelProviderLoad(); searching?.abort(); clearTimeout(searchTimer); searchTimer = undefined }
   if (screen === 'updates' && next !== 'updates') updates.close()
   if (screen === 'downloads' && next !== 'downloads') downloadView.close()
   if (screen === 'backup' && next !== 'backup') backups.close()
@@ -167,6 +172,7 @@ function show(next: Screen) {
   if (next === 'setup') renderProfiles()
   const focus = next === 'setup' ? $('profile-list').querySelector<HTMLElement>('.profile-open') || input('source-name') : [...$(next).querySelectorAll<HTMLElement>('button:not(:disabled), input, select')].find(element => !element.closest('[hidden]'))
   focus?.focus()
+  if (returningToCatalog && catalogReturnVisit) { pendingBrowseVisit = catalogReturnVisit; void filter(false) }
   if (next === 'detail') void refreshRelated()
 }
 function sourceKind() {
@@ -217,6 +223,7 @@ $('source-form').addEventListener('submit', async event => {
       catch { if (loading !== controller || controller.signal.aborted) return; nextIndex = new ProviderIndex(source, initialCategories || []) }
     }
     if (loading !== controller || controller.signal.aborted) return
+    cancelBrowseEntry(); catalogReturnVisit = undefined; focusedBrowse = undefined; temporaryBrowse = false
     channels = catalog.channels; page = 0; input('search').value = ''; libraryView = 'all'; browseView = 'home'
     providerCategories = initialCategories ? { live: initialCategories } : {}; detailInfo = undefined; detailVariants = []; catalogVariants = new WeakMap()
     let storageMessage = '', persisted = false
@@ -259,6 +266,7 @@ input('remember').onchange = async () => {
   catch { notice('The TV could not remove saved settings. Try clearing app data in TV settings.') }
 }
 $('forget').onclick = async () => {
+  browseHistory.forget(); cancelBrowseEntry(); catalogReturnVisit = undefined
   pooledLibrary = undefined; knownLibraryVersion++
   keepActiveLibrary = false; cacheSaving?.abort()
   episodeContext.clear()
@@ -269,7 +277,8 @@ $('forget').onclick = async () => {
 }
 
 async function filter(resetPage = true) {
-  searching?.abort(); clearTimeout(searchTimer)
+  searching?.abort(); clearTimeout(searchTimer); searchTimer = undefined
+  if (resetPage) { pendingBrowseVisit = undefined; focusedBrowse = document.activeElement instanceof HTMLElement && $('browse-content').contains(document.activeElement) ? browseFocus(document.activeElement) : undefined }
   const controller = new AbortController(); searching = controller
   $('browse-empty').hidden = true
   $('result-count').textContent = 'Searching your streams…'
@@ -303,7 +312,16 @@ async function filter(resetPage = true) {
     $('language-field').hidden = !language && ![...tags].some(tag => tag !== 'untagged')
     if (libraryView === 'recent' && select('sort-order').value === 'provider') matches.sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
     if (libraryView === 'watchlist' && select('sort-order').value === 'provider') { const order = new Map([...(library?.watchlist || [])].reverse().map((id, index) => [id, index])); matches.sort((a, b) => order.get(channelId(a))! - order.get(channelId(b))!) }
-    filtered = matches; page = resetPage ? 0 : Math.min(page, Math.max(0, Math.ceil(matches.length / PAGE_SIZE) - 1)); render()
+    const visit = pendingBrowseVisit
+    const complete = !providerIndex || !!browseCategory || providerIndex.progress.complete
+    const restored = visit ? await resolveBrowseVisit(matches, visit, PAGE_SIZE, complete, controller.signal) : undefined
+    if (searching !== controller) return
+    filtered = matches; page = restored?.page ?? (resetPage ? 0 : Math.min(page, Math.max(0, Math.ceil(matches.length / PAGE_SIZE) - 1))); render()
+    if (visit && restored && pendingBrowseVisit === visit && !restored.pending && screen === 'catalog') {
+      // Until indexing finishes, keep the anchor as new sorted titles arrive.
+      // Any remote/pointer input or changed query relinquishes this restoration.
+      pendingBrowseVisit = complete ? undefined : visit; restoreBrowsePosition(visit, restored.missing || restored.moved)
+    }
   } catch { /* Superseded searches do not replace current results. */ }
   finally { if (searching === controller) searching = undefined }
 }
@@ -314,7 +332,7 @@ function render() {
   grid.classList.toggle('live-rows', live)
   filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).forEach((channel, index) => {
     const versions = catalogVariants.get(channel)?.members
-    const item = channelCard(channel, () => { lastChannel = index; lastFocusedCard = item; watch(channel, versions) }, library, versions)
+    const item = channelCard(channel, () => { lastChannel = index; focusedBrowse = { kind: 'title', id: channelId(channel) }; watch(channel, versions) }, library, versions)
     if (live) { const number = document.createElement('span'); number.className = 'channel-number'; number.textContent = String(page * PAGE_SIZE + index + 1); item.prepend(number); item.onfocus = () => selectGuide(channel) }
     grid.append(item)
   })
@@ -333,6 +351,9 @@ function render() {
   $('pagination').hidden = !filtered.length
   button('previous').disabled = page === 0; button('next').disabled = (page + 1) * PAGE_SIZE >= filtered.length
   for (const view of ['all', 'favorites', 'watchlist', 'recent']) button(`view-${view}`).setAttribute('aria-pressed', String(libraryView === view))
+  const category = activeSource?.kind === 'xtream' ? browseCategory?.id : select('group').value
+  for (const item of $('category-list').querySelectorAll<HTMLElement>('button')) item.setAttribute('aria-pressed', String(!!category && item.dataset.category === category))
+  button('categories-back').setAttribute('aria-pressed', String(!category))
   $('clear-history').hidden = libraryView !== 'recent'
   renderEmpty()
   if (focused) grid.querySelector<HTMLElement>(`[data-channel="${focused}"]`)?.focus({ preventScroll: true })
@@ -355,12 +376,13 @@ function renderEmpty() {
 $('empty-clear').onclick = () => button('reset-filters').click()
 $('empty-home').onclick = goHome
 $('empty-load').onclick = () => { startIndex(); renderEmpty() }
-input('search').oninput = () => { searching?.abort(); searchTimer && clearTimeout(searchTimer); searchTimer = setTimeout(filter, 180) }
+input('search').oninput = () => { pendingBrowseVisit = undefined; focusedBrowse = { kind: 'control', id: 'search' }; searching?.abort(); searchTimer && clearTimeout(searchTimer); searchTimer = setTimeout(filter, 180) }
 select('group').onchange = () => { void filter() }
 for (const id of ['media-filter', 'sort-order', 'watched-filter', 'language-filter']) $(id).onchange = () => { saveBrowseChoice(); void filter() }
 for (const [id, delta] of [['previous', -1], ['next', 1]] as const) $(id).onclick = () => changePage(page + delta)
 function changePage(next: number, x?: number) {
   if (searching || next < 0 || next * PAGE_SIZE >= filtered.length || next === page) return
+  pendingBrowseVisit = undefined; focusedBrowse = undefined
   const direction = next > page ? 'down' : 'up'; page = next; render()
   const items = [...$('channels').querySelectorAll<HTMLElement>('button')], index = x === undefined ? 0 : pageEntry(items.map(item => item.getBoundingClientRect()), x, direction)
   items[index]?.focus(); items[index]?.scrollIntoView?.({ block: 'nearest' })
@@ -370,7 +392,7 @@ input('page-jump').onkeydown = event => { if (event.key === 'Enter') { event.pre
 $('reset-filters').onclick = () => { input('search').value = ''; select('group').value = ''; restoreBrowseChoice(true); saveBrowseChoice(); void filter() }
 $('change-source').onclick = () => { cancelProviderLoad(); show('setup') }
 $('return-catalog').onclick = () => { cancelLoad(); show('catalog') }
-for (const view of ['all', 'favorites', 'watchlist', 'recent'] as const) $(`view-${view}`).onclick = () => { cancelProviderLoad(); libraryView = view; browseView = 'all'; input('search').value = ''; select('group').value = ''; restoreBrowseChoice(); browseLayout(view === 'all' ? 'All streams' : view === 'favorites' ? 'Favorites' : view === 'watchlist' ? 'Watchlist' : 'Recently watched'); updateGroups(); void filter() }
+for (const view of ['all', 'favorites', 'watchlist', 'recent'] as const) $(`view-${view}`).onclick = () => void browseLibrary(view)
 $('clear-history').onclick = () => openLibraryManager('catalog', 'history')
 $('refresh-catalog').onclick = () => {
   forceFresh = true
@@ -439,6 +461,7 @@ function renderProfiles() {
     const edit = document.createElement('button'); edit.textContent = 'Edit'; edit.setAttribute('aria-label', `Edit ${profile.name}`); edit.onclick = () => { fillProfile(profile); input('source-name').focus() }
     const remove = document.createElement('button'); remove.textContent = 'Remove'; remove.setAttribute('aria-label', `Remove ${profile.name}`)
     remove.onclick = async () => {
+      browseHistory.forget(profile.id)
       try { removeProfile(localStorage, profile.source); forgetLibrary(localStorage, profile.source); if (activeSource && sourceId(activeSource) === profile.id) { library?.setStorage(null); keepActiveLibrary = false; cacheSaving?.abort() }; if (editingSource && sourceId(editingSource) === profile.id) input('remember').checked = false; renderProfiles(); await catalogCache.forget(profile.source); $('saved-sources').hidden ? input('source-name').focus() : button('profile-new').focus(); notice('Source removed from TV storage. An already open source stays available for this session.') }
       catch { notice('The TV could not remove this source. Try again or clear app data in TV settings.') }
     }
@@ -574,11 +597,9 @@ function stopWatching() {
   if (playbackReturn === 'downloads') { downloadView.open(); show('downloads'); return }
   if (playbackReturn === 'programme' && selectedProgramme) { show('programme'); button('programme-back').focus(); return }
   if (playbackReturn === 'detail' && detailInfo) { renderDetails(); show('detail'); button('detail-play').focus(); return }
-  render(); show('catalog')
-  const items = $('channels').querySelectorAll('button'); (items[lastChannel] || button('change-source')).focus()
+  show('catalog')
   if (browseView === 'home') { renderHome(); $('hero-play').focus() }
-  else if (lastFocusedCard?.isConnected) lastFocusedCard.focus()
-  if (libraryView !== 'all') void filter().then(() => { if (screen === 'catalog') ($('channels').querySelector('button') || button(`view-${libraryView}`)).focus() })
+  else if (!catalogReturnVisit) { render(); ($('channels').querySelectorAll<HTMLElement>('button')[lastChannel] || button('change-source')).focus() }
 }
 function toggle() { if (state === 'paused') player?.resume(); else if (state === 'playing' || state === 'buffering') player?.pause() }
 $('toggle').onclick = toggle; $('stop').onclick = stopWatching
@@ -634,7 +655,7 @@ function back() {
   else if (screen === 'manage') { if (!libraryManager.back()) show(manageReturn) }
   else if (screen === 'downloads') { if (!downloadView.back()) show(downloadsReturn) }
   else if (screen === 'updates') show(updatesReturn)
-  else if (screen === 'catalog' && providerLoading) { cancelProviderLoad(); notice('Loading cancelled.') }
+  else if (screen === 'catalog' && providerLoading) { cancelBrowseEntry(); cancelProviderLoad(); notice('Loading cancelled.') }
   else if (screen === 'catalog' && browseView !== 'home') goHome()
   else if (screen === 'catalog') show('exit')
   else if (screen === 'exit') activeSource ? goHome() : show('setup')
@@ -743,7 +764,7 @@ async function refreshCards() {
   else await filter(false)
 }
 $('card-menu-close').onclick = closeCardMenu
-$('card-menu-play').onclick = () => { const channel = contextChannel; closeCardMenu(); if (channel) { if (contextCard?.closest('#detail-related')) void openTitle(channel, cardVersions(contextCard), 'related'); else { lastFocusedCard = contextCard; watch(channel) } } }
+$('card-menu-play').onclick = () => { const channel = contextChannel; closeCardMenu(); if (channel) { if (contextCard?.closest('#detail-related')) void openTitle(channel, cardVersions(contextCard), 'related'); else watch(channel) } }
 $('card-menu-download').onclick = () => { const channel = contextChannel; closeCardMenu(); if (channel) openDownloads(channel) }
 for (const [id, action] of [['card-menu-favorite', 'favorite'], ['card-menu-history', 'history'], ['card-menu-watchlist', 'watchlist']] as const) $(id).onclick = async () => {
   if (!contextChannel) return
@@ -756,7 +777,12 @@ $('card-menu-watched').onclick = async () => {
   catch { $('card-menu-note').textContent = 'This change could not be saved to TV storage.' }
 }
 document.addEventListener('change', () => { nativeSelectOpen = false })
-document.addEventListener('focusin', () => { nativeSelectOpen = false; if (heldCard && !holdOpened && heldCard !== document.activeElement) { clearTimeout(holdTimer); heldCard = undefined } })
+document.addEventListener('focusin', () => {
+  nativeSelectOpen = false
+  if (screen === 'catalog' && browseView !== 'home' && !enteringBrowse && document.activeElement instanceof HTMLElement && $('browse-content').contains(document.activeElement)) focusedBrowse = browseFocus(document.activeElement) || focusedBrowse
+  if (heldCard && !holdOpened && heldCard !== document.activeElement) { clearTimeout(holdTimer); heldCard = undefined }
+})
+for (const event of ['pointerdown', 'keydown']) document.addEventListener(event, () => { browseInputRevision++; pendingBrowseVisit = undefined }, { capture: true })
 bindLifecycle(document, window, () => {
   downloads.suspend()
   updates.close()
@@ -764,6 +790,7 @@ bindLifecycle(document, window, () => {
   suspendedIndex = providerIndex?.progress.running ? providerIndex : undefined
   providerIndex?.pause(); renderIndexStatus()
   const interrupted = !!loading || !!providerLoading
+  rememberBrowsePosition(); cancelBrowseEntry()
   cancelLoad(); cancelProviderLoad(); cancelGuide(); searching?.abort(); clearTimeout(searchTimer)
   clearTimeout(indexTimer); indexTimer = undefined
   cancelHomeRows(); cancelRelated(); clearTimeout(holdTimer); heldCard = undefined; holdOpened = false
@@ -783,7 +810,7 @@ bindLifecycle(document, window, () => {
   if (screen === 'detail') void refreshRelated()
   if (screen === 'catalog') {
     if (browseView === 'home') renderHome()
-    else { void filter(false); if (browseView === 'live' && guideChannel) selectGuide(guideChannel) }
+    else { pendingBrowseVisit = catalogReturnVisit; void filter(false); if (browseView === 'live' && guideChannel) selectGuide(guideChannel) }
   }
 })
 window.addEventListener('offline', () => { if (screen === 'playback' && !(currentChannel && localDownload(currentChannel))) { saveProgress(); player?.stop(); report('error', 'The TV is offline. Reconnect to your network, then choose Retry stream.') } })
@@ -796,7 +823,9 @@ function updateGroups() {
   const pool = providerIndex && ['search', 'all'].includes(browseView) ? libraryPool() : channels
   const groups = new Set<string>(); for (const channel of pool) groups.add(channel.group)
   for (const name of Array.from(groups).sort()) group.add(new Option(name, name))
-  if ([...group.options].some(option => option.value === selected)) group.value = selected
+  // Keep an unloaded/removed selection visible instead of silently showing all groups.
+  if (selected && ![...group.options].some(option => option.value === selected)) group.add(new Option(selected, selected))
+  group.value = selected
 }
 function cancelGuide() { clearTimeout(guideTimer); guideLoading?.abort(); guideLoading = undefined }
 function selectGuide(channel?: Channel, refresh = false) {
@@ -898,6 +927,55 @@ $('guide-watch').onclick = () => { if (guideChannel) playChannel(guideChannel) }
 $('guide-favorite').onclick = () => { if (!guideChannel) return; try { library?.toggleFavorite(guideChannel); rememberLibraryChannel(guideChannel); button('guide-favorite').textContent = library?.isFavorite(guideChannel) ? '★ Favorited' : '☆ Favorite'; render() } catch (error) { $('guide-status').textContent = (error as Error).message } }
 $('guide-refresh').onclick = () => selectGuide(guideChannel, true)
 function cancelProviderLoad() { providerLoading?.abort(); providerLoading = undefined; $('cancel-category').hidden = true }
+function browseSection(): BrowseSection | undefined { return browseView === 'home' ? undefined : browseView === 'all' ? libraryView : browseView }
+function browseSignature() { return JSON.stringify([select('sort-order').value, select('watched-filter').value, select('language-filter').value, select('media-filter').value, preferences.groupLanguages, contentLanguage(), preferences.scale, preferences.overscan]) }
+function rememberBrowsePosition() {
+  const section = browseSection()
+  if (!activeSource || screen !== 'catalog' || !section || enteringBrowse) return
+  const busy = !!searching || !!searchTimer
+  const visit: BrowseVisit = pendingBrowseVisit || { query: input('search').value, group: select('group').value, ...(browseCategory && ['live', 'movie', 'series'].includes(browseView) ? { category: { id: browseCategory.id, name: browseCategory.name } } : {}), page: busy ? 0 : page, focus: busy && focusedBrowse?.kind === 'title' ? undefined : focusedBrowse, scroll: window.scrollY, gridScroll: $('channels').scrollTop, categoryScroll: $('category-sidebar').scrollTop, signature: browseSignature() }
+  catalogReturnVisit = visit
+  if (!temporaryBrowse) browseHistory.remember(sourceId(activeSource), section, visit)
+}
+function cancelBrowseEntry() { browseGeneration++; enteringBrowse = 0; pendingBrowseVisit = undefined }
+function beginBrowse(section: BrowseSection, temporary = false, fresh = false) {
+  rememberBrowsePosition(); cancelProviderLoad(); cancelGuide(); searching?.abort(); clearTimeout(searchTimer); searchTimer = undefined
+  const visit = activeSource && !temporary && !fresh ? browseHistory.recall(sourceId(activeSource), section) : undefined
+  const generation = ++browseGeneration; enteringBrowse = generation; temporaryBrowse = temporary
+  pendingBrowseVisit = undefined; focusedBrowse = undefined; catalogReturnVisit = undefined; page = lastChannel = 0
+  $('channels').scrollTop = $('category-sidebar').scrollTop = 0
+  return { generation, revision: browseInputRevision, visit }
+}
+function prepareBrowseVisit(visit?: BrowseVisit) {
+  input('search').value = visit?.query || ''; select('group').value = ''
+  if (visit?.group) { if (![...select('group').options].some(option => option.value === visit.group)) select('group').add(new Option(visit.group, visit.group)); select('group').value = visit.group }
+  if (visit && visit.signature !== browseSignature()) return { ...visit, page: 0, focus: undefined, scroll: 0, gridScroll: 0, categoryScroll: 0, signature: browseSignature() }
+  return visit
+}
+function restoreBrowsePosition(visit: BrowseVisit, changed = false) {
+  const focus = visit.focus
+  const target = focus?.kind === 'title' ? $('channels').querySelector<HTMLElement>(`[data-channel="${focus.id}"]`) : focus?.kind === 'category' ? [...$('category-list').querySelectorAll<HTMLElement>('button')].find(item => item.dataset.category === focus.id) : focus?.kind === 'control' ? document.getElementById(focus.id) : undefined
+  const fallback = focus?.kind === 'category' ? button('categories-back') : $('channels').querySelector<HTMLElement>('button') || input('search')
+  const element = target && !target.closest('[hidden]') && !target.matches(':disabled') ? target : fallback
+  focusedBrowse = browseFocus(element); element.focus({ preventScroll: !changed })
+  if (changed) element.scrollIntoView?.({ block: 'nearest' })
+  else { if (window.scrollY !== visit.scroll) window.scrollTo(0, visit.scroll); $('channels').scrollTop = visit.gridScroll; $('category-sidebar').scrollTop = visit.categoryScroll }
+}
+function finishBrowse(entry: ReturnType<typeof beginBrowse>, visit?: BrowseVisit) {
+  if (browseGeneration !== entry.generation) return
+  enteringBrowse = 0
+  if (!visit && browseInputRevision === entry.revision && screen === 'catalog') {
+    const focus = browseView === 'search' ? input('search') : $('category-sidebar').hidden ? $('channels').querySelector<HTMLElement>('button') || input('search') : $('category-list').querySelector<HTMLElement>('button') || input('search')
+    focus.focus(); focusedBrowse = browseFocus(focus)
+  }
+}
+async function browseLibrary(view: typeof libraryView) {
+  const entry = beginBrowse(view); libraryView = view; browseView = 'all'; browseCategory = undefined
+  restoreBrowseChoice(); const visit = prepareBrowseVisit(entry.visit)
+  browseLayout(tr(view === 'all' ? 'All streams' : view === 'favorites' ? 'Favorites' : view === 'watchlist' ? 'Watchlist' : 'Recently watched')); updateGroups()
+  pendingBrowseVisit = visit
+  try { await filter(false) } finally { finishBrowse(entry, visit) }
+}
 function browseChoiceView(): BrowseView | undefined { return browseView === 'home' || browseView === 'live' ? undefined : browseView === 'all' ? libraryView : browseView }
 function restoreBrowseChoice(defaults = false) {
   const view = browseChoiceView(), choice = !defaults && view ? library?.browseChoice(view) || DEFAULT_BROWSE_CHOICE : DEFAULT_BROWSE_CHOICE
@@ -949,7 +1027,7 @@ async function openHomeCategory(category: HomeCategory) {
 }
 function renderHome() {
   const token = ++homeGeneration
-  const rows = refreshHomeRows((channel, versions) => { lastFocusedCard = document.activeElement as HTMLElement; watch(channel, versions) })
+  const rows = refreshHomeRows(watch)
   const pool = providerIndex?.items.length ? providerIndex.items : channels
   const featured = [...knownLibraryChannels.values()].find(channel => library?.isFavorite(channel)) || pool.find(channel => channel.mediaKind === 'movie' && channel.logo) || pool.find(channel => channel.logo) || pool[0]
   renderFeatured(featured)
@@ -1020,15 +1098,18 @@ function startIndex() {
 }
 $('index-toggle').onclick = () => { if (providerIndex?.progress.running) { providerIndex.pause(); renderIndexStatus() } else startIndex() }
 function goHome() {
+  rememberBrowsePosition(); cancelBrowseEntry(); catalogReturnVisit = undefined
   cancelProviderLoad(); cancelGuide(); searching?.abort(); clearTimeout(searchTimer); browseView = 'home'; libraryView = 'all'
   document.documentElement.dataset.browse = 'home'
   $('home-content').hidden = false; $('browse-content').hidden = true
   $('section-title').textContent = tr('Home'); $('section-kicker').textContent = 'WELCOME BACK'
   renderHome(); show('catalog'); syncNav(); $('hero-play').focus()
 }
-async function browse(kind: 'search' | MediaKind, categoryToOpen?: Category) {
-  cancelProviderLoad(); cancelGuide(); browseCategory = undefined; browseView = kind; libraryView = 'all'; input('search').value = ''; select('group').value = ''
+async function browse(kind: 'search' | MediaKind, categoryToOpen?: Category, fresh = false) {
+  const entry = beginBrowse(kind, !!categoryToOpen, fresh)
+  browseCategory = undefined; browseView = kind; libraryView = 'all'
   restoreBrowseChoice(!!categoryToOpen)
+  const visit = prepareBrowseVisit(entry.visit)
   const title = { live: 'Live TV', movie: 'Movies', series: 'Series', search: 'Search' }[kind]
   browseLayout(tr(title))
   if (activeSource?.kind !== 'xtream' || kind === 'search') {
@@ -1038,17 +1119,19 @@ async function browse(kind: 'search' | MediaKind, categoryToOpen?: Category) {
       if (![...select('group').options].some(option => option.value === categoryToOpen.name)) select('group').add(new Option(categoryToOpen.name, categoryToOpen.name))
       select('group').value = categoryToOpen.name
     }
-    await filter()
-    if (kind === 'search') input('search').focus()
-    else {
+    if (kind !== 'search') {
       const list = $('category-list'); list.replaceChildren()
-      for (const group of new Set(channels.filter(channel => homeKind(channel) === kind).map(channel => channel.group))) { const item = document.createElement('button'); item.textContent = group; item.onclick = () => { select('group').value = group; void filter() }; list.append(item) }
+      for (const group of new Set(channels.filter(channel => homeKind(channel) === kind).map(channel => channel.group))) { const item = document.createElement('button'); item.textContent = group; item.dataset.category = group; item.onclick = () => { select('group').value = group; void filter() }; list.append(item) }
       $('categories-back').hidden = false
     }
+    pendingBrowseVisit = visit
+    try { await filter(false) } finally { finishBrowse(entry, visit) }
     return
   }
   const controller = new AbortController(); providerLoading = controller; $('cancel-category').hidden = false
-  channels = providerIndex?.items.filter(channel => channel.mediaKind === kind) || []; updateGroups(); await filter()
+  if (visit?.category) browseCategory = { ...visit.category, kind }
+  channels = browseCategory ? [] : providerIndex?.items.filter(channel => channel.mediaKind === kind) || []; updateGroups(); await filter(false)
+  if (browseGeneration !== entry.generation || providerLoading !== controller) return
   $('result-count').textContent = 'Loading categories…'
   try {
     const categories = providerIndex?.categories[kind] || providerCategories[kind] || await loadCategories(activeSource, kind, controller.signal)
@@ -1056,27 +1139,38 @@ async function browse(kind: 'search' | MediaKind, categoryToOpen?: Category) {
     providerCategories[kind] = categories
     const list = $('category-list'); list.replaceChildren(); list.hidden = false; $('categories-back').hidden = false
     for (const category of categories) {
-      const item = document.createElement('button'); item.textContent = category.name; item.onclick = () => void openCategory(kind, category); list.append(item)
+      const item = document.createElement('button'); item.textContent = category.name; item.dataset.category = category.id; item.onclick = () => void openCategory(kind, category); list.append(item)
     }
     if (categoryToOpen) { await openCategory(kind, categoryToOpen); return }
+    if (visit?.category) {
+      const category = categories.find(item => item.id === visit.category!.id)
+      if (category) { await openCategory(kind, category, visit, entry.revision); return }
+      if (browseInputRevision === entry.revision) pendingBrowseVisit = visit
+      await filter(false); if (browseGeneration !== entry.generation) return
+      notice('The previous category is no longer available. Choose another category or All categories.'); return
+    }
+    if (browseInputRevision === entry.revision) pendingBrowseVisit = visit
+    await filter(false); if (browseGeneration !== entry.generation) return
     if (!filtered.length) $('result-count').textContent = categories.length ? 'Choose a category, or wait for your library to load.' : 'Your provider returned no categories in this section.'
-    else render()
-    list.querySelector('button')?.focus()
   } catch (error) { if (providerLoading === controller) { $('result-count').textContent = ''; notice((error as Error).message) } }
-  finally { if (providerLoading === controller) { providerLoading = undefined; $('cancel-category').hidden = true; renderEmpty() } }
+  finally { if (providerLoading === controller) { providerLoading = undefined; $('cancel-category').hidden = true; renderEmpty() }; finishBrowse(entry, visit) }
 }
-async function openCategory(kind: MediaKind, category: Category) {
+async function openCategory(kind: MediaKind, category: Category, visit?: BrowseVisit, revision = browseInputRevision) {
   if (!activeSource) return
-  cancelProviderLoad(); const controller = new AbortController(); providerLoading = controller
+  cancelProviderLoad(); searching?.abort(); pendingBrowseVisit = undefined
+  const generation = ++browseGeneration; enteringBrowse = generation; focusedBrowse = undefined
+  const controller = new AbortController(); providerLoading = controller
   $('cancel-category').hidden = false; notice('Loading this category…')
   try {
     const result = providerIndex?.cached(kind, category) || await loadCategory(activeSource, kind, category, controller.signal)
     if (providerLoading !== controller) return
-    browseCategory = { ...category, kind }; channels = result.channels; updateGroups(); browseLayout(category.name); await filter()
-    $('channels').querySelector<HTMLElement>('button')?.focus()
+    browseCategory = { ...category, kind }; channels = result.channels; updateGroups(); browseLayout(category.name)
+    if (browseInputRevision === revision) pendingBrowseVisit = visit
+    await filter(!visit); if (browseGeneration !== generation) return
+    if (!visit && browseInputRevision === revision) { const first = $('channels').querySelector<HTMLElement>('button'); first?.focus(); if (first) focusedBrowse = browseFocus(first) }
     if (result.skipped) notice(`${result.skipped} invalid entries were skipped.`)
   } catch (error) { if (providerLoading === controller) notice((error as Error).message) }
-  finally { if (providerLoading === controller) { providerLoading = undefined; $('cancel-category').hidden = true; renderEmpty() } }
+  finally { if (providerLoading === controller) { providerLoading = undefined; $('cancel-category').hidden = true; renderEmpty() }; if (browseGeneration === generation) enteringBrowse = 0 }
 }
 function cancelRelated() { if (relatedLoading) { relatedLoading.abort(); relatedLoading = undefined; relatedPool = undefined }; $('detail-related-rail').setAttribute('aria-busy', 'false') }
 function cancelDetails() { detailLoading?.abort(); detailLoading = undefined; cancelRelated() }
@@ -1183,7 +1277,7 @@ function returnFromDetails() {
   }
   cancelDetails(); show('catalog')
   if (browseView === 'home') { renderHome(); $('hero-play').focus() }
-  else { render(); ($('channels').querySelectorAll<HTMLElement>('button')[lastChannel] || button('view-all')).focus(); if (libraryView !== 'all') void filter() }
+  else if (!catalogReturnVisit) { render(); ($('channels').querySelectorAll<HTMLElement>('button')[lastChannel] || button('view-all')).focus() }
 }
 $('detail-back').onclick = returnFromDetails
 $('detail-download').onclick = () => { if (detailInfo) openDownloads(detailInfo.channel) }
@@ -1309,8 +1403,8 @@ function applyTrackPreferences() {
 }
 function queueTrackRefresh() { trackMenuDirty = true; if (!$('track-menu').hidden && !nativeSelectOpen) refreshTracks() }
 $('settings-about').onclick = () => { previousScreen = 'settings'; show('about') }
-$('categories-back').onclick = () => { if (['live', 'movie', 'series'].includes(browseView)) void browse(browseView as MediaKind) }
-$('cancel-category').onclick = () => { cancelProviderLoad(); notice('Loading cancelled.') }
+$('categories-back').onclick = () => { if (['live', 'movie', 'series'].includes(browseView)) void browse(browseView as MediaKind, undefined, true) }
+$('cancel-category').onclick = () => { cancelBrowseEntry(); cancelProviderLoad(); notice('Loading cancelled.') }
 function refreshTracks() {
   trackMenuDirty = false
   const tracks = [...player?.tracks?.() || [], ...embeddedSubtitles.tracks()]
