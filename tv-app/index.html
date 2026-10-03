@@ -27,20 +27,23 @@
           <label for="password">Password</label><input id="password" type="password" autocomplete="off" maxlength="1024">
         </div>
         <label class="check"><input id="remember" type="checkbox">Remember this source on this TV</label>
-        <p class="hint">Saved addresses and passwords are stored without encryption. Leave this off on a shared TV.</p>
-        <div class="actions"><button id="connect" class="primary" type="submit">Open my streams</button><button id="cancel-load" type="button" hidden>Cancel</button><button id="forget" type="button" hidden>Forget saved source</button></div>
+        <p class="hint">Save this source, favorites, and viewing progress. Saved addresses and passwords are not encrypted; leave this off on a shared TV.</p>
+        <div class="actions"><button id="connect" class="primary" type="submit">Open my streams</button><button id="cancel-load" type="button" hidden>Cancel</button><button id="return-catalog" type="button" hidden>Back to my streams</button><button id="forget" type="button" hidden>Forget saved source</button></div>
       </form>
     </section>
     <section id="catalog" hidden>
-      <div class="heading"><div><p class="eyebrow">READY WHEN YOU ARE</p><h1>Your streams</h1></div><button id="change-source">Change source</button></div>
+      <div class="heading"><div><p class="eyebrow">READY WHEN YOU ARE</p><h1>Your streams</h1></div><div class="actions"><button id="refresh-catalog">Refresh</button><button id="change-source">Change source</button></div></div>
+      <div class="actions library-tabs" aria-label="Library views"><button id="view-all" aria-pressed="true">All streams</button><button id="view-favorites" aria-pressed="false">Favorites</button><button id="view-recent" aria-pressed="false">Recently watched</button><button id="clear-history" hidden>Clear history</button></div>
+      <p id="library-note" class="hint"></p>
       <div class="filters"><div><label for="search">Find a stream</label><input id="search" type="search" placeholder="Search by name" autocomplete="off"></div><div><label for="group">Group</label><select id="group"><option value="">All groups</option></select></div></div>
       <p id="result-count" class="muted"></p>
       <div id="channels" class="grid"></div>
       <div class="pagination"><button id="previous">Previous page</button><span id="page-label"></span><button id="next">Next page</button></div>
     </section>
     <section id="playback" hidden>
-      <div id="controls" class="play-controls"><p class="eyebrow">NOW WATCHING</p><h1 id="playing-title"></h1><p id="player-status" role="status"></p><div class="actions"><button id="toggle" class="primary">Pause</button><button id="rewind">Back 10 seconds</button><button id="forward">Forward 10 seconds</button><button id="hide-controls">Hide controls</button><button id="stop">Back to streams</button></div><p class="hint">Press an arrow to show controls. Back returns to your streams.</p></div>
+      <div id="controls" class="play-controls"><p class="eyebrow">NOW WATCHING</p><h1 id="playing-title"></h1><p id="player-status" role="status"></p><p id="playback-time" class="hint"></p><div class="actions"><button id="toggle" class="primary">Pause</button><button id="rewind">Back 10 seconds</button><button id="forward">Forward 10 seconds</button><button id="favorite" aria-pressed="false">☆ Add favorite</button><button id="retry" hidden>Retry stream</button><button id="hide-controls">Hide controls</button><button id="stop">Back to streams</button></div><p class="hint">Press an arrow to show controls. Back returns to your streams.</p></div>
     </section>
+    <section id="resume" class="info-panel" hidden><p class="eyebrow">PICK UP WHERE YOU LEFT OFF</p><h1 id="resume-title"></h1><p id="resume-description"></p><div class="actions"><button id="resume-continue" class="primary">Continue watching</button><button id="resume-start">Start over</button><button id="resume-back">Back to streams</button></div></section>
     <section id="about" class="info-panel" hidden>
       <p class="eyebrow">AN INDEPENDENT FORK</p><h1>A little light for your screen.</h1>
       <p>Lanternfin TV — LG / Samsung preview 0.1.0.</p>

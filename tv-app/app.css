@@ -26,6 +26,7 @@ h1 { font-size: 2.1rem; line-height: 1.1; letter-spacing: -.035em; margin: 12px 
 .muted, .hint { color: #aac1ca; }.hint { font-size: .65rem; line-height: 1.45; }
 .primary { background: #69ddc7; border-color: #69ddc7; color: #102934; font-weight: bold; }
 .actions { flex-wrap: wrap; }.actions button { margin: 10px 12px 0 0; }
+.library-tabs button[aria-pressed="true"] { background: #69ddc7; color: #102934; border-color: #69ddc7; }
 .heading { justify-content: space-between; }.heading h1 { margin-bottom: 12px; }
 .filters > div { flex: 1; }.filters > div + div { margin-left: 28px; }
 .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-gap: 22px; }

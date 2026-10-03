@@ -16,6 +16,23 @@ function fixture() {
 }
 afterEach(() => vi.useRealTimers())
 describe('Samsung native player lifecycle', () => {
+  it('resumes a prepared movie at the saved time before starting playback', () => {
+    const { api, pending, player } = fixture()
+    player.play('https://example.com/movie.mp4', 30); pending[0].success()
+    expect(api.seekTo).toHaveBeenCalledWith(30000, expect.any(Function), expect.any(Function))
+    expect(api.play).toHaveBeenCalledOnce(); expect(player.timeline()).toEqual({ position: 95, duration: 100 }); player.stop()
+  })
+  it('cannot restart a stopped movie when a resume seek completes late', () => {
+    const { api, pending, player } = fixture(); let finish!: () => void
+    vi.mocked(api.seekTo).mockImplementation((_time, success) => { finish = success })
+    player.play('https://example.com/movie.mp4', 30); pending[0].success(); player.stop(); finish()
+    expect(api.play).not.toHaveBeenCalled()
+  })
+  it('ends a permanent Samsung buffering stall', () => {
+    vi.useFakeTimers(); const { player, pending, listeners, report } = fixture()
+    player.play('https://example.com/live'); pending[0].success(); listeners[0].onbufferingstart()
+    vi.advanceTimersByTime(60000); expect(report).toHaveBeenLastCalledWith('error', expect.any(String))
+  })
   it('prepares asynchronously before playing in the native 1920x1080 plane', () => {
     const { api, pending, player } = fixture(); player.play('https://example.com/stream')
     expect(api.play).not.toHaveBeenCalled(); expect(api.setDisplayRect).toHaveBeenCalledWith(0, 0, 1920, 1080)

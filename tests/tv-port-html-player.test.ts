@@ -38,3 +38,18 @@ it('does not seek an infinite live timeline and bounds VOD seeking', () => {
   player.seek(100); expect(video.currentTime).toBe(49)
   player.seek(-100); expect(video.currentTime).toBe(0)
 })
+it('restores a VOD position after metadata arrives and exposes the actual timeline', () => {
+  const video = document.createElement('video'), player = htmlPlayer(video, vi.fn())
+  Object.defineProperty(video, 'duration', { value: 600 })
+  player.play('https://example.com/movie.mp4', 125)
+  video.dispatchEvent(new Event('loadedmetadata')); expect(video.currentTime).toBe(125)
+  video.currentTime = 150; video.dispatchEvent(new Event('loadedmetadata'))
+  expect(player.timeline()).toEqual({ position: 150, duration: 600 }); player.stop()
+})
+it('releases a permanently buffering stream so the UI can offer retry', () => {
+  vi.useFakeTimers()
+  const video = document.createElement('video'), report = vi.fn(), player = htmlPlayer(video, report)
+  player.play('https://example.com/stalled'); video.dispatchEvent(new Event('playing')); video.dispatchEvent(new Event('waiting'))
+  vi.advanceTimersByTime(60000)
+  expect(video.hasAttribute('src')).toBe(false); expect(report).toHaveBeenLastCalledWith('error', expect.any(String))
+})
