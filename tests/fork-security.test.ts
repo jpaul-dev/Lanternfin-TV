@@ -21,6 +21,14 @@ afterEach(() => {
 })
 
 describe("credential transport", () => {
+  it("keeps a saved playlist out of cookies and expires the old cookie", async () => {
+    document.cookie = `xt_playlists=${encodeURIComponent(JSON.stringify({ entries: [], selectedId: "" }))}; path=/`
+    expect(document.cookie).toContain("xt_playlists=")
+    const { addEntry } = await import("@/scripts/lib/creds.js")
+    await addEntry({ type: "xtream", serverUrl: "https://provider.example", username: "test", password: "test-secret" })
+    expect(localStorage.getItem("xt_playlists")).toContain("test-secret")
+    expect(document.cookie).not.toContain("xt_playlists=")
+  })
   it.each(["https://provider.example", "provider.example", "provider.example:8080"])(
     "does not retry %s with plaintext credentials after a TLS failure", async (serverUrl) => {
       const { resolveServerScheme } = await import("@/scripts/lib/creds.js")

@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: alpha-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   PUBLIC_APP_MODE: standalone
@@ -74,9 +74,31 @@ jobs:
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/29.0.13846066
         run: pnpm tauri android build --ci --apk --target ${{ matrix.target }}
+      - name: Verify APK identity and record checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t apks < <(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk')
+          test "${#apks[@]}" -gt 0
+          for apk in "${apks[@]}"; do
+            "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" > "$apk.manifest.txt"
+            grep -q "package: name='io.github.jpauldev.lanternfin'" "$apk.manifest.txt"
+            grep -q "application-label:'Lanternfin TV'" "$apk.manifest.txt"
+            sha256sum "$apk" > "$apk.sha256"
+          done
+          {
+            echo "Source commit: $GITHUB_SHA"
+            rustc --version
+            cargo --version
+            node --version
+            pnpm --version
+          } > src-tauri/gen/android/app/build/outputs/apk/toolchain.txt
       - uses: actions/upload-artifact@v4
         with:
           name: lanternfin-android-${{ matrix.target }}-unsigned-${{ github.sha }}
-          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          path: |
+            src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+            src-tauri/gen/android/app/build/outputs/apk/**/*.txt
+            src-tauri/gen/android/app/build/outputs/apk/**/*.sha256
           if-no-files-found: error
           retention-days: 14

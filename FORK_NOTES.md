@@ -18,4 +18,5 @@ Read the [security review and LG and Samsung roadmap](docs/fork-review/README.md
 - Removed the upstream update key; update/release links now identify this fork. Metadata relay access requires an independently configured HTTPS endpoint and explicit user opt-in.
 - HTTPS and scheme-less credential URLs no longer fall back to HTTP. Explicit HTTP sources remain usable. New credential saves expire the old playlist cookie instead of writing passwords into it. Local/native storage is still unencrypted.
 - Updated compatible dependency versions, including DOMPurify 3.4.16; unresolved advisories remain documented.
+- Follow-up patch overrides update undici to 8.10.2, brace-expansion to 5.0.12, and devalue to 5.9.3. The main-tree npm audit now reports one high finding (`http-cache-semantics`), down from 24 advisory records; the docs lockfile and Rust findings are separate outstanding work. Evidence: `docs/fork-review/npm-audit-alpha.json`.
 - Added a read-only GitHub Actions workflow for frontend validation and ARM64/ARMv7 standalone Android TV APKs. CI packages are unsigned and are not store releases. See [alpha build instructions](docs/ALPHA_BUILDS.md).

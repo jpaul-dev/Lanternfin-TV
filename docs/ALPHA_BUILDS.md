@@ -30,6 +30,8 @@ The `Lanternfin alpha` workflow produces a web bundle and two **unsigned** APK a
 
 CI does not hold a release signing key. Align and sign a downloaded APK locally with Android SDK `zipalign` and `apksigner`, then verify the signature. Keep any alpha key outside the checkout and backed up. A persistent alpha key allows updates to an installed alpha; a different key requires uninstalling it first. Do not use this alpha identity/key for a store release without deciding the long-term signing strategy.
 
+On Windows, `scripts/sign-android-alpha.ps1 -UnsignedApk <input.apk> -OutputApk <output.apk>` performs alignment, signing, signature verification, and SHA-256 hashing. It creates or reuses a private alpha key under `%USERPROFILE%\.lanternfin\signing`, with a password encrypted using Windows DPAPI and access limited to the current user and SYSTEM. The encrypted password file is tied to that Windows login/machine; copying it alone is not a portable key backup. Plan a secure password export and key backup before changing computers.
+
 Install only after confirming the application ID is `io.github.jpauldev.lanternfin`, the label is `Lanternfin TV`, and the launcher opens the browsing UI. Test ARM64 and ARMv7 devices separately. Compilation does not establish playback or remote-control compatibility.
 
 ## Alpha limits and release gates

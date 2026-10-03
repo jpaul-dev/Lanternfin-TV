@@ -2,5 +2,9 @@ packages:
   - "."
 overrides:
   tmp: ">=0.2.6"
+  # Patch-level security fixes until the parent packages refresh their pins.
+  "undici@8.10.0": "8.10.2"
+  "brace-expansion@5.0.9": "5.0.12"
+  "devalue@5.9.2": "5.9.3"
 patchedDependencies:
   "mpegts.js@1.8.0": patches/mpegts.js.patch
