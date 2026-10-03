@@ -212,6 +212,7 @@ progress{width:100%;height:.15rem;border:0;accent-color:var(--accent)}progress::
 .settings-list{display:flex;flex-direction:column;gap:.4rem}
 .settings-row{display:flex;align-items:center;justify-content:space-between;gap:2rem;min-height:3.7rem;margin:0;padding:.5rem 1rem;border:0;border-radius:.75rem;font-size:.9rem;font-weight:550;background:transparent;color:inherit}
 .settings-row small{font-size:.75rem;font-weight:400;color:var(--muted)}
+.settings-row>span{min-width:0}.settings-row>span small{display:block;margin-top:.2rem}
 .settings-row select{width:47%;max-width:22rem;min-width:9rem;border:0;background:transparent;text-align-last:right;color:var(--muted);font-size:.8rem;font-weight:400}
 .settings-row select:focus{outline:none}.settings-row:focus-within,.settings-row:focus{outline:2px solid var(--accent);outline-offset:0;background:#20272c}
 [data-motion=reduced] *{transition:none!important;scroll-behavior:auto!important;animation:none!important}
