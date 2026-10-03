@@ -1,0 +1,25 @@
+{
+  "version": "0.1.0-alpha.1",
+  "sourceCommit": "8cdabd586d394a075bf068fa0d1226e72f5120ff",
+  "sourceUrl": "https://github.com/jpaul-dev/Lanternfin-TV/tree/8cdabd586d394a075bf068fa0d1226e72f5120ff",
+  "workflowRun": "https://github.com/jpaul-dev/Lanternfin-TV/actions/runs/37093029943",
+  "applicationId": "io.github.jpauldev.lanternfin",
+  "certificateSha256": "66e5ba7509bb29edf43a0924a9cbdc4ac67415a29488ea1801b8a041aafca633",
+  "signatureSchemes": [
+    "v2",
+    "v3"
+  ],
+  "defenderScanResult": "No threats found; exit 0. Not a guarantee of safety.",
+  "files": [
+    {
+      "name": "Lanternfin-TV-0.1.0-alpha.1-arm64.apk",
+      "bytes": 14741317,
+      "sha256": "4794fcf9765c50dff57a84b125bcca4d593e885a705be6df928c98b6adb34709"
+    },
+    {
+      "name": "Lanternfin-TV-0.1.0-alpha.1-armv7.apk",
+      "bytes": 13778759,
+      "sha256": "af7bf40b90fa081da2a9523ba77b4cc944567961412a0f39542fad080013b1fb"
+    }
+  ]
+}

@@ -14,6 +14,8 @@ Independent fork of [Extreme InfiniTV](https://github.com/infinitel8p/Extreme-In
 
 The Android identity is `io.github.jpauldev.lanternfin`, separate from the original app. The inherited update signing key is removed. There are no inherited store publishing workflows. No upstream metadata relay is contacted by default.
 
+The first web, ARM64, and ARMv7 builds passed; local signed alpha packages have been verified. See [build results and limitations](docs/BUILD_STATUS.md). A physical TV has not yet been tested.
+
 ## Review and roadmap
 
 Read the [security review and LG/Samsung plan](docs/fork-review/README.md), and [fork change notes](FORK_NOTES.md). The initial review found no clear evidence of deliberate malware. Remaining work includes encrypted credential storage, tighter desktop permissions, outstanding dependency advisories, physical TV testing, and platform-specific LG/Samsung players.

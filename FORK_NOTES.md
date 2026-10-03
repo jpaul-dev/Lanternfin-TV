@@ -20,3 +20,5 @@ Read the [security review and LG and Samsung roadmap](docs/fork-review/README.md
 - Updated compatible dependency versions, including DOMPurify 3.4.16; unresolved advisories remain documented.
 - Follow-up patch overrides update undici to 8.10.2, brace-expansion to 5.0.12, and devalue to 5.9.3. The main-tree npm audit now reports one high finding (`http-cache-semantics`), down from 24 advisory records; the docs lockfile and Rust findings are separate outstanding work. Evidence: `docs/fork-review/npm-audit-alpha.json`.
 - Added a read-only GitHub Actions workflow for frontend validation and ARM64/ARMv7 standalone Android TV APKs. CI packages are unsigned and are not store releases. See [alpha build instructions](docs/ALPHA_BUILDS.md).
+
+The first complete build run passed. Both Android architectures now have locally signed and verified alpha APKs, and all 2,990 frontend tests passed. See [verified build results](docs/BUILD_STATUS.md) for source provenance, artifact hashes, scan evidence, and remaining hardware checks.
