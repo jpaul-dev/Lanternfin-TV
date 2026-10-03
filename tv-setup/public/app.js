@@ -20,6 +20,13 @@ function key() { return `${state.brand}:${state.ip.trim()}` }
 function paired() { return info?.linked.includes(key()) }
 function installed() { return info?.installed.includes(key()) }
 function signed() { return info?.sdk && info.signed.includes(`${info.sdk.root}|${state.profile}`) }
+function currentPackage() { return state.brand === 'lg' ? info?.lgPackageInfo : info?.signedPackages?.[`${info?.sdk?.root}|${state.profile}`] }
+function revisionLabel(pkg) { return pkg?.build ? `${pkg.build.version} · ${pkg.build.commit.slice(0, 8)}${pkg.build.modified ? ' · local changes' : ''}` : '' }
+function packageDetails() {
+  const pkg = currentPackage(), installedPackage = info?.installedPackages?.[key()]
+  const problem = state.brand === 'lg' && info?.lgPackageProblem
+  return `${pkg ? `<div class="package-details"><p><strong>Ready to install</strong><br>${esc(revisionLabel(pkg))}</p><p class="muted">${esc(pkg.build.assets)} app files checked against the build record. Checked again before installation.</p>${installedPackage ? `<p><strong>Last installed in this session</strong><br>${esc(revisionLabel(installedPackage))}${installedPackage.sha256 === pkg.sha256 ? ' · same package' : ' · different package'}</p>` : ''}<p class="muted">After reopening the TV app, compare this revision with Device &amp; playback diagnostics.</p></div>` : ''}${problem ? `<p class="callout">${esc(problem)}</p>` : ''}`
+}
 function steps() {
   return [['choose', 'Choose your TV'], ['tools', 'Computer tools'], ['developer', 'Developer Mode'], ['connect', 'Connect your TV'],
     ...(state.brand === 'samsung' ? [['certificate', 'Samsung certificate']] : []), ['install', 'Install Lanternfin'], ['watch', 'Start watching']]
@@ -115,7 +122,8 @@ function render() {
       `<div class="split"><div class="panel"><div class="section-heading"><h2>Lanternfin TV</h2>${pill(installed(), 'Installed', 'Preview 0.1.0')}</div><p class="muted">Standalone playback · your own playlists · remote-friendly controls</p>` +
       toolRow('Destination', `${lg ? 'LG webOS' : 'Samsung Tizen'} · ${esc(state.ip || 'No TV address entered')}`, paired(), pill(paired(), 'Connected', 'Connect first')) +
       toolRow('App package', lg ? 'LG developer installer (.ipk)' : 'Samsung signed widget (.wgt)', lg ? info?.lgPackage : signed()) +
-      `<div class="actions">${actionButton(lg ? 'install-lg' : 'install-samsung', installed() ? 'Reinstall Lanternfin' : 'Install Lanternfin', !ready, true)}${lg ? actionButton('build-lg', 'Build this checkout', !info?.projectTools || !info?.lgTools) : ''}</div>${!ready ? '<p class="muted">Finish connection and package preparation before installing.</p>' : ''}</div>` +
+      packageDetails() +
+      `<div class="actions">${actionButton(lg ? 'install-lg' : 'install-samsung', installed() ? 'Reinstall Lanternfin' : 'Install Lanternfin', !ready, true)}${lg ? actionButton('build-lg', 'Build this checkout', !info?.projectTools || !info?.lgTools) : ''}<button class="secondary" data-refresh>Refresh package status</button></div>${!ready ? '<p class="muted">Finish connection and package preparation before installing.</p>' : ''}</div>` +
       `<div class="panel soft">${tvArt(state.brand)}<p class="muted">Updating? In GitHub Desktop, fetch and review changes on the TV branch before pulling. Build this checkout, then reinstall. Builds use this folder’s existing files; they do not fetch changes.</p><p class="muted">Back up the TV library first. Keep the app ID and Samsung signing certificate unchanged. Keep your previous installer for recovery.</p><div class="callout">Keep the TV awake and on the same network until installation finishes. This is a development preview; playback support still needs testing on your model.</div></div></div>` +
       `<div class="actions between"><button class="link-button" data-go="${lg ? 'connect' : 'certificate'}">← ${lg ? 'TV connection' : 'Samsung signing'}</button>${goButton('watch', 'Open it on my TV', !installed())}</div>`
   } else {

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
 import { join, dirname, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
-import { deflateRawSync, gzipSync } from 'node:zlib'
+import { widget, ipk, buildFiles } from './helpers/tv-package-fixture'
 import { createSetupService, inspectSignedWidget, inspectLgPackage, LG_ID } from '../tv-setup/core.mjs'
 import { runProcess } from '../tv-setup/runner.mjs'
 
@@ -20,25 +20,6 @@ async function samsungTools() {
   await file(join(path, 'tools', process.platform === 'win32' ? 'sdb.exe' : 'sdb'))
   await file(join(path, 'tools/ide/bin', process.platform === 'win32' ? 'tizen.bat' : 'tizen'))
   return path
-}
-function widget(signed = true, id = 'LantFin001.LanternfinTV', compress = false) {
-  const entries = [['config.xml', `<widget><tizen:application id="${id}" /></widget>`], ...(signed ? [['author-signature.xml', '<Signature xmlns="test" />'], ['signature1.xml', '<Signature xmlns="test" />']] : [])]
-  const locals: Buffer[] = [], central: Buffer[] = []; let offset = 0
-  for (const [name, text] of entries) {
-    const n = Buffer.from(name), raw = Buffer.from(text), data = compress ? deflateRawSync(raw) : raw
-    const header = Buffer.alloc(30); header.writeUInt32LE(0x04034b50); header.writeUInt16LE(n.length, 26)
-    const dir = Buffer.alloc(46); dir.writeUInt32LE(0x02014b50); dir.writeUInt16LE(compress ? 8 : 0, 10); dir.writeUInt32LE(data.length, 20); dir.writeUInt32LE(raw.length, 24); dir.writeUInt16LE(n.length, 28); dir.writeUInt32LE(offset, 42)
-    locals.push(header, n, data); central.push(dir, n); offset += header.length + n.length + data.length
-  }
-  const end = Buffer.alloc(22), directory = Buffer.concat(central); end.writeUInt32LE(0x06054b50); end.writeUInt16LE(entries.length, 10); end.writeUInt32LE(directory.length, 12); end.writeUInt32LE(offset, 16)
-  return Buffer.concat([...locals, directory, end])
-}
-function ipk(id = LG_ID) {
-  const data = Buffer.from(JSON.stringify({ id })), header = Buffer.alloc(512)
-  header.write(`./usr/palm/applications/${id}/appinfo.json`); header.write(data.length.toString(8).padStart(11, '0') + '\0', 124)
-  const tar = gzipSync(Buffer.concat([header, data, Buffer.alloc(512 - data.length), Buffer.alloc(1024)]))
-  const ar = Buffer.alloc(60, ' '); ar.write('data.tar.gz', 0); ar.write(String(tar.length), 48)
-  return Buffer.concat([Buffer.from('!<arch>\n'), ar, tar, Buffer.alloc(tar.length % 2)])
 }
 it('rejects unsigned and unrelated widgets and reads compressed signatures without extracting paths', () => {
   expect(() => inspectSignedWidget(widget(false))).toThrow('unsigned')
@@ -117,16 +98,23 @@ it('only installs the explicit paired LG package and records success after the t
   await service.execute('check-lg', params, context()); await service.execute('install-lg', params, context()); await service.execute('launch-lg', params, context())
   expect((await service.status()).installed).toEqual(['lg:192.168.1.50'])
   expect(runner.mock.calls.at(-1)![1]).toEqual([expect.stringContaining('ares-launch.js'), '--device', 'lanternfin-lg-192-168-1-50', LG_ID])
+  const status = await service.status()
+  expect(status.lgPackageInfo.build.commit).toBe(status.installedPackages['lg:192.168.1.50'].build.commit)
+  await writeFile(path, Buffer.from('damaged package'))
+  expect(await service.status()).toMatchObject({ lgPackage: false, lgPackageInfo: null, lgPackageProblem: expect.stringContaining('Build this checkout') })
+  const installs = runner.mock.calls.filter(call => call[1][0].endsWith('ares-install.js')).length
+  await expect(service.execute('install-lg', params, context())).rejects.toThrow('incomplete or damaged')
+  expect(runner.mock.calls.filter(call => call[1][0].endsWith('ares-install.js'))).toHaveLength(installs)
 })
 it('signs into a fresh directory, checks both signatures, and rejects a changed package before install', async () => {
   const sdkRoot = await samsungTools()
   await file(join(root, 'node_modules/vite/package.json'), '{}')
-  const assets = ['app.js', 'app.css', 'index.html', 'config.xml', 'icon.png', 'LICENSE', 'NOTICE.txt', 'build.json', 'startup.js', 'shaka-player.compiled.js', 'mpegts.js', 'epg-worker.js', 'mp4-text-worker.js', 'i18n-fr.json', 'LICENSE-Shaka.txt']
-  for (const name of assets) await file(join(root, 'dist/tv/tizen', name), name)
+  const assets = buildFiles('tizen')
+  for (const [name, bytes] of assets) await file(join(root, 'dist/tv/tizen', name), bytes.toString())
   let signedPath = ''
   const runner = vi.fn(async (_command, args) => {
     if (args[0] === 'build-web') {
-      for (const name of assets) expect(await readFile(join(args.at(-1), name), 'utf8')).toBe(name)
+      for (const [name, bytes] of assets) expect(await readFile(join(args.at(-1), name))).toEqual(bytes)
       await mkdir(join(args.at(-1), '.buildResult'))
     }
     if (args[0] === 'package') { signedPath = join(args.at(-1), 'LanternfinTV.wgt'); await writeFile(signedPath, widget(true)) }

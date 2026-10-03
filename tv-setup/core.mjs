@@ -2,12 +2,11 @@ import { access, readFile, readdir, mkdir, copyFile } from 'node:fs/promises'
 import { resolve, dirname, join, isAbsolute } from 'node:path'
 import { isIP } from 'node:net'
 import { networkInterfaces, homedir } from 'node:os'
-import { createHash, randomUUID } from 'node:crypto'
-import { inflateRawSync, gunzipSync } from 'node:zlib'
+import { randomUUID } from 'node:crypto'
+import { LG_ID, SAMSUNG_ID, inspectLgPackage, inspectSignedWidget } from './package.mjs'
+export { LG_ID, SAMSUNG_ID, inspectLgPackage, inspectSignedWidget } from './package.mjs'
 import { runProcess, openVendorWindow } from './runner.mjs'
 
-export const LG_ID = 'io.github.jpauldev.lanternfin'
-export const SAMSUNG_ID = 'LantFin001.LanternfinTV'
 export const ACTIONS = ['install-lg-tools', 'install-project-tools', 'build-lg', 'build-samsung', 'pair-lg', 'check-lg', 'connect-samsung', 'profiles-samsung', 'sign-samsung', 'install-lg', 'launch-lg', 'install-samsung', 'launch-samsung', 'open-certificate-manager', 'open-device-manager', 'open-package-manager']
 const exists = async file => { try { await access(file); return true } catch { return false } }
 export function privateIPv4(value) {
@@ -32,66 +31,10 @@ export function localAddresses() {
   })).sort((a, b) => Number(a.virtual) - Number(b.virtual))
 }
 
-// Read selected ZIP members without extracting any paths or trusting archive names.
-export function inspectSignedWidget(data) {
-  if (data.length > 100 * 1024 * 1024) throw new Error('The signed widget is unexpectedly large.')
-  const members = new Map()
-  let end = -1
-  for (let i = data.length - 22; i >= Math.max(0, data.length - 65557); i--) {
-    if (data.readUInt32LE(i) === 0x06054b50 && i + 22 + data.readUInt16LE(i + 20) === data.length) { end = i; break }
-  }
-  if (end < 0) throw new Error('The SDK did not produce a valid widget archive.')
-  let offset = data.readUInt32LE(end + 16)
-  const count = data.readUInt16LE(end + 10)
-  for (let i = 0; i < count; i++) {
-    if (offset + 46 > end || data.readUInt32LE(offset) !== 0x02014b50) throw new Error('Invalid widget directory.')
-    const size = data.readUInt32LE(offset + 20), method = data.readUInt16LE(offset + 10), nameLength = data.readUInt16LE(offset + 28)
-    const name = data.subarray(offset + 46, offset + 46 + nameLength).toString('utf8')
-    if (['config.xml', 'author-signature.xml', 'signature1.xml'].includes(name)) {
-      if (members.has(name)) throw new Error('Widget contains duplicate metadata.')
-      const local = data.readUInt32LE(offset + 42)
-      if (local + 30 > data.length || data.readUInt32LE(local) !== 0x04034b50 || data.readUInt16LE(offset + 8) & 1) throw new Error('Invalid widget member.')
-      const start = local + 30 + data.readUInt16LE(local + 26) + data.readUInt16LE(local + 28)
-      if (size > 1024 * 1024 || start + size > data.length) throw new Error('Widget metadata is too large or truncated.')
-      const raw = data.subarray(start, start + size)
-      const value = method === 0 ? raw : method === 8 ? inflateRawSync(raw, { maxOutputLength: 1024 * 1024 }) : null
-      if (!value) throw new Error('Unsupported widget compression.')
-      members.set(name, value.toString('utf8'))
-    }
-    offset += 46 + nameLength + data.readUInt16LE(offset + 30) + data.readUInt16LE(offset + 32)
-  }
-  if (!/<tizen:application\b[^>]*\bid=["']LantFin001\.LanternfinTV["']/.test(members.get('config.xml') || '')) throw new Error('This widget is not the Lanternfin TV app.')
-  for (const name of ['author-signature.xml', 'signature1.xml']) {
-    if (!/<(?:\w+:)?Signature[\s>]/.test(members.get(name) || '')) throw new Error('The widget is unsigned. Finish the Samsung certificate step first.')
-  }
-  return { sha256: createHash('sha256').update(data).digest('hex'), bytes: data.length }
-}
-
-export function inspectLgPackage(data) {
-  if (data.length > 100 * 1024 * 1024 || data.subarray(0, 8).toString() !== '!<arch>\n') throw new Error('The LG package is invalid. Build it again.')
-  let archive
-  for (let offset = 8; offset + 60 <= data.length;) {
-    const name = data.subarray(offset, offset + 16).toString().trim(), length = Number(data.subarray(offset + 48, offset + 58).toString().trim())
-    if (!Number.isSafeInteger(length) || length < 0 || offset + 60 + length > data.length) throw new Error('Invalid LG package structure.')
-    if (name.startsWith('data.tar.gz')) archive = gunzipSync(data.subarray(offset + 60, offset + 60 + length), { maxOutputLength: 100 * 1024 * 1024 })
-    offset += 60 + length + (length % 2)
-  }
-  let found = false
-  for (let offset = 0; archive && offset + 512 <= archive.length && archive[offset];) {
-    const name = archive.subarray(offset, offset + 100).toString().replace(/\0.*$/s, '')
-    const length = parseInt(archive.subarray(offset + 124, offset + 136).toString().replace(/\0.*$/s, '').trim() || '0', 8)
-    if (!Number.isSafeInteger(length) || length < 0 || offset + 512 + length > archive.length) throw new Error('Invalid LG app contents.')
-    if (name.endsWith(`/${LG_ID}/appinfo.json`)) { const app = JSON.parse(archive.subarray(offset + 512, offset + 512 + length).toString()); found = app.id === LG_ID }
-    offset += 512 + Math.ceil(length / 512) * 512
-  }
-  if (!found) throw new Error('This LG package does not contain Lanternfin TV.')
-  return { sha256: createHash('sha256').update(data).digest('hex'), bytes: data.length }
-}
-
 export function createSetupService({ root, runner = runProcess, opener = openVendorWindow } = {}) {
   const cliRoot = join(root, 'packaging/tv-tools/node_modules/@webos-tools/cli/bin')
   const ipk = join(root, 'artifacts/tv-preview-0.1.0', `${LG_ID}_0.1.0_all.ipk`)
-  const linked = new Set(), signed = new Map(), installed = new Set()
+  const linked = new Set(), signed = new Map(), installed = new Map()
   const lg = name => join(cliRoot, name + '.js')
   async function sdk(input = '') {
     if (typeof input !== 'string' || input.length > 512 || /[\x00-\x1f"%!?^&|<>]/.test(input)) throw new Error('Choose a simple Tizen Studio folder path without shell punctuation.')
@@ -117,9 +60,12 @@ export function createSetupService({ root, runner = runProcess, opener = openVen
   }
   async function status(input = '') {
     const kit = await sdk(input)
+    let lgPackageInfo = null, lgPackageProblem = ''
+    try { lgPackageInfo = inspectLgPackage(await readFile(ipk)) }
+    catch (error) { if (error.code !== 'ENOENT') lgPackageProblem = 'The LG installer is incomplete or damaged. Choose Build this checkout to replace it.' }
     return { node: process.versions.node, root, addresses: localAddresses(), lgTools: await exists(lg('ares-install')),
-      projectTools: await exists(join(root, 'node_modules/vite/package.json')), lgPackage: await exists(ipk), samsungApp: await exists(join(root, 'dist/tv/tizen/config.xml')),
-      sdk: kit ? { root: kit.root, gui: Object.keys(kit.gui) } : null, linked: [...linked], installed: [...installed], signed: [...signed.keys()] }
+      projectTools: await exists(join(root, 'node_modules/vite/package.json')), lgPackage: !!lgPackageInfo, lgPackageInfo, lgPackageProblem, samsungApp: await exists(join(root, 'dist/tv/tizen/config.xml')),
+      sdk: kit ? { root: kit.root, gui: Object.keys(kit.gui) } : null, linked: [...linked], installed: [...installed.keys()], installedPackages: Object.fromEntries(installed), signed: [...signed.keys()], signedPackages: Object.fromEntries([...signed].map(([key, { file, ...info }]) => [key, info])) }
   }
   async function execute(action, params, context) {
     if (!ACTIONS.includes(action)) throw new Error('Unknown setup action.')
@@ -140,7 +86,7 @@ export function createSetupService({ root, runner = runProcess, opener = openVen
         : ['exec', '--yes', '--package=pnpm@10.31.0', '--', 'pnpm', 'install', '--frozen-lockfile', '--ignore-scripts']
       await node(npm, args, { timeout: 600000 }); return { message: 'Tools installed. You can continue.' }
     }
-    if (action === 'build-lg') { await requireLg(); await build('webos'); step('Packaging the LG installer…'); await node(join(root, 'scripts/package-tv.mjs'), ['webos']); return { message: 'LG installer is ready.', package: inspectLgPackage(await readFile(ipk)) } }
+    if (action === 'build-lg') { await requireLg(); await build('webos'); step('Packaging the LG installer…'); await node(join(root, 'scripts/package-tv.mjs'), ['webos']); return { message: 'LG installer is ready.', package: inspectLgPackage(await readFile(ipk), await readFile(join(root, 'dist/tv/webos/build.json'))) } }
     if (action === 'build-samsung') { await build('tizen'); return { message: 'Samsung app built. Continue to the certificate step to sign it.' } }
     if (action.startsWith('open-')) {
       const kit = await requireKit(), tool = action.slice(5), file = kit.gui[tool]
@@ -163,7 +109,7 @@ export function createSetupService({ root, runner = runProcess, opener = openVen
       await run(kit.tizen, ['package', '-t', 'wgt', '-s', profile, '--', result], { timeout: 180000 })
       const files = (await readdir(result)).filter(file => file.endsWith('.wgt'))
       if (files.length !== 1) throw new Error('Expected one newly signed widget. Check the Samsung tool output.')
-      const file = join(result, files[0]), info = inspectSignedWidget(await readFile(file))
+      const file = join(result, files[0]), info = inspectSignedWidget(await readFile(file), await readFile(join(stage, 'build.json')))
       signed.set(`${kit.root}|${profile}`, { file, ...info })
       return { message: 'Signed package is ready. The TV will validate its certificate during installation.', package: info }
     }
@@ -206,7 +152,7 @@ export function createSetupService({ root, runner = runProcess, opener = openVen
       if (action === 'install-lg') {
         step('Checking the LG app package…'); const info = inspectLgPackage(await readFile(ipk))
         step('Installing Lanternfin on your LG TV…'); await node(lg('ares-install'), ['--device', name, ipk], { timeout: 180000 })
-        installed.add(key); return { message: 'Lanternfin installed on your LG TV.', package: info }
+        installed.set(key, info); return { message: `Lanternfin installed on your LG TV. Revision ${info.build.commit.slice(0, 8)}${info.build.modified ? ' with local changes' : ''}. Close and reopen the TV app to use this build.`, package: info }
       }
       if (!installed.has(key)) throw new Error('Install the app in this setup session before launching it.')
       step('Opening Lanternfin on your LG TV…'); await node(lg('ares-launch'), ['--device', name, LG_ID]); return { message: 'Launch command accepted. Check the TV for the Lanternfin welcome screen.' }
@@ -219,7 +165,7 @@ export function createSetupService({ root, runner = runProcess, opener = openVen
       if (info.sha256 !== artifact.sha256) throw new Error('The signed package changed. Sign a fresh package before installing.')
       step('Installing the signed app on your Samsung TV…')
       await run(kit.tizen, ['install', '-s', `${ip}:26101`, '-n', artifact.file.slice(dirname(artifact.file).length + 1), '--', dirname(artifact.file)], { timeout: 180000 })
-      installed.add(key); return { message: 'Lanternfin installed on your Samsung TV.', package: info }
+      installed.set(key, info); return { message: `Lanternfin installed on your Samsung TV. Revision ${info.build.commit.slice(0, 8)}${info.build.modified ? ' with local changes' : ''}. Close and reopen the TV app to use this build.`, package: info }
     }
     if (!installed.has(key)) throw new Error('Install the app in this setup session before launching it.')
     step('Opening Lanternfin on your Samsung TV…'); await run(kit.tizen, ['run', '-s', `${ip}:26101`, '-p', SAMSUNG_ID]); return { message: 'Launch command accepted. Check the TV for the Lanternfin welcome screen.' }

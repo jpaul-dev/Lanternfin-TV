@@ -3,6 +3,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
+import { inspectLgPackage, inspectUnsignedWidget } from '../tv-setup/package.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const target = process.argv[2]
@@ -39,6 +40,9 @@ if (target === 'webos') {
   await writeFile(resolve(output, 'Lanternfin-TV-0.1.0-tizen-UNSIGNED.wgt'), Buffer.concat([...local, directory, end]))
   console.log('Created UNSIGNED Tizen widget. Sign with a Samsung TV certificate before device installation.')
 }
+const packageFile = resolve(output, target === 'webos' ? 'io.github.jpauldev.lanternfin_0.1.0_all.ipk' : 'Lanternfin-TV-0.1.0-tizen-UNSIGNED.wgt')
+const inspected = (target === 'webos' ? inspectLgPackage : inspectUnsignedWidget)(await readFile(packageFile), await readFile(resolve(source, 'build.json')))
+console.log(`Verified ${inspected.build.assets} packaged app files at revision ${inspected.build.commit.slice(0, 8)}${inspected.build.modified ? ' (local changes)' : ''}.`)
 const suffix = target === 'webos' ? '.ipk' : '.wgt'
 const checksums = []
 for (const file of (await readdir(output)).filter(name => name.endsWith(suffix))) checksums.push(`${createHash('sha256').update(await readFile(resolve(output, file))).digest('hex')}  ${file}`)
