@@ -2,8 +2,9 @@ import { request } from './xtream'
 import type { Channel, Source } from './catalog'
 import { maybeB64ToUtf8 } from '../src/scripts/lib/b64-utf8'
 import { XMLTVGuide } from './xmltv'
+import { guideOffset, channelGuideShift } from './guide-offset'
 
-export type Programme = { start: number; stop: number; title: string; description: string; archive?: boolean; catchupId?: string }
+export type Programme = { start: number; stop: number; title: string; description: string; archive?: boolean; catchupId?: string; guideShiftMinutes?: number }
 export type GuideWindow = { fromMs: number; toMs: number }
 const cleanText = (value: unknown, max: number) => {
   if (typeof value !== 'string') return ''
@@ -39,18 +40,29 @@ export class TVGuide {
   private cache = new Map<string, { at: number; items: Programme[] }>()
   private xml?: XMLTVGuide
   private xmlLoaded = Date.now()
-  constructor(private source: Source, private epgUrl?: string) { if (epgUrl) this.xml = new XMLTVGuide(epgUrl) }
-  clear() { this.cache.clear(); this.xml?.close() }
+  private revision = 0
+  private offset: number
+  constructor(private source: Source, private epgUrl?: string, offset = 0) { this.offset = guideOffset(offset); if (epgUrl) this.xml = new XMLTVGuide(epgUrl) }
+  setOffset(value: number) { const next = guideOffset(value); if (next !== this.offset) { this.offset = next; this.revision++; this.cache.clear() } }
+  clear() { this.revision++; this.cache.clear(); this.xml?.close() }
   async load(channel: Channel, signal: AbortSignal, refresh = false, window?: GuideWindow): Promise<Programme[]> {
     if (signal.aborted) throw new Error('Guide loading cancelled.')
     if (channel.mediaKind && channel.mediaKind !== 'live') return []
     if (this.epgUrl && (refresh || Date.now() - this.xmlLoaded > 6 * 3600000)) { this.xml?.close(); this.xml = new XMLTVGuide(this.epgUrl); this.xmlLoaded = Date.now(); this.cache.clear() }
-    const id = channel.providerId || channel.tvgId || channel.name, key = `${id}:${window ? `${window.fromMs}:${window.toMs}` : 'now'}`, cached = this.cache.get(key)
+    const revision = this.revision, minutes = this.offset + channelGuideShift(channel.tvgShift), shift = minutes * 60000, now = Date.now() - shift
+    const rawWindow = window && { fromMs: window.fromMs - shift, toMs: window.toMs - shift }
+    const finish = (items: Programme[]) => {
+      if (signal.aborted || revision !== this.revision) throw new Error('Guide loading cancelled.')
+      const corrected = minutes ? items.map(item => ({ ...item, start: item.start + shift, stop: item.stop + shift, guideShiftMinutes: minutes })) : items
+      this.save(key, corrected); return corrected
+    }
+    const id = channel.providerId || channel.tvgId || channel.name, key = `${id}:${minutes}:${window ? `${window.fromMs}:${window.toMs}` : 'now'}`, cached = this.cache.get(key)
     if (!refresh && cached && Date.now() - cached.at < 3 * 60000) { this.cache.delete(key); this.cache.set(key, cached); return cached.items }
     if (this.xml) {
-      const rows = await this.xml.load(channel.tvgId, channel.name, signal, window)
-      const items = boundProgrammes(rows).map(row => ({ start: row.start, stop: row.stop, title: row.title.slice(0, 300), description: row.desc.slice(0, 4000), ...(row.catchupId && row.catchupId.length <= 8192 ? { catchupId: row.catchupId } : {}) }))
-      this.save(key, items); return items
+      const range = rawWindow || { fromMs: now - 86400000, toMs: now + 3 * 86400000 }
+      const rows = await this.xml.load(channel.tvgId, channel.name, signal, range)
+      const items = boundProgrammes(rows.filter(row => row.stop > range.fromMs && row.start < range.toMs), now).map(row => ({ start: row.start, stop: row.stop, title: row.title.slice(0, 300), description: row.desc.slice(0, 4000), ...(row.catchupId && row.catchupId.length <= 8192 ? { catchupId: row.catchupId } : {}) }))
+      return finish(items)
     }
     if (this.source.kind !== 'xtream' || !channel.providerId) return []
     let items: Programme[] = [], succeeded = false
@@ -60,13 +72,12 @@ export class TVGuide {
         if (signal.aborted) throw new Error('Guide loading cancelled.')
         const rows = Array.isArray(response) ? response : response?.epg_listings
         if (!Array.isArray(rows)) continue
-        succeeded = true; items = programmes(rows, Date.now(), window)
+        succeeded = true; items = programmes(rows, now, rawWindow)
         if (items.length) break
       } catch { if (signal.aborted) throw new Error('Guide loading cancelled.') }
     }
     if (!succeeded) throw new Error('Programme guide unavailable. Check your provider or try again.')
-    this.save(key, items)
-    return items
+    return finish(items)
   }
   private save(key: string, items: Programme[]) { this.cache.delete(key); this.cache.set(key, { at: Date.now(), items }); while (this.cache.size > 32) this.cache.delete(this.cache.keys().next().value!) }
 }

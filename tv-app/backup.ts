@@ -5,6 +5,7 @@ import { normalizePreferences, readPreferences, savePreferences, type Preference
 import { readSource, storeSource } from './storage'
 import { readSourceHome } from './source-home'
 import { readBrowseOptions } from './browse-options'
+import { guideOffset } from './guide-offset'
 
 type Snapshot = ReturnType<TVLibrary['snapshot']>
 export type Backup = { format: 'lanternfin-tv'; version: 1; profiles: Array<SourceProfile & { library: Snapshot }>; preferences: Preferences }
@@ -43,8 +44,8 @@ export function validateBackup(value: unknown): Backup {
     if (!entry || typeof entry.name !== 'string' || entry.name.length > 80) throw invalid()
     const source = validateSource(entry.source), id = sourceId(source)
     if (ids.has(id)) throw invalid(); ids.add(id)
-    const guideUrl = guideAddress(entry.guideUrl), library = fromSnapshot(source, entry.library).snapshot()
-    return { id, name: entry.name, source, library, ...(guideUrl ? { guideUrl } : {}), ...(source.kind === 'xtream' && entry.keepLibrary === true ? { keepLibrary: true } : {}) }
+    const guideUrl = guideAddress(entry.guideUrl), offset = guideOffset(entry.guideOffset), library = fromSnapshot(source, entry.library).snapshot()
+    return { id, name: entry.name, source, library, ...(guideUrl ? { guideUrl } : {}), ...(offset ? { guideOffset: offset } : {}), ...(source.kind === 'xtream' && entry.keepLibrary === true ? { keepLibrary: true } : {}) }
   })
   const result: Backup = { format: 'lanternfin-tv', version: 1, profiles, preferences: normalizePreferences(input.preferences) }
   if (new TextEncoder().encode(JSON.stringify(result)).byteLength > BACKUP_BYTES) throw invalid()

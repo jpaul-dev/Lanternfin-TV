@@ -5,13 +5,20 @@ import { request } from './xtream'
 import type { Programme } from './guide'
 
 export function canReplay(source: Source, channel: Channel, programme: Programme, now = Date.now()) {
-  return channel.mediaKind === 'live' && Number.isFinite(programme.start) && Number.isFinite(programme.stop) && programme.stop > programme.start && isCatchupPlayable(programme.archive === true ? { ...channel, tvArchive: 1 } : channel, programme.start, now) && !(source.kind === 'xtream' && programme.archive === false)
+  const raw = archiveTimes(programme)
+  return channel.mediaKind === 'live' && Number.isFinite(raw.start) && Number.isFinite(raw.stop) && raw.stop > raw.start && programme.start <= now && isCatchupPlayable(programme.archive === true ? { ...channel, tvArchive: 1 } : channel, raw.start, now) && !(source.kind === 'xtream' && programme.archive === false)
+}
+/** Display-only guide corrections must never alter the provider's archive address. */
+function archiveTimes(programme: Programme) {
+  const minutes = programme.guideShiftMinutes, shift = typeof minutes === 'number' && Number.isFinite(minutes) && Math.abs(minutes) <= 2280 ? minutes * 60000 : 0
+  return { ...programme, start: programme.start - shift, stop: programme.stop - shift }
 }
 type Options = { format: 'hls' | 'ts' | 'legacy'; offset?: number }
 /** Reuses the original catch-up URL rules without the desktop bridge or URL-logging probe. */
 export async function replayChannel(source: Source, channel: Channel, programme: Programme, signal: AbortSignal, options: Options = { format: 'hls' }): Promise<Channel> {
   if (signal.aborted) throw new Error('Archive loading cancelled.')
   if (!canReplay(source, channel, programme)) throw new Error('This programme is outside the provider’s available archive.')
+  programme = archiveTimes(programme)
   let url: string | null = null
   if (source.kind !== 'xtream' && channel.catchup !== 'xc') {
     url = buildM3uCatchupUrl(channel, { startUtcMs: programme.start, stopUtcMs: programme.stop, nowUtcMs: Date.now(), catchupCorrectionHours: channel.catchupCorrection, catchupId: programme.catchupId })

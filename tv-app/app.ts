@@ -19,7 +19,8 @@ import { BrowseHistory, browseFocus, resolveBrowseVisit, type BrowseFocus, type 
 import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
-import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, sourceId, type SourceProfile } from './profiles'
+import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, saveGuideOffset, sourceId, type SourceProfile } from './profiles'
+import { guideOffset, guideOffsetLabel } from './guide-offset'
 import { keyAction, moveFocus, atPageEdge, pageEntry, type Direction } from './remote'
 import { type AVPlay, type Player, type State, type Aspect } from './player'
 import { tvPlayer } from './adaptive-player'
@@ -89,6 +90,7 @@ let preferences = readPreferences(null), preferenceStorage: Storage | null = nul
 const trackPreferences = new TrackPreferences()
 let trackSnapshot = '', trackMenuDirty = false
 let editingSource: Source | undefined, activeGuideUrl: string | undefined, accountLoading: AbortController | undefined
+let activeGuideOffset = 0
 const liveQueue = new LiveQueue(), episodeContext = new EpisodeContext()
 let zapDigits = '', zapTimer: ReturnType<typeof setTimeout> | undefined, playbackGuideLoading: AbortController | undefined
 let playbackProgrammes: Programme[] = []
@@ -170,6 +172,7 @@ function show(next: Screen) {
   if (next !== 'playback') { $('track-menu').hidden = true; resetSubtitles() }
   notice('')
   if (next === 'setup') renderProfiles()
+  if (next === 'settings') { select('source-guide-offset').value = String(activeGuideOffset); select('source-guide-offset').disabled = !activeSource || activeSource.kind === 'direct' }
   const focus = next === 'setup' ? $('profile-list').querySelector<HTMLElement>('.profile-open') || input('source-name') : [...$(next).querySelectorAll<HTMLElement>('button:not(:disabled), input, select')].find(element => !element.closest('[hidden]'))
   focus?.focus()
   if (returningToCatalog && catalogReturnVisit) { pendingBrowseVisit = catalogReturnVisit; void filter(false) }
@@ -188,7 +191,7 @@ function currentSource(): Source {
   return validateSource({ kind: select('source-kind').value, url: input('source-url').value, username: input('username').value, password: input('password').value })
 }
 function setBusy(busy: boolean) {
-  for (const id of ['connect', 'source-name', 'source-kind', 'source-url', 'username', 'password', 'remember', 'forget', 'profile-new', 'guide-url', 'source-advanced-toggle', 'keep-library']) ( $(id) as HTMLInputElement).disabled = busy
+  for (const id of ['connect', 'source-name', 'source-kind', 'source-url', 'username', 'password', 'remember', 'forget', 'profile-new', 'guide-url', 'guide-offset', 'source-advanced-toggle', 'keep-library']) ( $(id) as HTMLInputElement).disabled = busy
   for (const item of $('profile-list').querySelectorAll<HTMLButtonElement>('button')) item.disabled = busy
   input('keep-library').disabled = busy || !input('remember').checked
   $('cancel-load').hidden = !busy
@@ -199,8 +202,8 @@ function cancelLoad() { loading?.abort(); loading = undefined; setBusy(false) }
 $('source-form').addEventListener('submit', async event => {
   event.preventDefault()
   if (loading) return
-  let source: Source, override: string | undefined
-  try { source = currentSource(); override = guideAddress(input('guide-url').value) } catch (error) { notice((error as Error).message); return }
+  let source: Source, override: string | undefined, offset: number
+  try { source = currentSource(); override = guideAddress(input('guide-url').value); offset = guideOffset(Number(select('guide-offset').value)) } catch (error) { notice((error as Error).message); return }
   const controller = new AbortController(); loading = controller
   setBusy(true); notice('Opening your playlist…')
   const fresh = forceFresh; forceFresh = false
@@ -227,7 +230,7 @@ $('source-form').addEventListener('submit', async event => {
     channels = catalog.channels; page = 0; input('search').value = ''; libraryView = 'all'; browseView = 'home'
     providerCategories = initialCategories ? { live: initialCategories } : {}; detailInfo = undefined; detailVariants = []; catalogVariants = new WeakMap()
     let storageMessage = '', persisted = false
-    try { if (input('remember').checked) { rememberProfile(localStorage, source, input('source-name').value, editingSource, { guideUrl: override, keepLibrary: useCache }); if (editingSource && sourceId(editingSource) !== sourceId(source)) { forgetLibrary(localStorage, editingSource); void catalogCache.forget(editingSource).catch(() => { notice('The previous saved catalog could not be removed. Use Clear saved catalogs in Settings.') }) }; persisted = true }; if (!input('remember').checked) { removeProfile(localStorage, source); forgetLibrary(localStorage, source); storeSource(localStorage, null) }; editingSource = source; renderProfiles() }
+    try { if (input('remember').checked) { rememberProfile(localStorage, source, input('source-name').value, editingSource, { guideUrl: override, keepLibrary: useCache, guideOffset: offset }); if (editingSource && sourceId(editingSource) !== sourceId(source)) { forgetLibrary(localStorage, editingSource); void catalogCache.forget(editingSource).catch(() => { notice('The previous saved catalog could not be removed. Use Clear saved catalogs in Settings.') }) }; persisted = true }; if (!input('remember').checked) { removeProfile(localStorage, source); forgetLibrary(localStorage, source); storeSource(localStorage, null) }; editingSource = source; renderProfiles() }
     catch (error) { storageMessage = ` ${error instanceof Error && error.message.startsWith('You can save') ? error.message : 'Your TV could not update saved settings. This session will still work.'}` }
     let storage: Storage | null = null
     try { if (persisted) storage = localStorage } catch { /* Session library. */ }
@@ -239,10 +242,10 @@ $('source-form').addEventListener('submit', async event => {
     } else try { library.setStorage(storage) } catch { storageMessage += ' Library changes could not be saved.' }
     cacheSaving?.abort(); cacheSaving = undefined; cacheAttempted = undefined; keepActiveLibrary = useCache && persisted
     if (!keepActiveLibrary) void catalogCache.forget(source).catch(() => { notice('The saved catalog could not be removed. Use Clear saved catalogs in Settings.') })
-    activeSource = source; activeGuideUrl = override; episodeContext.clear()
+    activeSource = source; activeGuideUrl = override; activeGuideOffset = offset; episodeContext.clear()
     providerIndex?.pause(); clearTimeout(indexTimer); indexTimer = undefined
     providerIndex = nextIndex; pooledLibrary = undefined
-    guide?.clear(); guide = new TVGuide(source, override || catalog.epgUrl); guideChannel = undefined; browseCategory = undefined
+    guide?.clear(); guide = new TVGuide(source, override || catalog.epgUrl, offset); guideChannel = undefined; browseCategory = undefined
     renderIndexStatus()
     $('library-note').textContent = persisted ? 'Favorites and recent streams are saved on this TV.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.'
     $('return-catalog').hidden = false
@@ -266,6 +269,7 @@ input('remember').onchange = async () => {
   catch { notice('The TV could not remove saved settings. Try clearing app data in TV settings.') }
 }
 $('forget').onclick = async () => {
+  activeGuideOffset = 0; select('guide-offset').value = '0'
   browseHistory.forget(); cancelBrowseEntry(); catalogReturnVisit = undefined
   pooledLibrary = undefined; knownLibraryVersion++
   keepActiveLibrary = false; cacheSaving?.abort()
@@ -399,7 +403,7 @@ $('refresh-catalog').onclick = () => {
   if (!activeSource) return
   let profile: SourceProfile | undefined
   try { profile = readProfiles(localStorage).find(item => item.id === sourceId(activeSource!)) } catch { /* Session-only refresh. */ }
-  editingSource = activeSource; input('guide-url').value = activeGuideUrl || ''; input('source-name').value = profile?.name || ''; input('remember').checked = !!profile; input('keep-library').checked = !!profile?.keepLibrary
+  editingSource = activeSource; input('guide-url').value = activeGuideUrl || ''; select('guide-offset').value = String(activeGuideOffset); input('source-name').value = profile?.name || ''; input('remember').checked = !!profile; input('keep-library').checked = !!profile?.keepLibrary
   select('source-kind').value = activeSource.kind; input('source-url').value = activeSource.url
   input('username').value = activeSource.username; input('password').value = activeSource.password; sourceKind()
   show('setup'); $('source-form').dispatchEvent(new Event('submit', { cancelable: true }))
@@ -444,7 +448,7 @@ function watch(channel: Channel, versions?: Channel[]) {
 function fillProfile(profile: SourceProfile) {
   editingSource = profile.source
   input('keep-library').checked = !!profile.keepLibrary
-  input('guide-url').value = profile.guideUrl || ''; $('source-advanced').hidden = !profile.guideUrl; button('source-advanced-toggle').setAttribute('aria-expanded', String(!!profile.guideUrl))
+  input('guide-url').value = profile.guideUrl || ''; select('guide-offset').value = String(profile.guideOffset || 0); $('source-advanced').hidden = !profile.guideUrl && !profile.guideOffset; button('source-advanced-toggle').setAttribute('aria-expanded', String(!$('source-advanced').hidden))
   select('source-kind').value = profile.source.kind; input('source-name').value = profile.name; input('source-url').value = profile.source.url
   input('username').value = profile.source.username; input('password').value = profile.source.password; input('remember').checked = true; sourceKind()
 }
@@ -468,7 +472,7 @@ function renderProfiles() {
     row.append(open, edit, remove); list.append(row)
   }
 }
-$('profile-new').onclick = () => { input('keep-library').checked = false; editingSource = undefined; input('source-name').value = input('source-url').value = input('username').value = input('password').value = input('guide-url').value = ''; input('remember').checked = false; select('source-kind').value = 'playlist'; sourceKind(); input('source-name').focus() }
+$('profile-new').onclick = () => { input('keep-library').checked = false; editingSource = undefined; select('guide-offset').value = '0'; input('source-name').value = input('source-url').value = input('username').value = input('password').value = input('guide-url').value = ''; input('remember').checked = false; select('source-kind').value = 'playlist'; sourceKind(); input('source-name').focus() }
 function playChannel(channel: Channel) {
   playbackReturn = screen === 'detail' ? 'detail' : 'catalog'
   const recent = library?.lastPlayed(channel)
@@ -1394,10 +1398,27 @@ for (const [code, label] of Object.entries(INTERFACE_LANGUAGES)) select('pref-la
 select('pref-clock').add(new Option('Device time zone', 'auto'))
 for (let offset = -720; offset <= 840; offset += 30) select('pref-clock').add(new Option(`UTC${offset < 0 ? '−' : '+'}${String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0')}:${String(Math.abs(offset) % 60).padStart(2, '0')}`, String(offset)))
 for (const option of select('pref-clock').options) if (option.value !== 'auto') select('replay-clock').add(new Option(option.text, option.value))
-for (const element of $('settings').querySelectorAll<HTMLSelectElement>('select')) element.onchange = () => {
+for (const element of $('settings').querySelectorAll<HTMLSelectElement>('select[id^="pref-"]')) element.onchange = () => {
   preferences = normalizePreferences({ theme: select('pref-theme').value, accent: select('pref-accent').value, scale: Number(select('pref-scale').value), overscan: Number(select('pref-overscan').value), reducedMotion: select('pref-motion').value === 'true', audio: select('pref-audio').value, subtitles: select('pref-subtitles').value, guideClock: select('pref-clock').value, autoNext: select('pref-autonext').value === 'true', groupLanguages: select('pref-grouping').value === 'true', contentLanguage: select('pref-content').value })
   preferences = normalizePreferences({ ...preferences, interfaceLanguage: select('pref-language').value })
   persistPreferences()
+}
+for (const id of ['guide-offset', 'source-guide-offset']) {
+  const picker = select(id)
+  for (let offset = -720; offset <= 840; offset += 30) picker.add(new Option(tr(guideOffsetLabel(offset)), String(offset)))
+  picker.value = '0'
+}
+select('source-guide-offset').onchange = () => {
+  if (!activeSource || activeSource.kind === 'direct') return
+  activeGuideOffset = guideOffset(Number(select('source-guide-offset').value))
+  cancelGuide(); playbackGuideLoading?.abort(); playbackGuideLoading = undefined; playbackProgrammes = []; guideItems = []; guideChannel = undefined; selectedProgramme = undefined
+  guide?.setOffset(activeGuideOffset)
+  if (editingSource && sourceId(editingSource) === sourceId(activeSource)) select('guide-offset').value = String(activeGuideOffset)
+  try {
+    const saved = saveGuideOffset(localStorage, activeSource, activeGuideOffset)
+    $('settings-note').textContent = tr(saved ? 'Guide correction saved for this source.' : 'Guide correction applies for this session. Remember the source to keep it.')
+    renderProfiles()
+  } catch { $('settings-note').textContent = tr('TV storage is unavailable. Guide correction applies for this session.') }
 }
 syncPreferences()
 async function applyInterfaceLanguage() {

@@ -2,7 +2,7 @@ import { createM3UParser, isHlsStreamManifest } from '../src/scripts/lib/m3u-par
 import { providerMedia, type PlaybackOptions } from './media'
 
 export type Source = { kind: 'playlist' | 'xtream' | 'direct'; url: string; username: string; password: string }
-export type Channel = { name: string; url: string; group: string; mediaKind?: 'live' | 'movie' | 'series' | 'episode'; addedAt?: number; rating?: number; year?: string; durationSeconds?: number; categoryId?: string; providerId?: string; seriesId?: string; seriesName?: string; tvgId?: string; logo?: string; description?: string; playback?: PlaybackOptions; tvArchive?: number; tvArchiveDuration?: number; catchup?: string; catchupDays?: number; catchupSource?: string; catchupCorrection?: number }
+export type Channel = { name: string; url: string; group: string; mediaKind?: 'live' | 'movie' | 'series' | 'episode'; addedAt?: number; rating?: number; year?: string; durationSeconds?: number; categoryId?: string; providerId?: string; seriesId?: string; seriesName?: string; tvgId?: string; tvgShift?: number; logo?: string; description?: string; playback?: PlaybackOptions; tvArchive?: number; tvArchiveDuration?: number; catchup?: string; catchupDays?: number; catchupSource?: string; catchupCorrection?: number }
 export type Catalog = { channels: Channel[]; skipped: number; epgUrl?: string }
 // Resource guards, not preview restrictions. Only compact playable entries are
 // retained; raw downloads and the parser's rich intermediate entries are not.
@@ -72,7 +72,7 @@ function catalogParser(base: string) {
     const archive = { ...(entry.catchup ? { catchup: entry.catchup.slice(0, 40) } : {}), ...(entry.catchupSource && entry.catchupSource.length <= 8192 ? { catchupSource: entry.catchupSource } : {}), ...(entry.catchupDays && entry.catchupDays > 0 ? { catchupDays: Math.min(30, entry.catchupDays) } : {}), ...(Number.isFinite(entry.catchupCorrection) ? { catchupCorrection: Math.max(-24, Math.min(24, entry.catchupCorrection!)) } : {}) }
     retained += JSON.stringify(archive).length
     if (retained > MAX_RETAINED_CHARACTERS) throw new CatalogError('The catalog needs more memory than this TV budget allows. Request a category-specific playlist from your provider.')
-    channels.push({ name, url, group: groups.get(group)!, mediaKind, ...archive, ...(tvgId ? { tvgId } : {}), ...(logo ? { logo } : {}), ...(media.playback ? { playback: media.playback } : {}) })
+    channels.push({ name, url, group: groups.get(group)!, mediaKind, ...archive, ...(tvgId ? { tvgId } : {}), ...(typeof entry.tvgShift === 'number' && Number.isFinite(entry.tvgShift) && Math.abs(entry.tvgShift) <= 24 ? { tvgShift: entry.tvgShift } : {}), ...(logo ? { logo } : {}), ...(media.playback ? { playback: media.playback } : {}) })
   })
   return {
     writeLine(raw: string) {
