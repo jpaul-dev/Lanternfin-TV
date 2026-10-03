@@ -11,6 +11,11 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1:4323').pathname)
+    if (fixtures && pathname === '/_test/captions.vtt') {
+      const stamp = seconds => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}.000`
+      response.writeHead(200, { 'Content-Type': 'text/vtt; charset=utf-8', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
+      response.end('WEBVTT\n\n' + Array.from({ length: 120 }, (_, n) => `${stamp(n * 5)} --> ${stamp(n * 5 + 5)}\nLanternfin subtitle check\nExternal WebVTT · cue ${n + 1}\n`).join('\n')); return
+    }
     if (fixtures && ['/_test/provider/player_api.php', '/_test/large-provider/player_api.php'].includes(pathname)) {
       const params = new URL(request.url, `http://127.0.0.1:${port}`).searchParams
       const action = params.get('action') || ''

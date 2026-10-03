@@ -12,7 +12,7 @@
   <script defer src="app.js"></script>
 </head>
 <body>
-  <div id="player-surface" hidden></div>
+  <div id="player-surface" hidden><div id="external-subtitles" class="external-subtitles" dir="auto" hidden></div></div>
   <main id="app">
     <nav id="tv-nav" aria-label="Main navigation" hidden>
       <img class="nav-logo" src="icon.png" alt="Lanternfin TV">
@@ -186,7 +186,22 @@
     </section>
     <div id="playback-busy" role="status" hidden><span aria-hidden="true"></span>Buffering…</div>
     <div id="scrub-osd" class="scrub-osd" hidden><div class="scrub-times"><span data-scrub-position></span><strong data-scrub-delta></strong><span data-scrub-remaining></span></div><progress aria-label="Playback progress"></progress></div>
-    <div id="track-menu" class="track-menu" role="dialog" aria-modal="true" aria-labelledby="tracks-title" hidden><h2 id="tracks-title">Playback settings</h2><p class="hint">Picture, language and playback options for this stream.</p><label for="audio-track">Audio</label><select id="audio-track"></select><label for="subtitle-track">Subtitles</label><select id="subtitle-track"></select><label for="subtitle-size">Text subtitle size</label><select id="subtitle-size"></select><label for="subtitle-delay">Subtitle timing</label><select id="subtitle-delay"></select><label for="quality-track">Video quality</label><select id="quality-track"></select><label for="aspect-mode">Picture size</label><select id="aspect-mode"></select><label for="playback-speed">Playback speed</label><select id="playback-speed"></select><p id="track-status" class="hint" role="status"></p><button id="tracks-close" class="primary">Done</button></div>
+    <div id="track-menu" class="track-menu" role="dialog" aria-modal="true" aria-labelledby="tracks-title" hidden>
+      <h2 id="tracks-title">Playback settings</h2><p class="hint">Picture, language and playback options for this stream.</p>
+      <label for="audio-track">Audio</label><select id="audio-track"></select>
+      <label for="subtitle-track">Subtitles</label><select id="subtitle-track"></select>
+      <button id="subtitle-add" class="subtitle-add" aria-expanded="false" aria-controls="subtitle-editor">Load subtitle file</button>
+      <div id="subtitle-editor" class="subtitle-editor" hidden>
+        <p class="hint">UTF-8 SRT or WebVTT, up to 2 MB. Timed from the start of this video. Text only; styles and positioning are ignored. Kept until this video stops.</p>
+        <label for="subtitle-method">Load from</label><select id="subtitle-method"><option value="url">Subtitle URL</option><option value="file">Local file · if supported</option></select>
+        <div id="subtitle-url-field"><label for="subtitle-url">Subtitle URL</label><input id="subtitle-url" type="url" maxlength="8192" placeholder="https://…/captions.vtt" autocomplete="off" spellcheck="false"><p class="hint">The server must allow this app to read the file. Provider login headers are not sent.</p></div>
+        <div id="subtitle-file-field" hidden><label for="subtitle-file">Subtitle file</label><input id="subtitle-file" type="file" accept=".srt,.vtt,text/vtt,application/x-subrip"><p class="hint">File picking depends on your TV or browser.</p></div>
+        <p id="subtitle-load-status" class="hint" role="status"></p><div class="subtitle-actions"><button id="subtitle-load">Load subtitles</button><button id="subtitle-cancel">Cancel</button></div>
+      </div>
+      <label for="subtitle-size">Text subtitle size</label><select id="subtitle-size"></select><label for="subtitle-delay">Subtitle timing</label><select id="subtitle-delay"></select>
+      <label for="quality-track">Video quality</label><select id="quality-track"></select><label for="aspect-mode">Picture size</label><select id="aspect-mode"></select><label for="playback-speed">Playback speed</label><select id="playback-speed"></select>
+      <p id="track-status" class="hint" role="status"></p><button id="tracks-close" class="primary">Done</button>
+    </div>
     <div id="card-menu" class="card-menu" role="dialog" aria-modal="true" aria-labelledby="card-menu-title" hidden><h2 id="card-menu-title"></h2><button id="card-menu-play">Watch</button><button id="card-menu-favorite">Add favorite</button><button id="card-menu-watchlist" hidden>Save for later</button><button id="card-menu-watched" hidden>Mark as watched</button><button id="card-menu-download" hidden>Download</button><button id="card-menu-history" hidden>Remove from recently watched</button><p id="card-menu-note" class="hint" role="status"></p><button id="card-menu-close">Back</button></div>
     <section id="resume" class="info-panel" hidden><p class="eyebrow">PICK UP WHERE YOU LEFT OFF</p><h1 id="resume-title"></h1><p id="resume-description"></p><div class="actions"><button id="resume-continue" class="primary">Continue watching</button><button id="resume-start">Start over</button><button id="resume-back">Back to streams</button></div></section>
     <section id="about" class="info-panel" hidden>

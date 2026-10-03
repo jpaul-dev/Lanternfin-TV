@@ -10,6 +10,7 @@ import { updatesUI } from './updates-ui'
 import { homeLayoutUI } from './home-layout'
 import { findHomeCategories, homeKind, type HomeCategory } from './source-home'
 import { canSeek, scrubOSD } from './playback-osd'
+import { subtitleUI, EXTERNAL_SUBTITLE } from './subtitle-ui'
 import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
@@ -97,6 +98,13 @@ let pooledLibrary: { index?: ProviderIndex; count: number; channels: Channel[]; 
 const PAGE_SIZE = 24
 const notice = (message: string) => { $('notice').textContent = message }
 const scrub = scrubOSD($('scrub-osd'))
+const externalSubtitles = subtitleUI($('track-menu'), $('external-subtitles'), {
+  allowed: () => screen === 'playback' && canSeek(player?.timeline(), currentChannel?.mediaKind === 'live', state),
+  position: () => player?.timeline().position || 0,
+  controlsHeight: () => $('controls').hidden ? 0 : $('controls').getBoundingClientRect().height,
+  silence: () => { try { return !!player?.selectTrack?.('subtitle', 'off') } catch { return false } },
+  changed: () => refreshTracks(),
+})
 navigationIcons($('tv-nav'))
 const translateStatic = staticTranslations($('app'))
 try { preferenceStorage = localStorage; preferences = readPreferences(localStorage) } catch { /* Session settings still work. */ }
@@ -131,7 +139,7 @@ function show(next: Screen) {
   document.documentElement.classList.toggle('in-library', !$('tv-nav').hidden)
   $('player-surface').hidden = next !== 'playback'
   document.documentElement.classList.toggle('watching', next === 'playback')
-  if (next !== 'playback') $('track-menu').hidden = true
+  if (next !== 'playback') { $('track-menu').hidden = true; externalSubtitles.reset() }
   notice('')
   if (next === 'setup') renderProfiles()
   const focus = next === 'setup' ? $('profile-list').querySelector<HTMLElement>('.profile-open') || input('source-name') : [...$(next).querySelectorAll<HTMLElement>('button:not(:disabled), input, select')].find(element => !element.closest('[hidden]'))
@@ -364,7 +372,7 @@ function report(next: State, detail?: string) {
   button('forward').disabled = button('rewind').disabled = !canSeek(player?.timeline(), currentChannel?.mediaKind === 'live', next)
   button('hide-controls').disabled = next !== 'playing'
   button('tracks-open').disabled = !['playing', 'paused'].includes(next)
-  if (['error', 'ended', 'idle'].includes(next)) $('track-menu').hidden = true
+  if (['error', 'ended', 'idle'].includes(next)) { $('track-menu').hidden = true; externalSubtitles.reset() }
   $('retry').hidden = !['error', 'ended'].includes(next)
   if (next === 'playing' && currentChannel) {
     hasPlayed = true
@@ -420,6 +428,7 @@ function playChannel(channel: Channel) {
   startWatching(channel)
 }
 function startWatching(channel: Channel, position = 0) {
+  externalSubtitles.reset()
   cancelNextEpisode()
   playbackDiagnostics.begin(channel, activeSource?.kind || 'unknown')
   if (__TV_TARGET__ === 'tizen' && !window.webapis?.avplay) { notice('Samsung AVPlay is unavailable. Install the signed TV package on a supported Samsung TV.'); return }
@@ -525,6 +534,7 @@ function saveProgress(ended = false) {
   catch { $('library-note').textContent = 'TV storage is unavailable. Changes are kept for this session.' }
 }
 function stopWatching() {
+  externalSubtitles.reset()
   episodeContext.cancel()
   cancelNextEpisode()
   cancelZap(); playbackGuideLoading?.abort(); playbackGuideLoading = undefined
@@ -579,7 +589,7 @@ $('stay').onclick = () => show('setup')
 $('leave').onclick = () => { if (__TV_TARGET__ === 'tizen') window.tizen?.application?.getCurrentApplication().exit(); else if (__TV_TARGET__ === 'webos') window.close(); else { show('setup'); notice('You can close this browser tab.'); } }
 function back() {
   if (!$('card-menu').hidden) closeCardMenu()
-  else if (screen === 'playback' && !$('track-menu').hidden) closeTracks()
+  else if (screen === 'playback' && !$('track-menu').hidden) { if (!externalSubtitles.back()) closeTracks() }
   else if (screen === 'playback') stopWatching()
   else if (screen === 'resume') { pendingChannel = undefined; show(playbackReturn) }
   else if (screen === 'detail') returnFromDetails()
@@ -626,7 +636,7 @@ document.addEventListener('keydown', event => {
     if (zapDigits && keyAction(event.key, event.keyCode) === 'back') { event.preventDefault(); cancelZap(); return }
   }
   if (!$('track-menu').hidden && event.key === 'Tab') {
-    const items = [...$('track-menu').querySelectorAll<HTMLElement>('select:not(:disabled), button')]
+    const items = [...$('track-menu').querySelectorAll<HTMLElement>('select:not(:disabled), input:not(:disabled), button:not(:disabled)')].filter(item => !item.closest('[hidden]'))
     const index = items.indexOf(active as HTMLElement); event.preventDefault(); items[(index + (event.shiftKey ? -1 : 1) + items.length) % items.length]?.focus(); return
   }
   if (screen === 'playback' && $('track-menu').hidden && $('controls').hidden && (event.key === 'Enter' || event.keyCode === 13)) { event.preventDefault(); controls(); (button('toggle').disabled ? button('stop') : button('toggle')).focus(); return }
@@ -640,6 +650,7 @@ document.addEventListener('keydown', event => {
   }
   if (active instanceof HTMLSelectElement && nativeSelectOpen) { if (action === 'back') nativeSelectOpen = false; return }
   if (action === 'back') { event.preventDefault(); back(); return }
+  if (active === input('subtitle-url') && ['left', 'right'].includes(action)) return
   if (screen === 'catalog' && active?.closest('#channels')) {
     const items = [...$('channels').querySelectorAll<HTMLElement>('button')], index = items.indexOf(active as HTMLElement), boxes = items.map(item => item.getBoundingClientRect())
     const direction = action === 'channel-down' ? 'down' : action === 'channel-up' ? 'up' : action
@@ -1210,13 +1221,15 @@ function refreshTracks() {
   for (const kind of ['audio', 'subtitle'] as const) {
     const list = select(`${kind}-track`), available = tracks.filter(track => track.kind === kind)
     list.replaceChildren()
-    if (kind === 'subtitle') list.add(new Option('Off', 'off', false, !available.some(track => track.active)))
+    if (kind === 'subtitle') list.add(new Option('Off', 'off', false, !externalSubtitles.active && !available.some(track => track.active)))
     else if (!available.some(track => track.active)) { const current = new Option(available.length ? 'Current audio' : 'No alternate audio available', ''); current.disabled = true; current.selected = true; list.add(current) }
-    for (const track of available) { const option = new Option(track.label, track.id, false, track.active); option.disabled = !!track.disabled; list.add(option) }
-    list.disabled = !available.length || available.every(track => track.disabled)
+    for (const track of available) { const option = new Option(track.label, track.id, false, track.active && (kind !== 'subtitle' || !externalSubtitles.active)); option.disabled = !!track.disabled; list.add(option) }
+    if (kind === 'subtitle' && externalSubtitles.loaded) list.add(new Option(tr('External subtitle file'), EXTERNAL_SUBTITLE, false, externalSubtitles.active))
+    list.disabled = !(kind === 'subtitle' && externalSubtitles.loaded) && (!available.length || available.every(track => track.disabled))
   }
+  externalSubtitles.refresh()
   refreshPictureOptions()
-  $('track-status').textContent = tracks.some(track => track.kind === 'audio' && track.disabled) ? 'Resume playback to change audio on this TV.' : !tracks.length ? 'This stream or player does not expose alternate tracks.' : ''
+  $('track-status').textContent = tracks.some(track => track.kind === 'audio' && track.disabled) ? 'Resume playback to change audio on this TV.' : !tracks.length && !externalSubtitles.loaded ? 'This stream or player does not expose alternate tracks.' : ''
 }
 function refreshPictureOptions() {
   const quality = select('quality-track'), qualities = player?.qualities?.() || []
@@ -1229,7 +1242,7 @@ function refreshPictureOptions() {
   const speed = select('playback-speed'), speeds = player?.speeds?.() || []; speed.replaceChildren(); speed.disabled = !speeds.length
   if (!speeds.length) speed.add(new Option('Normal · fixed for this stream', '1'))
   for (const rate of speeds) speed.add(new Option(rate === 1 ? 'Normal · 1×' : `${rate}×`, String(rate), false, rate === player?.speed?.()))
-  const subtitles = player?.subtitlePresentation?.(), scale = select('subtitle-size'), delay = select('subtitle-delay')
+  const subtitles = externalSubtitles.presentation() || player?.subtitlePresentation?.(), scale = select('subtitle-size'), delay = select('subtitle-delay')
   scale.replaceChildren(); delay.replaceChildren(); scale.disabled = delay.disabled = !subtitles
   if (!subtitles) { scale.add(new Option(tr('Unavailable on this player'), '')); delay.add(new Option(tr('Unavailable on this player'), '')) }
   else {
@@ -1238,17 +1251,20 @@ function refreshPictureOptions() {
   }
 }
 for (const id of ['subtitle-size', 'subtitle-delay']) select(id).onchange = () => {
-  const success = player?.setSubtitlePresentation?.({ scale: Number(select('subtitle-size').value), delay: Number(select('subtitle-delay').value) })
+  const value = { scale: Number(select('subtitle-size').value), delay: Number(select('subtitle-delay').value) }
+  const success = externalSubtitles.active ? externalSubtitles.setPresentation(value) : player?.setSubtitlePresentation?.(value)
   refreshPictureOptions(); $('track-status').textContent = success ? tr('Subtitle settings applied to this stream. Size affects text captions; timing moves them earlier or later.') : tr('Subtitle settings are unavailable for this player or stream.')
 }
 select('quality-track').onchange = () => { const success = player?.selectQuality?.(select('quality-track').value); $('track-status').textContent = success ? 'Quality selected. The picture will update as the buffer changes.' : 'This quality is no longer available. Try Automatic.'; if (!success) refreshPictureOptions() }
 select('aspect-mode').onchange = () => { const aspect = select('aspect-mode').value as Aspect; if (player?.setAspect?.(aspect)) { currentAspect = aspect; $('track-status').textContent = 'Picture size applied.' } else { refreshPictureOptions(); $('track-status').textContent = 'This picture size is unavailable on the current player.' } }
 select('playback-speed').onchange = () => { const success = player?.setSpeed?.(Number(select('playback-speed').value)); refreshPictureOptions(); $('track-status').textContent = success ? 'Playback speed applied. Audio behavior depends on the TV and stream.' : 'This speed is unavailable for the current TV or stream.' }
-function closeTracks() { $('track-menu').hidden = true; controls(); button('tracks-open').focus() }
+function closeTracks() { externalSubtitles.close(); $('track-menu').hidden = true; controls(); button('tracks-open').focus() }
 $('tracks-open').onclick = () => { $('track-menu').hidden = false; refreshTracks(); clearTimeout(controlsTimer); ($('track-menu').querySelector<HTMLElement>('select:not(:disabled)') || button('tracks-close')).focus() }
 $('tracks-close').onclick = closeTracks
 for (const kind of ['audio', 'subtitle'] as const) select(`${kind}-track`).onchange = () => {
-  const success = player?.selectTrack?.(kind, select(`${kind}-track`).value)
+  const id = select(`${kind}-track`).value
+  const success = kind === 'subtitle' && id === EXTERNAL_SUBTITLE ? externalSubtitles.select() : kind === 'subtitle' && id === 'off' && externalSubtitles.active ? true : player?.selectTrack?.(kind, id)
+  if (success && kind === 'subtitle' && id !== EXTERNAL_SUBTITLE) externalSubtitles.deselect()
   if (!success) { refreshTracks(); $('track-status').textContent = 'This track could not be selected. Resume playback and try again.' }
   else { refreshPictureOptions(); $('track-status').textContent = kind === 'audio' ? 'Audio selection applied.' : select('subtitle-track').value === 'off' ? 'Subtitles off.' : 'Subtitle selection applied.' }
 }
