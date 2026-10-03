@@ -80,6 +80,7 @@ let nextTimer: ReturnType<typeof setTimeout> | undefined
 let hasPlayed = false, currentAspect: Aspect = 'fit'
 let guidePage = 0, selectedProgramme: Programme | undefined, programmeChannel: Channel | undefined, replayLoading: AbortController | undefined
 let currentGuideSlot: number | undefined
+let guideDayStamp = ''
 const catalogCache = new CatalogCache()
 const screenSaver = new ScreenSaver(__TV_TARGET__ === 'tizen' ? window.webapis?.appcommon : undefined)
 const playbackDiagnostics = new PlaybackDiagnostics()
@@ -739,6 +740,7 @@ function renderGuide() {
   $('guide-page').textContent = upcoming.length ? `${guidePage + 1} / ${Math.ceil(upcoming.length / 24)}` : 'No listings'
 }
 function syncGuideDays() {
+  guideDayStamp = `${preferences.guideClock}:${guideDate(Date.now(), preferences.guideClock)}`
   const selected = select('guide-day').value, picker = select('guide-day'); picker.replaceChildren(new Option('Now & next', 'now'))
   for (let delta = -7; delta <= 2; delta++) {
     const fixed = preferences.guideClock !== 'auto', offset = fixed ? Number(preferences.guideClock) * 60000 : 0, date = new Date(Date.now() + offset)
@@ -783,7 +785,12 @@ $('programme-replay').onclick = async () => {
   finally { if (replayLoading === controller) replayLoading = undefined; button('programme-replay').disabled = false }
 }
 setInterval(() => {
-  if (screen !== 'catalog' || browseView !== 'live' || !guideItems.length) return
+  if (away || screen !== 'catalog' || browseView !== 'live') return
+  if (!nativeSelectOpen && guideDayStamp !== `${preferences.guideClock}:${guideDate(Date.now(), preferences.guideClock)}`) {
+    const selected = select('guide-day').value; syncGuideDays()
+    if (selected !== select('guide-day').value) selectGuide(guideChannel)
+  }
+  if (!guideItems.length) return
   const current = nowNext(guideItems).current
   if (currentGuideSlot !== current?.start) renderGuide()
   else { const progress = $('guide-programmes').querySelector<HTMLProgressElement>('progress'); if (progress && current) progress.value = Math.max(0, Date.now() - current.start) }

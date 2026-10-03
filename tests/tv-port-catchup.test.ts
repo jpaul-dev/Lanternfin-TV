@@ -25,6 +25,12 @@ it('does not guess a missing provider clock or reveal failed request URLs', asyn
   const replay = await replayChannel(source, channel, programme, new AbortController().signal, { format: 'legacy', offset: -420 })
   expect(new URL(replay.url).pathname).toBe('/provider/streaming/timeshift.php'); expect(new URL(replay.url).searchParams.get('password')).toBe('secret/#')
 })
+it('supports providers that report only an IANA timezone', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ server_info: { timezone: 'UTC' } }))))
+  const replay = await replayChannel(source, channel, programme, new AbortController().signal)
+  const date = new Date(programme.start), pad = (value: number) => String(value).padStart(2, '0')
+  expect(replay.url).toContain(`${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}:${pad(date.getUTCHours())}-${pad(date.getUTCMinutes())}`)
+})
 it('preserves M3U catch-up metadata and expands the original template rules', async () => {
   const list = parseCatalog('#EXTM3U\n#EXTINF:-1 catchup="append" catchup-days="3" catchup-source="?utc={utc}&end={utcend}",News\nhttps://example.com/live.m3u8', 'https://example.com/list.m3u')
   const account = { ...source, kind: 'playlist' as const }

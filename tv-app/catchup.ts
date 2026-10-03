@@ -1,4 +1,5 @@
-import { buildM3uCatchupUrl, buildXtreamTimeshiftUrl, clampedDurationMinutes, computeServerOffsetMs, isCatchupPlayable, parseXtreamStyleLiveUrl } from '../src/scripts/lib/catchup'
+import { buildM3uCatchupUrl, buildXtreamTimeshiftUrl, clampedDurationMinutes, isCatchupPlayable, parseXtreamStyleLiveUrl } from '../src/scripts/lib/catchup'
+import { providerClockOffset } from './provider-clock'
 import { httpUrl, playlistUrl, validateSource, type Channel, type Source } from './catalog'
 import { request } from './xtream'
 import type { Programme } from './guide'
@@ -26,9 +27,7 @@ export async function replayChannel(source: Source, channel: Channel, programme:
     let offset = options.offset
     if (offset === undefined) {
       const response = await request(account, '', signal, {}, 256 * 1024) as { server_info?: { time_now?: string; timestamp_now?: string | number; timezone?: string } }
-      const info = response?.server_info
-      if (!info || !(typeof info.time_now === 'string' && /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}$/.test(info.time_now) && Number.isFinite(Number(info.timestamp_now)))) throw new Error('The provider did not report its clock. Choose its UTC offset below and retry.')
-      offset = computeServerOffsetMs(info) / 60000
+      offset = providerClockOffset(response?.server_info, programme.start)
     }
     if (!Number.isFinite(offset) || offset < -720 || offset > 840) throw new Error('Choose a valid provider clock offset.')
     const base = new URL(playlistUrl(account)); base.pathname = base.pathname.replace(/get\.php$/, ''); base.search = ''
