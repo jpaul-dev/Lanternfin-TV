@@ -45,21 +45,43 @@
     </section>
     <section id="catalog" hidden>
       <div class="heading"><div><p id="section-kicker" class="eyebrow">YOUR LIBRARY</p><h1 id="section-title">Home</h1></div><div class="actions"><button id="view-all" aria-pressed="true">All streams</button><button id="refresh-catalog">Refresh</button><button id="change-source">Change source</button></div></div>
+      <div id="library-loading" class="library-loading" hidden><span id="index-status" role="status"></span><button id="index-toggle">Pause loading</button><p id="index-message"></p></div>
       <div id="home-content">
         <section class="hero"><img id="hero-art" alt="" hidden><div class="hero-shade"></div><div class="hero-copy"><p id="hero-kicker" class="eyebrow">MAKE YOURSELF AT HOME</p><h2 id="hero-title">Your evening starts here.</h2><p id="hero-meta">Live television, movies, and series. All in one place.</p><button id="hero-play" class="primary">Browse Live TV</button></div></section>
         <div id="home-rows"></div>
         <div class="home-shortcuts"><button id="home-live">Live TV <span>On your screen, right now →</span></button><button id="home-movie">Movies <span>Find your next watch →</span></button><button id="home-series">Series <span>One more episode →</span></button></div>
       </div>
       <div id="browse-content">
-      <div class="filters"><div><label for="search">Find a title</label><input id="search" type="search" placeholder="Search your library" autocomplete="off"></div><div><label for="group">Category</label><select id="group"><option value="">All groups</option></select></div></div>
-      <div class="actions"><button id="categories-back" hidden>All categories</button><button id="cancel-category" hidden>Cancel loading</button><button id="clear-history" hidden>Clear history</button></div>
+      <div id="browse-columns">
+      <aside id="category-sidebar" hidden><h2>Categories</h2><button id="categories-back" hidden>All categories</button><div id="category-list" class="category-grid" hidden></div></aside>
+      <div class="browse-main">
+      <div class="filters"><div><label for="search">Find a title</label><input id="search" type="search" placeholder="Search your library" autocomplete="off"></div><div id="group-field"><label for="group">Category</label><select id="group"><option value="">All groups</option></select></div></div>
+      <div class="actions"><button id="cancel-category" hidden>Cancel loading</button><button id="clear-history" hidden>Clear history</button></div>
       <p id="result-count" class="muted"></p>
-      <div id="category-list" class="category-grid" hidden></div>
       <div id="channels" class="grid"></div>
       <div id="pagination" class="pagination"><button id="previous">Previous page</button><span id="page-label"></span><button id="next">Next page</button></div>
       </div>
+      <aside id="guide-panel" hidden><h2 id="guide-title">Choose a channel</h2><p id="guide-status" role="status"></p><p id="guide-description"></p><div class="actions"><button id="guide-watch" class="primary">▶ Watch</button><button id="guide-favorite">☆ Favorite</button><button id="guide-refresh">Refresh guide</button></div><div id="guide-programmes" tabindex="0" aria-label="Programme guide"></div></aside>
+      </div>
+      </div>
     </section>
-    <section id="settings" class="info-panel" hidden><p class="eyebrow">MAKE IT YOURS</p><h1>Settings</h1><h2>Source & library</h2><p id="library-note" class="hint"></p><div class="actions"><button id="settings-source">Manage source</button><button id="settings-about">About Lanternfin TV</button><button id="settings-back">Back to home</button></div><h2>Playback</h2><p>Adaptive streams use Shaka Player for HLS, DASH, and supported DRM. Samsung also uses its native player for compatible streams and User-Agent / Cookie overrides.</p><p class="hint">LG’s simulator has no DRM support. Provider cross-origin permissions and TV codec support still apply. Referer overrides need a provider-compatible stream or a separate relay; they are not silently ignored.</p></section>
+    <section id="settings" class="settings-view" hidden><h1>Settings</h1>
+      <div class="settings-list">
+        <button id="settings-source" class="settings-row"><span>Playlists</span><small>Manage your source</small></button>
+        <label class="settings-row" for="pref-theme"><span>Theme</span><select id="pref-theme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Follow device</option></select></label>
+        <label class="settings-row" for="pref-accent"><span>Accent color</span><select id="pref-accent"></select></label>
+        <label class="settings-row" for="pref-scale"><span>Interface size</span><select id="pref-scale"><option value="0.85">Small · 85%</option><option value="1">Default · 100%</option><option value="1.15">Large · 115%</option><option value="1.3">Extra large · 130%</option></select></label>
+        <label class="settings-row" for="pref-overscan"><span>Screen margins</span><select id="pref-overscan"></select></label>
+        <label class="settings-row" for="pref-motion"><span>Reduce animation</span><select id="pref-motion"><option value="false">Off</option><option value="true">On</option></select></label>
+        <label class="settings-row" for="pref-audio"><span>Preferred audio language</span><select id="pref-audio"></select></label>
+        <label class="settings-row" for="pref-subtitles"><span>Preferred subtitles</span><select id="pref-subtitles"></select></label>
+        <label class="settings-row" for="pref-clock"><span>Guide clock time zone</span><select id="pref-clock"></select></label>
+        <button id="settings-refresh" class="settings-row"><span>Refresh library</span><small>Reload your provider catalog</small></button>
+        <button id="settings-reset" class="settings-row"><span>Reset preferences</span><small>Restore appearance and language defaults</small></button>
+        <button id="settings-about" class="settings-row"><span>About Lanternfin TV</span><small>Version, credits, and playback support</small></button>
+      </div>
+      <p id="settings-note" class="hint" role="status"></p><p id="library-note" class="hint"></p><button id="settings-back">Back to home</button>
+    </section>
     <section id="detail" hidden>
       <button id="detail-back" class="subtle">← Back to library</button>
       <div class="detail-hero">
@@ -81,10 +103,10 @@
     <section id="about" class="info-panel" hidden>
       <p class="eyebrow">AN INDEPENDENT FORK</p><h1>A little light for your screen.</h1>
       <p>Lanternfin TV — LG / Samsung development build 0.1.0.</p>
-      <p>Based on Extreme InfiniTV by Ludovico Ferrara / infinitel8p and contributors. Original notice: Copyright (c) 2025 Ludovico Ferrara. The shared M3U parser comes from that project.</p>
+      <p>Based on Extreme InfiniTV by Ludovico Ferrara / infinitel8p and contributors. Original notice: Copyright (c) 2025 Ludovico Ferrara. The shared M3U parser, XMLTV guide reader and TV interface come from that project.</p>
       <p>Free software under GPL-3.0-or-later. License and attribution are included in this app package. Corresponding source: github.com/jpaul-dev/Lanternfin-TV.</p>
       <p>Includes Shaka Player 5.2.8, Copyright Google LLC, under Apache-2.0. Its license is included in this package. The TV layout adapts the original app’s sidebar, hero and artwork rows.</p>
-      <p>Hardware playback validation is ongoing. An electronic programme guide, downloads, and full Android feature parity are still in development.</p>
+      <p>Hardware playback validation is ongoing. Programme guides are available for compatible sources. Downloads and full Android feature parity are still in development.</p>
       <p>Your TV connects to the source you enter. This app adds no analytics, account service, receiver, or update downloads.</p>
       <button id="about-back" class="primary">Back</button>
     </section>

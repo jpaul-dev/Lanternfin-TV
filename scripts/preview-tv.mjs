@@ -18,7 +18,9 @@ createServer(async (request, response) => {
       const categories = [{ category_id: '1', category_name: 'UI test library' }]
       const info = { plot: 'A sample title for checking the TV detail page. Artwork, credits and episodes come from a local test provider. No media or subscriptions are included in this fixture.', movie_image: art, cover: art, backdrop_path: [art], releasedate: '2026-01-01', genre: 'UI demonstration', duration: '01:30:00', rating: '8.2', cast: 'Demo cast', director: 'Demo director' }
       const episodes = { 1: [{ id: 1, season: 1, episode_num: 1, title: 'Test episode', container_extension: 'mp4' }], 2: [{ id: 2, season: 2, episode_num: 1, title: 'Second season test', container_extension: 'mp4' }] }
-      const data = action.endsWith('_categories') ? categories : action === 'get_series_info' ? { info, episodes } : action === 'get_vod_info' ? { info } : Array.from({ length: 10 }, (_, index) => ({ stream_id: index + 1, series_id: index + 1, name: `${action === 'get_series' ? 'Series' : action === 'get_vod_streams' ? 'Movie' : 'Channel'} sample ${index + 1}`, stream_icon: art + `?n=${index}`, cover: art + `?n=${index}`, container_extension: 'mp4' }))
+      const now = Math.floor(Date.now() / 3600000) * 3600
+      const epg = { epg_listings: Array.from({ length: 8 }, (_, index) => ({ start_timestamp: now + index * 3600, stop_timestamp: now + (index + 1) * 3600, title: Buffer.from(index ? `Next programme ${index}` : 'Morning on Lanternfin').toString('base64'), description: Buffer.from('A generated programme listing for checking the guide. This is local test data.').toString('base64') })) }
+      const data = action.includes('epg') || action.includes('data_table') || action.includes('date_table') ? epg : action.endsWith('_categories') ? categories : action === 'get_series_info' ? { info, episodes } : action === 'get_vod_info' ? { info } : Array.from({ length: 10 }, (_, index) => ({ stream_id: index + 1, series_id: index + 1, name: `${action === 'get_series' ? 'Series' : action === 'get_vod_streams' ? 'Movie' : 'Channel'} sample ${index + 1}`, stream_icon: art + `?n=${index}`, cover: art + `?n=${index}`, container_extension: 'mp4' }))
       response.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(data)); return
     }
     if (fixtures && pathname === '/_test/art.svg') {
@@ -28,11 +30,16 @@ createServer(async (request, response) => {
       response.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-store' })
       response.end(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600"><defs><linearGradient id="g" x2="0" y2="1"><stop stop-color="${color}"/><stop offset="1" stop-color="#131726"/></linearGradient></defs><path fill="url(#g)" d="M0 0h400v600H0z"/><circle cx="290" cy="180" r="80" fill="#ffffff28"/><path d="M0 420L170 220 330 410 400 300V600H0" fill="#11192988"/><path d="M0 490L250 350 400 490V600H0" fill="#111724"/><text x="32" y="75" fill="#fff" font-family="sans-serif" font-size="18" letter-spacing="5">UI TEST LIBRARY</text><text x="32" y="525" fill="#fff" font-family="sans-serif" font-size="44">SAMPLE ${index + 1}</text><text x="32" y="560" fill="#aaa" font-family="sans-serif" font-size="16">Generated test artwork · no media</text></svg>`); return
     }
+    if (fixtures && pathname === '/_test/guide.xml') {
+      const now = Math.floor(Date.now() / 3600000) * 3600000, stamp = value => new Date(value).toISOString().replace(/[-:T]/g, '').slice(0, 14) + ' +0000'
+      const programmes = Array.from({ length: 50 }, (_, channel) => `<channel id="demo-${channel}"><display-name>Test stream ${channel + 1}</display-name></channel>` + Array.from({ length: 8 }, (_, hour) => `<programme channel="demo-${channel}" start="${stamp(now + hour * 3600000)}" stop="${stamp(now + (hour + 1) * 3600000)}"><title>XMLTV programme ${hour + 1}</title><desc>Local XMLTV demonstration for channel ${channel + 1}.</desc></programme>`).join('')).join('')
+      response.writeHead(200, { 'Content-Type': 'application/xml', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }); response.end(`<tv>${programmes}</tv>`); return
+    }
     if (fixtures && ['/_test/playlist.m3u', '/_test/large.m3u'].includes(pathname)) {
       response.writeHead(200, { 'Content-Type': 'audio/x-mpegurl', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
       const count = pathname === '/_test/large.m3u' ? 120000 : 50
       let entry = 0
-      response.write('#EXTM3U\n')
+      response.write(`#EXTM3U x-tvg-url="http://127.0.0.1:${port}/_test/guide.xml"\n`)
       const write = () => {
         if (response.destroyed) return
         let chunk = ''

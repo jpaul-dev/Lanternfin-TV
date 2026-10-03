@@ -91,8 +91,8 @@ export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka
     tracks() {
       try {
         return [
-          ...(engine?.getAudioTracks?.() || []).map(track => ({ id: audioKey(track), kind: 'audio' as const, label: trackLabel(track), active: track.active })),
-          ...(engine?.getTextTracks?.() || []).map(track => ({ id: String(track.id), kind: 'subtitle' as const, label: trackLabel(track), active: track.active })),
+          ...(engine?.getAudioTracks?.() || []).map(track => ({ id: audioKey(track), kind: 'audio' as const, language: track.language, label: trackLabel(track), active: track.active })),
+          ...(engine?.getTextTracks?.() || []).map(track => ({ id: String(track.id), kind: 'subtitle' as const, language: track.language, label: trackLabel(track), active: track.active })),
         ]
       } catch { return [] }
     },

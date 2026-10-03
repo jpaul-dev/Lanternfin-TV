@@ -5,6 +5,7 @@ import { channelId, type TVLibrary } from './library'
 export function channelCard(channel: Channel, activate: () => void, library?: TVLibrary): HTMLButtonElement {
   const card = document.createElement('button'); card.className = 'channel'; card.type = 'button'
   card.dataset.kind = channel.mediaKind || 'live'
+  card.dataset.channel = channelId(channel)
   const art = document.createElement('span'); art.className = 'card-art'; art.setAttribute('aria-hidden', 'true')
   const fallback = document.createElement('span'); fallback.className = 'art-fallback'; fallback.textContent = channel.name.slice(0, 2).toUpperCase(); art.append(fallback)
   if (channel.logo) {
@@ -20,6 +21,7 @@ let rowGeneration = 0
 export function cancelHomeRows() { rowGeneration++ }
 export async function homeRows(root: HTMLElement, channels: Channel[], library: TVLibrary | undefined, activate: (channel: Channel) => void) {
   const token = ++rowGeneration
+  const focused = root.contains(document.activeElement) ? (document.activeElement as HTMLElement)?.dataset.channel : undefined
   root.replaceChildren()
   // One bounded pass, rather than separate full-catalog copies for every rail.
   const recent: Channel[] = [], favorites: Channel[] = [], live: Channel[] = [], movies: Channel[] = [], series: Channel[] = []
@@ -40,4 +42,5 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
     for (const channel of entries) rail.append(channelCard(channel, () => activate(channel), library))
     section.append(heading, rail); root.append(section)
   }
+  if (focused) root.querySelector<HTMLElement>(`[data-channel="${focused}"]`)?.focus({ preventScroll: true })
 }

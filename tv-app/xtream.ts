@@ -32,7 +32,7 @@ export function mediaUrl(source: Source, kind: 'live' | 'movie' | 'series', id: 
   url.search = ''; return httpUrl(url.href)
 }
 
-async function request(source: Source, action: string, signal: AbortSignal, params: Record<string, string> = {}, maxBytes = 32 * 1024 * 1024): Promise<unknown> {
+export async function request(source: Source, action: string, signal: AbortSignal, params: Record<string, string> = {}, maxBytes = 32 * 1024 * 1024): Promise<unknown> {
   if (signal.aborted) throw new ProviderError('Loading cancelled.')
   const controller = new AbortController()
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined, timer: ReturnType<typeof setTimeout>, timedOut = false

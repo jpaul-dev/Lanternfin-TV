@@ -65,7 +65,7 @@ describe('TV source boundary', () => {
       const catalog = await loadCatalog(source, new AbortController().signal, progress)
       expect(bytes).toBeGreaterThan(8 * 1024 * 1024)
       expect(catalog.channels).toHaveLength(count)
-      expect(catalog.channels.at(-1)).toEqual({ name: 'Channel 44999', group: 'Group 39', url: 'https://cdn.example/stream/44999.m3u8', mediaKind: 'live', logo: `https://images.example/${'a'.repeat(120)}` })
+      expect(catalog.channels.at(-1)).toEqual({ name: 'Channel 44999', group: 'Group 39', tvgId: 'id-44999', url: 'https://cdn.example/stream/44999.m3u8', mediaKind: 'live', logo: `https://images.example/${'a'.repeat(120)}` })
       expect(progress.mock.calls.at(-1)![0]).toMatchObject({ bytes, channels: count, skipped: 0 })
       expect(uiTicks).toBeGreaterThan(0)
     } finally { clearInterval(heartbeat) }

@@ -2,7 +2,7 @@ import { httpUrl } from './catalog'
 import type { Media } from './media'
 export type State = 'loading' | 'playing' | 'paused' | 'buffering' | 'ended' | 'error' | 'idle'
 export type Report = (state: State, detail?: string) => void
-export type PlayerTrack = { id: string; kind: 'audio' | 'subtitle'; label: string; active: boolean; disabled?: boolean }
+export type PlayerTrack = { id: string; kind: 'audio' | 'subtitle'; label: string; language?: string; active: boolean; disabled?: boolean }
 export interface Player { play(url: string | Media, position?: number): void; pause(): void; resume(): void; seek(delta: number): void; stop(): void; timeline(): { position: number; duration: number }; tracks?(): PlayerTrack[]; selectTrack?(kind: PlayerTrack['kind'], id: string): boolean }
 type NativeTrack = { type: string; index: number; extra_info?: string }
 export interface AVPlay {
@@ -94,7 +94,7 @@ export function samsungPlayer(api: AVPlay, report: Report): Player {
         return (api.getTotalTrackInfo?.() || []).filter(track => track.type === 'AUDIO' || (track.type === 'TEXT' && !dash && !!api.setSilentSubtitle)).map(track => {
           let info: Record<string, unknown> = {}; try { info = JSON.parse(track.extra_info || '{}') || {} } catch { /* Language may be missing. */ }
           const language = typeof info.language === 'string' ? info.language : typeof info.track_lang === 'string' ? info.track_lang : ''
-          return { id: String(track.index), kind: track.type === 'AUDIO' ? 'audio' as const : 'subtitle' as const, label: language.slice(0, 80) || `${track.type === 'AUDIO' ? 'Audio' : 'Subtitle'} ${track.index + 1}`, active: (track.type !== 'TEXT' || !subtitlesHidden) && selected.some(item => item.type === track.type && item.index === track.index), disabled: track.type === 'AUDIO' && api.getState() !== 'PLAYING' }
+          return { id: String(track.index), kind: track.type === 'AUDIO' ? 'audio' as const : 'subtitle' as const, language, label: language.slice(0, 80) || `${track.type === 'AUDIO' ? 'Audio' : 'Subtitle'} ${track.index + 1}`, active: (track.type !== 'TEXT' || !subtitlesHidden) && selected.some(item => item.type === track.type && item.index === track.index), disabled: track.type === 'AUDIO' && api.getState() !== 'PLAYING' }
         })
       } catch { return [] }
     },
@@ -161,8 +161,8 @@ function htmlTracks(video: HTMLVideoElement) {
   const audio = Array.from((video as HTMLVideoElement & { audioTracks?: ArrayLike<AudioTrack> }).audioTracks || [])
   const subtitles = Array.from(video.textTracks || []).filter(track => ['subtitles', 'captions'].includes(track.kind))
   const tracks: PlayerTrack[] = [
-    ...audio.map((track, index) => ({ id: String(index), kind: 'audio' as const, label: (track.label || track.language || `Audio ${index + 1}`).slice(0, 120), active: track.enabled })),
-    ...subtitles.map((track, index) => ({ id: String(index), kind: 'subtitle' as const, label: (track.label || track.language || `Subtitles ${index + 1}`).slice(0, 120), active: track.mode === 'showing' })),
+    ...audio.map((track, index) => ({ id: String(index), kind: 'audio' as const, language: track.language, label: (track.label || track.language || `Audio ${index + 1}`).slice(0, 120), active: track.enabled })),
+    ...subtitles.map((track, index) => ({ id: String(index), kind: 'subtitle' as const, language: track.language, label: (track.label || track.language || `Subtitles ${index + 1}`).slice(0, 120), active: track.mode === 'showing' })),
   ]
   return { audio, subtitles, tracks }
 }

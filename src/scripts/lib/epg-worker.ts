@@ -38,6 +38,8 @@ interface StreamBeginRequest {
   nowMs: number
   /** True when `chunk` bytes are the raw (still-compressed) network payload. */
   gzip: boolean
+  /** Optional tighter budget for packaged TV apps. */
+  maxChannels?: number
 }
 
 interface StreamChunkRequest {
@@ -700,6 +702,7 @@ interface StreamSession {
   channelNames: Map<string, string>
   tz: TzCounters
   error: string | null
+  maxChannels: number
 }
 
 const streamSessions = new Map<string, StreamSession>()
@@ -741,6 +744,7 @@ function beginStream(request: StreamBeginRequest): void {
     channelNames: new Map(),
     tz: { timestamps: 0, suffixed: 0 },
     error: null,
+    maxChannels: Number.isSafeInteger(request.maxChannels) && request.maxChannels! > 0 ? request.maxChannels! : Infinity,
   }
   if (request.gzip) {
     if (typeof DecompressionStream !== "function") {
@@ -813,8 +817,10 @@ function ingestSessionText(session: StreamSession, text: string): void {
 
   stripCarryComments(session.scan)
   drainElements(session.scan, STREAM_TAGS, (tag, attrs, inner) => {
+    if (session.error) return
     if (tag === "channel") applyChannelElement(session.channelNames, attrs, inner)
     else applyNowNextProgramme(session.slots, attrs, inner, session.nowMs, session.tz)
+    if (session.channelNames.size > session.maxChannels || session.slots.size > session.maxChannels) session.error = "The programme guide exceeds this TV's channel budget. Use a smaller guide."
   })
   capCarry(session.scan, STREAM_TAGS)
 }
