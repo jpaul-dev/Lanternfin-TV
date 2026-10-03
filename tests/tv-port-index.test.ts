@@ -72,3 +72,44 @@ it('rejects an over-budget snapshot transactionally and releases the index for a
   expect(index.items).toEqual([]); expect(index.progress.complete).toBe(false)
   await index.restore(saved(3)); expect(index.progress.titles).toBe(3)
 })
+
+it('yields while indexing a downloaded category without exposing partial membership or titles', async () => {
+  let clock = 0
+  const timer = vi.spyOn(performance, 'now').mockImplementation(() => clock += 20)
+  try {
+    const titles = saved(20000).entries[0].channels
+    const index = new ProviderIndex(source, categories.slice(0, 1), { categories: async () => [], category: async () => ({ channels: titles, skipped: 0 }) })
+    const before = index.items, pending = index.start(() => {})
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(index.items).toBe(before); expect(index.items).toHaveLength(0)
+    expect(index.has(titles[0])).toBe(false); expect(index.cached('live', categories[0])).toBeUndefined()
+    await pending
+    expect(index.items).toHaveLength(20000); expect(before).toHaveLength(0)
+    expect(index.has(titles[0])).toBe(true); expect(index.progress.complete).toBe(true)
+  } finally { timer.mockRestore() }
+})
+
+it('can resume during canceled staging cleanup without losing the new run’s title membership', async () => {
+  let clock = 0
+  const timer = vi.spyOn(performance, 'now').mockImplementation(() => clock += 20)
+  try {
+    const titles = saved(6000).entries[0].channels, replacement = titles.slice(0, 3000).map(item => ({ ...item, name: `New ${item.name}` }))
+    const loader = { categories: async () => [], category: vi.fn().mockResolvedValueOnce({ channels: titles, skipped: 0 }).mockResolvedValue({ channels: replacement, skipped: 0 }) }
+    const index = new ProviderIndex(source, categories.slice(0, 1), loader), first = index.start(() => {})
+    await new Promise(resolve => setTimeout(resolve, 0)); index.pause()
+    const resumed = index.start(() => {}); await Promise.all([first, resumed])
+    expect(index.items).toEqual(replacement); expect(index.items.every(item => index.has(item))).toBe(true)
+    expect(index.has(titles[5000])).toBe(false); expect(index.progress).toMatchObject({ complete: true, titles: 3000, loaded: 1, running: false })
+    expect(index.cached('live', categories[0])?.channels).toBe(replacement)
+  } finally { timer.mockRestore() }
+})
+
+it('rolls back staged membership after a character-budget failure and can retry smaller results', async () => {
+  const titles = saved(2000).entries[0].channels
+  const loader = { categories: async () => [], category: vi.fn().mockResolvedValueOnce({ channels: titles, skipped: 0 }).mockResolvedValue({ channels: titles.slice(0, 2), skipped: 0 }) }
+  const index = new ProviderIndex(source, categories.slice(0, 1), loader, { records: 2000, characters: 1000 })
+  await index.start(() => {})
+  expect(index.progress.message).toContain('memory budget'); expect(index.items).toHaveLength(0); expect(index.has(titles[0])).toBe(false)
+  await index.start(() => {})
+  expect(index.progress).toMatchObject({ complete: true, titles: 2 }); expect(index.has(titles[0])).toBe(true)
+})
