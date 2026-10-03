@@ -1,6 +1,6 @@
 import type { TVLibrary, LibraryArea } from './library'
 
-const AREAS: Record<LibraryArea, string> = { favorites: 'favorite marks', history: 'recent entries and resume positions', watched: 'watched marks', seasons: 'saved season choices' }
+const AREAS: Record<LibraryArea, string> = { favorites: 'favorite marks', watchlist: 'watchlist titles', history: 'recent entries and resume positions', watched: 'watched marks', seasons: 'saved season choices' }
 /** Current source only. Selecting options never mutates a library; review precedes apply. */
 export function libraryUI(root: HTMLElement, changed: () => void) {
   const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#manage-${id}`)!

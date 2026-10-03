@@ -45,19 +45,23 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
     if (token !== rowGeneration) return
   }
   // One bounded pass, rather than separate full-catalog copies for every rail.
-  const recent: Channel[] = [], favorites: Channel[] = [], live: Channel[] = [], movies: Channel[] = [], series: Channel[] = []
+  const recent: Channel[] = [], favorites: Channel[] = [], watchlist: Channel[] = [], live: Channel[] = [], movies: Channel[] = [], series: Channel[] = []
+  const watchlistOrder = new Map([...(library?.watchlist || [])].reverse().map((id, index) => [id, index]))
+  const seenWatchlist = new Set<string>()
   const seenRecent = new Set<string>(); let started = performance.now(), index = 0
   for (const channel of channels) {
     if (library?.recent.size && library.lastPlayed(channel) && !seenRecent.has(channelId(channel))) { recent.push(channel); seenRecent.add(channelId(channel)) }
     if (library?.favorites.size && favorites.length < 12 && library.isFavorite(channel)) favorites.push(channel)
+    if (library?.watchlist.size && watchlistOrder.has(channelId(channel)) && !seenWatchlist.has(channelId(channel))) { watchlist.push(channel); seenWatchlist.add(channelId(channel)) }
     const row = channel.mediaKind === 'movie' ? movies : ['series', 'episode'].includes(channel.mediaKind || '') ? series : live
     const group = grouped?.groups.get(channel)
     if (row.length < 12 && (!group || group.selected === channel)) row.push(channel)
     if (++index % 512 === 0 && performance.now() - started >= 12) { await new Promise<void>(resolve => setTimeout(resolve, 0)); if (token !== rowGeneration) return; started = performance.now() }
   }
   recent.sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
+  watchlist.sort((a, b) => watchlistOrder.get(channelId(a))! - watchlistOrder.get(channelId(b))!); watchlist.length = Math.min(12, watchlist.length)
   const fragment = document.createDocumentFragment()
-  for (const [title, entries] of [['Continue watching', recent.filter(channel => !!library?.lastPlayed(channel)?.position).slice(0, 12)], ['Recently watched', recent.slice(0, 12)], ['Your favorites', favorites], ['Live TV', live], ['Movies', movies], ['Series & episodes', series]] as const) {
+  for (const [title, entries] of [['Continue watching', recent.filter(channel => !!library?.lastPlayed(channel)?.position).slice(0, 12)], ['Watchlist', watchlist], ['Recently watched', recent.slice(0, 12)], ['Your favorites', favorites], ['Live TV', live], ['Movies', movies], ['Series & episodes', series]] as const) {
     if (!entries.length) continue
     const section = document.createElement('section'); section.className = 'home-row'; section.dataset.row = title
     const heading = document.createElement('h2'); heading.textContent = tr(title)

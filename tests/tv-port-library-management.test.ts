@@ -18,7 +18,7 @@ afterEach(() => vi.restoreAllMocks())
 it('clears selected data with one write, preserves other areas and restores a complete snapshot on undo', () => {
   const { storage, library } = fixture(), before = library.snapshot(), write = vi.spyOn(storage, 'setItem')
   const undo = library.clearAreas(['favorites', 'history'])
-  expect(write).toHaveBeenCalledOnce(); expect(library.counts()).toEqual({ favorites: 0, history: 0, watched: 1, seasons: 1 })
+  expect(write).toHaveBeenCalledOnce(); expect(library.counts()).toEqual({ favorites: 0, watchlist: 0, history: 0, watched: 1, seasons: 1 })
   expect(library.bookmarkedChannels()).toHaveLength(0); expect(new TVLibrary(storage, source).counts()).toEqual(library.counts())
   undo(); expect(library.snapshot()).toEqual(before); expect(new TVLibrary(storage, source).snapshot()).toEqual(before)
   expect(() => undo()).toThrow('changed after clearing')

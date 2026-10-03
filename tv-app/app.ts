@@ -58,7 +58,7 @@ let searching: AbortController | undefined, searchTimer: ReturnType<typeof setTi
 let library: TVLibrary | undefined, activeSource: Source | undefined
 let currentChannel: Channel | undefined, pendingChannel: Channel | undefined
 let lastTimeline = { position: 0, duration: 0 }, lastSaved = 0
-let libraryView: 'all' | 'favorites' | 'recent' = 'all'
+let libraryView: 'all' | 'favorites' | 'watchlist' | 'recent' = 'all'
 let nativeSelectOpen = false
 let browseView: 'home' | 'all' | 'search' | MediaKind = 'home'
 let providerCategories: Partial<Record<MediaKind, Category[]>> = {}, providerLoading: AbortController | undefined
@@ -245,6 +245,7 @@ async function filter(resetPage = true) {
       if (['search', 'all'].includes(browseView) && kind && (kind === 'series' ? !['series', 'episode'].includes(channel.mediaKind || '') : (channel.mediaKind || 'live') !== kind)) return false
       if (browseView !== 'live' && !watchedFilter(select('watched-filter').value, !!library?.isWatched(channel))) return false
       if (libraryView === 'favorites' && !library?.isFavorite(channel)) return false
+      if (libraryView === 'watchlist' && !library?.isWatchlisted(channel)) return false
       if (libraryView === 'recent' && !library?.lastPlayed(channel)) return false
       if (['live', 'movie', 'series'].includes(browseView) && !(browseView === 'series' ? ['series', 'episode'].includes(channel.mediaKind || '') : (channel.mediaKind || 'live') === browseView)) return false
       const tag = providerLanguage(channel); tags.add(tag)
@@ -262,6 +263,7 @@ async function filter(resetPage = true) {
     languageSelect.value = language
     $('language-field').hidden = !language && ![...tags].some(tag => tag !== 'untagged')
     if (libraryView === 'recent' && select('sort-order').value === 'provider') matches.sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
+    if (libraryView === 'watchlist' && select('sort-order').value === 'provider') { const order = new Map([...(library?.watchlist || [])].reverse().map((id, index) => [id, index])); matches.sort((a, b) => order.get(channelId(a))! - order.get(channelId(b))!) }
     filtered = matches; page = resetPage ? 0 : Math.min(page, Math.max(0, Math.ceil(matches.length / PAGE_SIZE) - 1)); render()
   } catch { /* Superseded searches do not replace current results. */ }
   finally { if (searching === controller) searching = undefined }
@@ -285,7 +287,7 @@ function render() {
   $('page-label').textContent = `Page ${page + 1} of ${Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))}`
   $('pagination').hidden = !filtered.length
   button('previous').disabled = page === 0; button('next').disabled = (page + 1) * PAGE_SIZE >= filtered.length
-  for (const view of ['all', 'favorites', 'recent']) button(`view-${view}`).setAttribute('aria-pressed', String(libraryView === view))
+  for (const view of ['all', 'favorites', 'watchlist', 'recent']) button(`view-${view}`).setAttribute('aria-pressed', String(libraryView === view))
   $('clear-history').hidden = libraryView !== 'recent'
   renderEmpty()
   if (focused) grid.querySelector<HTMLElement>(`[data-channel="${focused}"]`)?.focus({ preventScroll: true })
@@ -296,10 +298,10 @@ function renderEmpty() {
   if ($('browse-empty').hidden) return
   const filters = !!input('search').value.trim() || !!select('group').value || (browseView !== 'live' && (!!select('language-filter').value || select('watched-filter').value !== 'all')) || (['all', 'search'].includes(browseView) && !!select('media-filter').value)
   const incomplete = providerIndex && !providerIndex.progress.complete
-  let title = filters ? 'No matching titles' : libraryView === 'favorites' ? 'Your favorites start here' : libraryView === 'recent' ? 'Make a little viewing history' : incomplete ? 'Your library is still loading' : 'Nothing in this section yet'
-  let description = filters ? 'Try a different name or reset the filters to see more of your library.' : libraryView === 'favorites' ? 'Hold OK on a title and choose Add favorite. Your saved choices will appear here.' : libraryView === 'recent' ? 'Start watching a title and return here to pick up where you left off.' : incomplete ? 'Choose a category to browse now, or continue loading the full library.' : 'Choose another category or refresh your source to check for new titles.'
+  let title = filters ? 'No matching titles' : libraryView === 'favorites' ? 'Your favorites start here' : libraryView === 'watchlist' ? 'Your next watch starts here' : libraryView === 'recent' ? 'Make a little viewing history' : incomplete ? 'Your library is still loading' : 'Nothing in this section yet'
+  let description = filters ? 'Try a different name or reset the filters to see more of your library.' : libraryView === 'favorites' ? 'Hold OK on a title and choose Add favorite. Your saved choices will appear here.' : libraryView === 'watchlist' ? 'Save a movie or series for later from its details or Hold OK menu. Your watchlist stays separate from favorites.' : libraryView === 'recent' ? 'Start watching a title and return here to pick up where you left off.' : incomplete ? 'Choose a category to browse now, or continue loading the full library.' : 'Choose another category or refresh your source to check for new titles.'
   if (incomplete && filters) description += ' Search currently covers only loaded titles.'
-  if (incomplete && libraryView === 'favorites' && library?.favorites.size) { title = 'Your saved titles are still loading'; description = 'Favorites will appear as matching titles become available. You can browse a category while loading continues.' }
+  if (incomplete && (libraryView === 'favorites' && library?.favorites.size || libraryView === 'watchlist' && library?.watchlist.size)) { title = 'Your saved titles are still loading'; description = 'Saved choices will appear as matching titles become available. You can browse a category while loading continues.' }
   $('empty-title').textContent = tr(title); $('empty-description').textContent = tr(description)
   $('empty-clear').hidden = !filters
   $('empty-load').hidden = !incomplete; button('empty-load').disabled = !!providerIndex?.progress.running
@@ -323,7 +325,7 @@ input('page-jump').onkeydown = event => { if (event.key === 'Enter') { event.pre
 $('reset-filters').onclick = () => { input('search').value = ''; for (const id of ['group', 'media-filter', 'language-filter']) select(id).value = ''; select('watched-filter').value = 'all'; select('sort-order').value = 'provider'; void filter() }
 $('change-source').onclick = () => { cancelProviderLoad(); show('setup') }
 $('return-catalog').onclick = () => { cancelLoad(); show('catalog') }
-for (const view of ['all', 'favorites', 'recent'] as const) $(`view-${view}`).onclick = () => { cancelProviderLoad(); libraryView = view; browseView = 'all'; input('search').value = ''; select('group').value = ''; browseLayout(view === 'all' ? 'All streams' : view === 'favorites' ? 'Favorites' : 'Recently watched'); void filter() }
+for (const view of ['all', 'favorites', 'watchlist', 'recent'] as const) $(`view-${view}`).onclick = () => { cancelProviderLoad(); libraryView = view; browseView = 'all'; input('search').value = ''; select('group').value = ''; browseLayout(view === 'all' ? 'All streams' : view === 'favorites' ? 'Favorites' : view === 'watchlist' ? 'Watchlist' : 'Recently watched'); void filter() }
 $('clear-history').onclick = () => openLibraryManager('catalog', 'history')
 $('refresh-catalog').onclick = () => {
   forceFresh = true
@@ -669,6 +671,8 @@ function openCardMenu(card: HTMLElement) {
   contextCard = card; $('card-menu-title').textContent = contextChannel.name
   button('card-menu-play').textContent = ['movie', 'series'].includes(contextChannel.mediaKind || '') ? 'View details' : 'Watch'
   button('card-menu-favorite').textContent = library?.isFavorite(contextChannel) ? 'Remove favorite' : 'Add favorite'
+  $('card-menu-watchlist').hidden = !['movie', 'series'].includes(contextChannel.mediaKind || '')
+  button('card-menu-watchlist').textContent = tr(library?.isWatchlisted(contextChannel) ? 'Remove from watchlist' : 'Save for later')
   $('card-menu-history').hidden = !library?.lastPlayed(contextChannel)
   $('card-menu-watched').hidden = !['movie', 'episode'].includes(contextChannel.mediaKind || '')
   $('card-menu-download').hidden = !['movie', 'episode'].includes(contextChannel.mediaKind || '')
@@ -690,9 +694,9 @@ async function refreshCards() {
 $('card-menu-close').onclick = closeCardMenu
 $('card-menu-play').onclick = () => { const channel = contextChannel; closeCardMenu(); if (channel) { lastFocusedCard = contextCard; watch(channel) } }
 $('card-menu-download').onclick = () => { const channel = contextChannel; closeCardMenu(); if (channel) openDownloads(channel) }
-for (const [id, history] of [['card-menu-favorite', false], ['card-menu-history', true]] as const) $(id).onclick = async () => {
+for (const [id, action] of [['card-menu-favorite', 'favorite'], ['card-menu-history', 'history'], ['card-menu-watchlist', 'watchlist']] as const) $(id).onclick = async () => {
   if (!contextChannel) return
-  try { if (history) library?.removeRecent(contextChannel); else library?.toggleFavorite(contextChannel); rememberLibraryChannel(contextChannel); await refreshCards(); closeCardMenu() }
+  try { if (action === 'history') library?.removeRecent(contextChannel); else if (action === 'watchlist') library?.toggleWatchlist(contextChannel); else library?.toggleFavorite(contextChannel); rememberLibraryChannel(contextChannel); await refreshCards(); closeCardMenu() }
   catch (error) { $('card-menu-note').textContent = (error as Error).message }
 }
 $('card-menu-watched').onclick = async () => {
@@ -843,6 +847,7 @@ $('guide-favorite').onclick = () => { if (!guideChannel) return; try { library?.
 $('guide-refresh').onclick = () => selectGuide(guideChannel, true)
 function cancelProviderLoad() { providerLoading?.abort(); providerLoading = undefined; $('cancel-category').hidden = true }
 function browseLayout(title: string) {
+  select('sort-order').options[0].textContent = tr(libraryView === 'watchlist' ? 'Recently saved' : 'Provider order')
   document.documentElement.dataset.browse = browseView
   cancelHomeRows()
   $('home-content').hidden = true; $('browse-content').hidden = false
@@ -888,7 +893,7 @@ function renderFeatured(featured?: Channel, versions?: Channel[]) {
 function rememberLibraryChannel(channel: Channel) {
   if (activeSource?.kind !== 'xtream') return
   knownLibraryChannels.set(channelId(channel), channel)
-  for (const [id, entry] of knownLibraryChannels) if (!library?.isFavorite(entry) && !library?.lastPlayed(entry)) knownLibraryChannels.delete(id)
+  for (const [id, entry] of knownLibraryChannels) if (!library?.isFavorite(entry) && !library?.isWatchlisted(entry) && !library?.lastPlayed(entry)) knownLibraryChannels.delete(id)
   knownLibraryVersion++
 }
 function libraryPool(): Channel[] {
@@ -1020,6 +1025,8 @@ function renderDetails() {
   const favorite = !!library?.isFavorite(info.channel)
   button('detail-favorite').textContent = favorite ? '★ Favorited' : '☆ Add favorite'
   button('detail-favorite').setAttribute('aria-pressed', String(favorite))
+  button('detail-watchlist').textContent = tr(library?.isWatchlisted(detailInfo.channel) ? 'Remove from watchlist' : 'Save for later')
+  button('detail-watchlist').setAttribute('aria-pressed', String(!!library?.isWatchlisted(detailInfo.channel)))
   button('detail-play').disabled = series && !info.episodes?.length
   button('detail-play').textContent = series ? '▶ Play first episode' : library?.lastPlayed(info.channel)?.position ? '▶ Continue watching' : '▶ Play movie'
   $('detail-episodes').hidden = !series
@@ -1049,6 +1056,7 @@ $('detail-play').onclick = () => {
   const resumable = episodes.filter(episode => library?.lastPlayed(episode)?.position).sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
   const channel = detailInfo?.channel.mediaKind === 'series' ? resumable[0] || episodes.find(episode => !library?.isWatched(episode)) || episodes[0] : detailInfo?.channel; if (channel) playChannel(channel)
 }
+$('detail-watchlist').onclick = () => { if (!detailInfo) return; try { library?.toggleWatchlist(detailInfo.channel); rememberLibraryChannel(detailInfo.channel); renderDetails() } catch (error) { $('detail-status').textContent = (error as Error).message } }
 $('detail-favorite').onclick = () => { if (!detailInfo) return; try { library?.toggleFavorite(detailInfo.channel); rememberLibraryChannel(detailInfo.channel); renderDetails() } catch (error) { $('detail-status').textContent = (error as Error).message } }
 $('detail-retry').onclick = () => { if (detailInfo) void openTitle(detailInfo.channel, detailVariants) }
 select('detail-version').onchange = () => { const selected = detailVariants[Number(select('detail-version').value)]; if (selected) void openTitle(selected, detailVariants) }

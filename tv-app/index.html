@@ -23,6 +23,7 @@
       <button id="nav-search"><span aria-hidden="true">⌕</span>Search</button>
       <div class="nav-divider"></div>
       <button id="view-favorites" aria-pressed="false"><span aria-hidden="true">☆</span>Favorites</button>
+      <button id="view-watchlist" aria-pressed="false"><span aria-hidden="true">▱</span>Watchlist</button>
       <button id="view-recent" aria-pressed="false"><span aria-hidden="true">◷</span>Recent</button>
       <button id="nav-downloads"><span aria-hidden="true">↓</span>Downloads</button>
       <button id="nav-settings"><span aria-hidden="true">⚙</span>Settings</button>
@@ -117,7 +118,7 @@
     </section>
     <section id="backup" class="settings-view" hidden>
       <p class="eyebrow">YOUR LIBRARY, WITH YOU</p><h1>Backup and restore</h1>
-      <p class="hint">Back up remembered sources, favorites, viewing progress and preferences. Catalog caches and video are not included. Backups stay on this device until you save or copy them.</p>
+      <p class="hint">Back up remembered sources, favorites, watchlist, viewing progress and preferences. Catalog caches and video are not included. Backups stay on this device until you save or copy them.</p>
       <div class="backup-columns">
         <div class="backup-card"><h2>Create a backup</h2><p class="hint">Choose a separate passphrase of at least 12 characters. It encrypts the backup, including saved provider passwords. Keep it safe; it cannot be recovered.</p>
           <label for="backup-passphrase">Backup passphrase</label><input id="backup-passphrase" type="password" minlength="12" maxlength="256" autocomplete="off">
@@ -130,7 +131,7 @@
           <label for="backup-input">Paste encrypted backup text</label><textarea id="backup-input" rows="3" maxlength="12582912" spellcheck="false" autocomplete="off"></textarea>
           <label for="restore-passphrase">Saved backup passphrase</label><input id="restore-passphrase" type="password" minlength="12" maxlength="256" autocomplete="off">
           <button id="backup-decrypt">Review backup</button>
-          <div id="backup-review" hidden><p id="backup-summary"></p><label class="check"><input id="backup-library" type="checkbox" checked>Merge favorites and viewing progress</label><label class="check"><input id="backup-preferences" type="checkbox">Use the backup’s preferences</label><p class="hint">Existing sources keep their names and settings. Favorites and watched marks combine; the latest 100 history entries remain. Current season choices take priority. The app reopens after restore.</p><button id="backup-restore" class="primary">Restore to this TV</button></div>
+          <div id="backup-review" hidden><p id="backup-summary"></p><label class="check"><input id="backup-library" type="checkbox" checked>Merge favorites, watchlist and viewing progress</label><label class="check"><input id="backup-preferences" type="checkbox">Use the backup’s preferences</label><p class="hint">Existing sources keep their names and settings. Favorites, watchlist and watched marks combine; the latest 100 history entries remain. Current season choices take priority. The app reopens after restore.</p><button id="backup-restore" class="primary">Restore to this TV</button></div>
         </div>
       </div><p id="backup-status" role="status" class="hint"></p><button id="backup-back">Back to settings</button>
     </section>
@@ -139,6 +140,7 @@
       <p class="hint">Choose what to clear for this source. Review the totals before applying. Saved sources, provider catalogs and other libraries stay as they are.</p>
       <button id="manage-backup">Create a backup first</button>
       <div class="settings-list manage-choices">
+        <label class="settings-row check"><input id="manage-watchlist" type="checkbox"><span>Watchlist titles</span><small id="manage-watchlist-count"></small></label>
         <label class="settings-row check"><input id="manage-favorites" type="checkbox"><span>Favorite marks</span><small id="manage-favorites-count"></small></label>
         <label class="settings-row check"><input id="manage-history" type="checkbox"><span>Recently watched &amp; resume positions</span><small id="manage-history-count"></small></label>
         <label class="settings-row check"><input id="manage-watched" type="checkbox"><span>Watched marks</span><small id="manage-watched-count"></small></label>
@@ -167,7 +169,7 @@
         <div class="detail-content"><img id="detail-poster" class="detail-poster" alt="" hidden>
           <div class="detail-copy"><p id="detail-kind" class="eyebrow"></p><h1 id="detail-title"></h1><p id="detail-meta" class="muted"></p><p id="detail-description" tabindex="0"></p><p id="detail-credits" class="hint"></p>
             <div id="detail-versions" hidden><label for="detail-version">Language version</label><select id="detail-version"></select><p class="hint">Grouped by matching provider titles and language tags. Each version keeps its own favorites and progress; audio tracks depend on the stream.</p></div>
-            <div class="actions"><button id="detail-play" class="primary">▶ Play</button><button id="detail-favorite" aria-pressed="false">☆ Add favorite</button><button id="detail-download">Download</button><button id="detail-retry" hidden>Retry details</button></div>
+            <div class="actions"><button id="detail-play" class="primary">▶ Play</button><button id="detail-favorite" aria-pressed="false">☆ Add favorite</button><button id="detail-watchlist" aria-pressed="false">Save for later</button><button id="detail-download">Download</button><button id="detail-retry" hidden>Retry details</button></div>
             <p id="detail-status" class="hint" role="status"></p>
           </div>
         </div>
@@ -182,7 +184,7 @@
     <div id="playback-busy" role="status" hidden><span aria-hidden="true"></span>Buffering…</div>
     <div id="scrub-osd" class="scrub-osd" hidden><div class="scrub-times"><span data-scrub-position></span><strong data-scrub-delta></strong><span data-scrub-remaining></span></div><progress aria-label="Playback progress"></progress></div>
     <div id="track-menu" class="track-menu" role="dialog" aria-modal="true" aria-labelledby="tracks-title" hidden><h2 id="tracks-title">Playback settings</h2><p class="hint">Picture, language and playback options for this stream.</p><label for="audio-track">Audio</label><select id="audio-track"></select><label for="subtitle-track">Subtitles</label><select id="subtitle-track"></select><label for="quality-track">Video quality</label><select id="quality-track"></select><label for="aspect-mode">Picture size</label><select id="aspect-mode"></select><label for="playback-speed">Playback speed</label><select id="playback-speed"></select><p id="track-status" class="hint" role="status"></p><button id="tracks-close" class="primary">Done</button></div>
-    <div id="card-menu" class="card-menu" role="dialog" aria-modal="true" aria-labelledby="card-menu-title" hidden><h2 id="card-menu-title"></h2><button id="card-menu-play">Watch</button><button id="card-menu-favorite">Add favorite</button><button id="card-menu-watched" hidden>Mark as watched</button><button id="card-menu-download" hidden>Download</button><button id="card-menu-history" hidden>Remove from recently watched</button><p id="card-menu-note" class="hint" role="status"></p><button id="card-menu-close">Back</button></div>
+    <div id="card-menu" class="card-menu" role="dialog" aria-modal="true" aria-labelledby="card-menu-title" hidden><h2 id="card-menu-title"></h2><button id="card-menu-play">Watch</button><button id="card-menu-favorite">Add favorite</button><button id="card-menu-watchlist" hidden>Save for later</button><button id="card-menu-watched" hidden>Mark as watched</button><button id="card-menu-download" hidden>Download</button><button id="card-menu-history" hidden>Remove from recently watched</button><p id="card-menu-note" class="hint" role="status"></p><button id="card-menu-close">Back</button></div>
     <section id="resume" class="info-panel" hidden><p class="eyebrow">PICK UP WHERE YOU LEFT OFF</p><h1 id="resume-title"></h1><p id="resume-description"></p><div class="actions"><button id="resume-continue" class="primary">Continue watching</button><button id="resume-start">Start over</button><button id="resume-back">Back to streams</button></div></section>
     <section id="about" class="info-panel" hidden>
       <p class="eyebrow">AN INDEPENDENT FORK</p><h1>A little light for your screen.</h1>

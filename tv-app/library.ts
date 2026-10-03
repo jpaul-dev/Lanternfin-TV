@@ -2,9 +2,9 @@ import type { Channel, Source } from './catalog'
 import { channelReference, readProviderReference, referenceChannel, type ProviderReference } from './provider-reference'
 
 export type Recent = { id: string; at: number; position: number; duration: number; completed?: boolean }
-export type LibraryArea = 'favorites' | 'history' | 'watched' | 'seasons'
+export type LibraryArea = 'favorites' | 'watchlist' | 'history' | 'watched' | 'seasons'
 const PREFIX = 'lanternfin.tv.library.v1.'
-const MAX_FAVORITES = 2000, MAX_RECENT = 100
+const MAX_FAVORITES = 2000, MAX_WATCHLIST = 2000, MAX_RECENT = 100
 const validId = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{16}$/.test(value)
 
 // Stable lookup identifiers, not encryption. Provider bookmarks store bounded
@@ -26,6 +26,7 @@ export const channelId = (channel: Channel) => {
 
 export class TVLibrary {
   readonly favorites = new Set<string>()
+  readonly watchlist = new Set<string>()
   readonly recent = new Map<string, Recent>()
   private readonly watched = new Set<string>()
   private readonly seasons = new Map<string, string>()
@@ -41,6 +42,7 @@ export class TVLibrary {
       if (!raw || raw.length > 2 * 1024 * 1024) return
       const data = JSON.parse(raw)
       if (Array.isArray(data.favorites)) for (const id of data.favorites.slice(0, MAX_FAVORITES)) if (validId(id)) this.favorites.add(id)
+      if (Array.isArray(data.watchlist)) for (const id of data.watchlist.slice(0, MAX_WATCHLIST)) if (validId(id)) this.watchlist.add(id)
       if (Array.isArray(data.recent)) for (const item of data.recent.slice(0, MAX_RECENT).reverse()) {
         if (!item || !validId(item.id) || ![item.at, item.position, item.duration].every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0)) continue
         if (item.position > item.duration || item.at > Date.now() + 86400000) continue
@@ -49,15 +51,29 @@ export class TVLibrary {
       }
       if (Array.isArray(data.watched)) for (const id of data.watched.slice(-10000)) if (validId(id)) this.addWatched(id)
       if (Array.isArray(data.seasons)) for (const entry of data.seasons.slice(0, 1000)) { if (Array.isArray(entry) && validId(entry[0]) && typeof entry[1] === 'string' && entry[1].length <= 100) this.seasons.set(entry[0], entry[1]) }
-      if (source.kind === 'xtream' && Array.isArray(data.references)) for (const item of data.references.slice(0, MAX_FAVORITES + MAX_RECENT)) {
+      if (source.kind === 'xtream' && Array.isArray(data.references)) for (const item of data.references.slice(0, MAX_FAVORITES + MAX_WATCHLIST + MAX_RECENT)) {
         const reference = readProviderReference(item)
         if (!reference) continue
         const id = channelId(referenceChannel(source, reference))
-        if (this.favorites.has(id) || this.recent.has(id)) this.references.set(id, reference)
+        if (this.favorites.has(id) || this.watchlist.has(id) || this.recent.has(id)) this.references.set(id, reference)
       }
     } catch { /* A broken or unavailable store still permits session use. */ }
   }
   isFavorite(channel: Channel) { return this.favorites.has(channelId(channel)) }
+  isWatchlisted(channel: Channel) { return this.watchlist.has(channelId(channel)) }
+  toggleWatchlist(channel: Channel): boolean {
+    if (!['movie', 'series'].includes(channel.mediaKind || '')) throw new Error('Watchlist is for movies and series.')
+    this.checkStoredRevision()
+    const id = channelId(channel), before = this.snapshot()
+    if (this.watchlist.has(id)) this.watchlist.delete(id)
+    else {
+      if (this.watchlist.size >= MAX_WATCHLIST) throw new Error('Your watchlist is full (2,000). Remove a title before adding another.')
+      this.watchlist.add(id)
+    }
+    this.remember(channel)
+    try { this.save() } catch { this.restoreSnapshot(before); throw new Error('TV storage could not save the watchlist change. Your previous list was kept.') }
+    return this.watchlist.has(id)
+  }
   lastPlayed(channel: Channel) { return this.recent.get(channelId(channel)) }
   isWatched(channel: Channel) { return this.watched.has(channelId(channel)) }
   markWatched(channel: Channel, completed: boolean) {
@@ -92,14 +108,15 @@ export class TVLibrary {
   setSeason(channel: Channel, season: string) { this.seasons.delete(channelId(channel)); this.seasons.set(channelId(channel), season.slice(0, 100)); while (this.seasons.size > 1000) this.seasons.delete(this.seasons.keys().next().value!); this.save() }
   setStorage(storage: Storage | null) { this.storage = storage; this.save() }
   bookmarkedChannels(): Channel[] { return [...this.references.values()].map(reference => referenceChannel(this.source, reference)) }
-  snapshot() { return { favorites: [...this.favorites], recent: [...this.recent.values()].reverse().map(item => ({ ...item })), references: [...this.references.values()].map(item => ({ ...item })), seasons: [...this.seasons], watched: [...this.watched] } }
-  counts(): Record<LibraryArea, number> { return { favorites: this.favorites.size, history: this.recent.size, watched: this.watched.size, seasons: this.seasons.size } }
+  snapshot() { return { favorites: [...this.favorites], watchlist: [...this.watchlist], recent: [...this.recent.values()].reverse().map(item => ({ ...item })), references: [...this.references.values()].map(item => ({ ...item })), seasons: [...this.seasons], watched: [...this.watched] } }
+  counts(): Record<LibraryArea, number> { return { favorites: this.favorites.size, watchlist: this.watchlist.size, history: this.recent.size, watched: this.watched.size, seasons: this.seasons.size } }
   /** One storage write, with an in-session undo that never overwrites newer activity. */
   clearAreas(areas: LibraryArea[]) {
-    if (!areas.length || areas.some(area => !['favorites', 'history', 'watched', 'seasons'].includes(area))) throw new Error('Choose library data to clear.')
+    if (!areas.length || areas.some(area => !['favorites', 'watchlist', 'history', 'watched', 'seasons'].includes(area))) throw new Error('Choose library data to clear.')
     this.checkStoredRevision()
     const before = this.snapshot()
     if (areas.includes('favorites')) this.favorites.clear()
+    if (areas.includes('watchlist')) this.watchlist.clear()
     if (areas.includes('history')) this.recent.clear()
     if (areas.includes('watched')) { this.watched.clear(); for (const item of this.recent.values()) delete item.completed }
     if (areas.includes('seasons')) this.seasons.clear()
@@ -118,6 +135,7 @@ export class TVLibrary {
   }
   private restoreSnapshot(snapshot: ReturnType<TVLibrary['snapshot']>) {
     this.favorites.clear(); for (const id of snapshot.favorites) this.favorites.add(id)
+    this.watchlist.clear(); for (const id of snapshot.watchlist) this.watchlist.add(id)
     this.recent.clear(); for (const item of [...snapshot.recent].reverse()) this.recent.set(item.id, { ...item })
     this.watched.clear(); for (const id of snapshot.watched) this.watched.add(id)
     this.seasons.clear(); for (const [id, season] of snapshot.seasons) this.seasons.set(id, season)
@@ -125,9 +143,10 @@ export class TVLibrary {
   }
   merge(other: TVLibrary) {
     if (JSON.stringify(this.source) !== JSON.stringify(other.source)) throw new Error('Library source mismatch.')
-    const favorites = new Set([...this.favorites, ...other.favorites]), watched = new Set([...this.watched, ...other.watched])
-    if (favorites.size > MAX_FAVORITES || watched.size > 10000) throw new Error('Combined library exceeds the favorites or watched limit. Restore sources without library data, or reduce those lists first.')
+    const favorites = new Set([...this.favorites, ...other.favorites]), watchlist = new Set([...this.watchlist, ...other.watchlist]), watched = new Set([...this.watched, ...other.watched])
+    if (favorites.size > MAX_FAVORITES || watchlist.size > MAX_WATCHLIST || watched.size > 10000) throw new Error('Combined library exceeds the favorites, watchlist or watched limit. Restore sources without library data, or reduce those lists first.')
     for (const id of favorites) this.favorites.add(id)
+    for (const id of watchlist) this.watchlist.add(id)
     for (const id of watched) this.watched.add(id)
     for (const [id, item] of other.recent) if (!this.recent.has(id) || this.recent.get(id)!.at < item.at) this.recent.set(id, { ...item })
     const recent = [...this.recent.values()].sort((a, b) => a.at - b.at).slice(-MAX_RECENT)
@@ -139,8 +158,9 @@ export class TVLibrary {
   private remember(channel: Channel) { const reference = channelReference(this.source, channel); if (reference) this.references.set(channelId(channel), reference) }
   private save() {
     this.revision++
-    for (const id of this.references.keys()) if (!this.favorites.has(id) && !this.recent.has(id)) this.references.delete(id)
+    for (const id of this.references.keys()) if (!this.favorites.has(id) && !this.watchlist.has(id) && !this.recent.has(id)) this.references.delete(id)
     const serialized = JSON.stringify(this.snapshot())
+    if (serialized.length > 2 * 1024 * 1024) throw new Error('This source’s saved library exceeds the TV storage budget.')
     this.storage?.setItem(this.key, serialized); this.savedRaw = serialized
   }
 }

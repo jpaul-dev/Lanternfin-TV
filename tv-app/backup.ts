@@ -20,13 +20,13 @@ export class MemoryStore implements Storage {
 }
 function fromSnapshot(source: SourceProfile['source'], value: unknown): TVLibrary {
   if (!value || typeof value !== 'object') throw invalid()
-  const data = value as Snapshot
-  for (const [field, max] of [['favorites', 2000], ['recent', 100], ['references', 2100], ['seasons', 1000], ['watched', 10000]] as const) if (!Array.isArray(data[field]) || data[field].length > max) throw invalid()
+  const data = { ...(value as Partial<Snapshot>), ...(!Object.prototype.hasOwnProperty.call(value, 'watchlist') ? { watchlist: [] } : {}) } as Snapshot
+  for (const [field, max] of [['favorites', 2000], ['watchlist', 2000], ['recent', 100], ['references', 4100], ['seasons', 1000], ['watched', 10000]] as const) if (!Array.isArray(data[field]) || data[field].length > max) throw invalid()
   const raw = JSON.stringify(data); if (raw.length > 2 * 1024 * 1024) throw invalid()
   // Reuse the same bounded reader used for TV storage; no supplied storage key is trusted.
   const memory = new MemoryStore(); memory.getItem = () => raw
   const library = new TVLibrary(memory, source), clean = library.snapshot()
-  for (const key of ['favorites', 'recent', 'references', 'seasons'] as const) if (clean[key].length !== data[key].length) throw invalid()
+  for (const key of ['favorites', 'watchlist', 'recent', 'references', 'seasons'] as const) if (clean[key].length !== data[key].length) throw invalid()
   if (new Set(data.watched).size !== data.watched.length || data.watched.some(id => typeof id !== 'string' || !/^[a-f0-9]{16}$/.test(id))) throw invalid()
   library.setStorage(null); return library
 }

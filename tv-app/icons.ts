@@ -9,6 +9,7 @@ export function navigationIcons(root: HTMLElement) {
     'nav-search': 'M21 21l-6-6M17 9A7 7 0 1 1 3 9a7 7 0 0 1 14 0',
     'view-favorites': 'm12 2 3 7 7 1-5 5 1 7-6-4-6 4 1-7-5-5 7-1z',
     'view-recent': 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 6v6l4 3',
+    'view-watchlist': 'M6 3h12v19l-6-4-6 4V3z',
     'nav-settings': 'm9 3 1-2h4l1 2 3 2 2 1v4l2 2-2 2v4l-2 1-3 2-1 2h-4l-1-2-3-2-2-1v-4l-2-2 2-2V6l2-1zM16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
   }
   for (const [id, d] of Object.entries(paths)) {
