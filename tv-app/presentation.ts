@@ -5,6 +5,7 @@ import { channelId, type TVLibrary } from './library'
 import { groupVariants } from './variants'
 import { tr } from './i18n'
 import { HOME_ROWS, DEFAULT_HOME_ROWS, type HomeRow } from './home-layout'
+import { NewestTitles } from './discovery'
 const cardChannels = new WeakMap<HTMLElement, Channel>()
 const cardVariantGroups = new WeakMap<HTMLElement, Channel[]>()
 export function cardChannel(element: HTMLElement) { return cardChannels.get(element) }
@@ -49,6 +50,8 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
   const recent: Channel[] = [], favorites: Channel[] = [], watchlist: Channel[] = [], live: Channel[] = [], movies: Channel[] = [], series: Channel[] = []
   const watchlistOrder = new Map([...(library?.watchlist || [])].reverse().map((id, index) => [id, index]))
   const seenWatchlist = new Set<string>()
+  const newestMovies = new NewestTitles(), newestSeries = new NewestTitles()
+  const wantMovies = layout.includes('new-movies'), wantSeries = layout.includes('new-series')
   const seenRecent = new Set<string>(); let started = performance.now(), index = 0
   for (const channel of channels) {
     if (library?.recent.size && library.lastPlayed(channel) && !seenRecent.has(channelId(channel))) { recent.push(channel); seenRecent.add(channelId(channel)) }
@@ -57,12 +60,16 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
     const row = channel.mediaKind === 'movie' ? movies : ['series', 'episode'].includes(channel.mediaKind || '') ? series : live
     const group = grouped?.groups.get(channel)
     if (row.length < 12 && (!group || group.selected === channel)) row.push(channel)
+    // A newly added language version can promote its group while preserving the
+    // user's preferred version. The original date on each item stays untouched.
+    if (channel.mediaKind === 'movie' && wantMovies) newestMovies.add(group?.selected || channel, channel.addedAt)
+    if (channel.mediaKind === 'series' && wantSeries) newestSeries.add(group?.selected || channel, channel.addedAt)
     if (++index % 512 === 0 && performance.now() - started >= 12) { await new Promise<void>(resolve => setTimeout(resolve, 0)); if (token !== rowGeneration) return; started = performance.now() }
   }
   recent.sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
   watchlist.sort((a, b) => watchlistOrder.get(channelId(a))! - watchlistOrder.get(channelId(b))!); watchlist.length = Math.min(12, watchlist.length)
   const fragment = document.createDocumentFragment()
-  const rows = { continue: recent.filter(channel => !!library?.lastPlayed(channel)?.position).slice(0, 12), watchlist, recent: recent.slice(0, 12), favorites, live, movies, series }
+  const rows = { continue: recent.filter(channel => !!library?.lastPlayed(channel)?.position).slice(0, 12), watchlist, recent: recent.slice(0, 12), favorites, live, movies, series, 'new-movies': newestMovies.channels, 'new-series': newestSeries.channels }
   for (const id of layout) {
     const title = HOME_ROWS[id], entries = rows[id]
     if (!entries.length) continue
@@ -70,10 +77,12 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
     const heading = document.createElement('h2'); heading.textContent = tr(title)
     const rail = document.createElement('div'); rail.className = 'poster-rail'
     for (const channel of entries) {
-      const group = title === 'Movies' || title === 'Series & episodes' ? grouped?.groups.get(channel) : undefined
+      const group = ['movies', 'series', 'new-movies', 'new-series'].includes(id) ? grouped?.groups.get(channel) : undefined
       rail.append(channelCard(channel, () => activate(channel, group?.members), library, group?.members))
     }
-    section.append(heading, rail); fragment.append(section)
+    section.append(heading)
+    if (id === 'new-series') { const note = document.createElement('p'); note.className = 'row-note'; note.textContent = tr('Includes series updated by your provider.'); section.append(note) }
+    section.append(rail); fragment.append(section)
   }
   if (token !== rowGeneration) return
   // Keep old rails interactive until their replacements are ready. Restore only

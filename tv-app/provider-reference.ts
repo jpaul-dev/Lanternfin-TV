@@ -1,8 +1,9 @@
 import type { Channel, Source } from './catalog'
 import { mediaUrl } from './xtream'
+import { catalogTimestamp } from './provider-date'
 
 /** A bookmark can rebuild its address from the separately saved account. No URL, header or license key is stored here. */
-export type ProviderReference = { providerId: string; mediaKind: 'live' | 'movie' | 'series' | 'episode'; extension: string; name: string; group: string; seriesId?: string; seriesName?: string }
+export type ProviderReference = { providerId: string; mediaKind: 'live' | 'movie' | 'series' | 'episode'; extension: string; name: string; group: string; seriesId?: string; seriesName?: string; addedAt?: number }
 export function readProviderReference(value: unknown): ProviderReference | undefined {
   if (!value || typeof value !== 'object') return
   const item = value as ProviderReference
@@ -11,10 +12,12 @@ export function readProviderReference(value: unknown): ProviderReference | undef
     typeof item.name !== 'string' || item.name.length > 200 || typeof item.group !== 'string' || item.group.length > 100) return
   const parent = item.mediaKind === 'episode' && typeof item.seriesId === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(item.seriesId)
     ? { seriesId: item.seriesId, ...(typeof item.seriesName === 'string' ? { seriesName: item.seriesName.slice(0, 200) } : {}) } : {}
-  return { providerId: item.providerId, mediaKind: item.mediaKind, extension: item.extension, name: item.name, group: item.group, ...parent }
+  const addedAt = ['movie', 'series'].includes(item.mediaKind) ? catalogTimestamp(item.addedAt) : undefined
+  return { providerId: item.providerId, mediaKind: item.mediaKind, extension: item.extension, name: item.name, group: item.group, ...parent, ...(addedAt ? { addedAt } : {}) }
 }
 export function referenceChannel(source: Source, reference: ProviderReference): Channel {
   return { name: reference.name, group: reference.group, mediaKind: reference.mediaKind, providerId: reference.providerId,
+    ...(reference.addedAt ? { addedAt: reference.addedAt } : {}),
     ...(reference.seriesId ? { seriesId: reference.seriesId, seriesName: reference.seriesName } : {}),
     url: reference.mediaKind === 'series' ? '' : mediaUrl(source, reference.mediaKind === 'episode' ? 'series' : reference.mediaKind, reference.providerId, reference.extension) }
 }

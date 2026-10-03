@@ -1,6 +1,6 @@
 import { tr } from './i18n'
 
-export const HOME_ROWS = { continue: 'Continue watching', watchlist: 'Watchlist', recent: 'Recently watched', favorites: 'Your favorites', live: 'Live TV', movies: 'Movies', series: 'Series & episodes' } as const
+export const HOME_ROWS = { continue: 'Continue watching', watchlist: 'Watchlist', recent: 'Recently watched', favorites: 'Your favorites', live: 'Live TV', 'new-movies': 'Recently added movies', 'new-series': 'Recently added series', movies: 'Movies', series: 'Series & episodes' } as const
 export type HomeRow = keyof typeof HOME_ROWS
 export const DEFAULT_HOME_ROWS = Object.keys(HOME_ROWS) as HomeRow[]
 export function normalizeHomeRows(value: unknown): HomeRow[] {

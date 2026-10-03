@@ -284,6 +284,10 @@ function render() {
   if (live && (!guideChannel || !filtered.includes(guideChannel))) selectGuide(filtered[page * PAGE_SIZE])
   if (guideChannel) button('guide-favorite').textContent = library?.isFavorite(guideChannel) ? '★ Favorited' : '☆ Favorite'
   $('result-count').textContent = `${filtered.length.toLocaleString()} ${filtered.length === 1 ? 'title' : 'titles'}${filtered.length ? '' : ' — try a different search or category'}${providerIndex && browseView === 'search' ? providerIndex.progress.complete ? ' · Entire library' : ' · Loaded titles; library is incomplete' : ''}`
+  $('sort-note').hidden = browseView === 'live' || select('sort-order').value !== 'newest' || !filtered.length
+  if (!$('sort-note').hidden) $('sort-note').textContent = tr(filtered.some(channel => channel.addedAt || catalogVariants.get(channel)?.members.some(member => member.addedAt))
+    ? 'Newest provider additions first. Series may use update dates; titles without dates follow.'
+    : 'This source has no added dates for these titles. Provider order is shown.')
   input('page-jump').max = String(Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))); input('page-jump').value = String(page + 1)
   button('page-go').disabled = filtered.length <= PAGE_SIZE
   $('page-label').textContent = `Page ${page + 1} of ${Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))}`

@@ -1,4 +1,5 @@
 import { httpUrl, playlistUrl, validateSource, type Catalog, type Channel, type Source } from './catalog'
+import { providerTimestamp } from './provider-date'
 
 export type MediaKind = 'live' | 'movie' | 'series'
 export type Category = { id: string; name: string }
@@ -91,7 +92,8 @@ export async function loadCategory(source: Source, kind: MediaKind, category: Ca
     const row = record(data[index])
     try {
       const id = identifier(kind === 'series' ? row.series_id : row.stream_id)
-      channels.push({ name: text(row.name, 'Untitled'), group: category.name, url: kind === 'series' ? '' : mediaUrl(source, kind, id, kind === 'live' ? 'm3u8' : row.container_extension), mediaKind: kind, providerId: id, logo: artwork(row.stream_icon || row.cover), description: text(row.plot), ...(kind === 'live' && Number(row.tv_archive) === 1 ? { tvArchive: 1, tvArchiveDuration: Math.max(1, Math.min(30, Number(row.tv_archive_duration) || 7)) } : {}) })
+      const addedAt = kind === 'live' ? undefined : providerTimestamp(row.added) ?? (kind === 'series' ? providerTimestamp(row.last_modified) : undefined)
+      channels.push({ name: text(row.name, 'Untitled'), group: category.name, url: kind === 'series' ? '' : mediaUrl(source, kind, id, kind === 'live' ? 'm3u8' : row.container_extension), mediaKind: kind, providerId: id, logo: artwork(row.stream_icon || row.cover), description: text(row.plot), ...(addedAt ? { addedAt } : {}), ...(kind === 'live' && Number(row.tv_archive) === 1 ? { tvArchive: 1, tvArchiveDuration: Math.max(1, Math.min(30, Number(row.tv_archive_duration) || 7)) } : {}) })
     } catch { skipped++ }
     if (index && index % 1000 === 0) await new Promise<void>(resolve => setTimeout(resolve, 0))
   }
