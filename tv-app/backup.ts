@@ -3,6 +3,7 @@ import { TVLibrary } from './library'
 import { guideAddress, readProfiles, rememberProfile, sourceId, type SourceProfile } from './profiles'
 import { normalizePreferences, readPreferences, savePreferences, type Preferences } from './preferences'
 import { readSource, storeSource } from './storage'
+import { readSourceHome } from './source-home'
 
 type Snapshot = ReturnType<TVLibrary['snapshot']>
 export type Backup = { format: 'lanternfin-tv'; version: 1; profiles: Array<SourceProfile & { library: Snapshot }>; preferences: Preferences }
@@ -23,6 +24,7 @@ function fromSnapshot(source: SourceProfile['source'], value: unknown): TVLibrar
   const data = { ...(value as Partial<Snapshot>), ...(!Object.prototype.hasOwnProperty.call(value, 'watchlist') ? { watchlist: [] } : {}) } as Snapshot
   for (const [field, max] of [['favorites', 2000], ['watchlist', 2000], ['recent', 100], ['references', 4100], ['seasons', 1000], ['watched', 10000]] as const) if (!Array.isArray(data[field]) || data[field].length > max) throw invalid()
   const raw = JSON.stringify(data); if (raw.length > 2 * 1024 * 1024) throw invalid()
+  if (Object.prototype.hasOwnProperty.call(data, 'homeLayout') && !readSourceHome(data.homeLayout, source)) throw invalid()
   // Reuse the same bounded reader used for TV storage; no supplied storage key is trusted.
   const memory = new MemoryStore(); memory.getItem = () => raw
   const library = new TVLibrary(memory, source), clean = library.snapshot()

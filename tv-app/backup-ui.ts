@@ -57,7 +57,7 @@ export function backupUI(root: HTMLElement, storage: () => Storage, restored: (c
       const result = await decryptBackup(el<HTMLTextAreaElement>('backup-input').value, input('restore-passphrase').value)
       if (token !== generation) return
       pending = result
-      el('backup-summary').textContent = `${result.profiles.length} saved sources · ${result.profiles.reduce((n, profile) => n + profile.library.favorites.length, 0)} favorite marks · ${result.profiles.reduce((n, profile) => n + profile.library.watchlist.length, 0)} watchlist titles · ${result.profiles.reduce((n, profile) => n + profile.library.recent.length, 0)} recent records`
+      el('backup-summary').textContent = `${result.profiles.length} saved sources · ${result.profiles.reduce((n, profile) => n + profile.library.favorites.length, 0)} favorite marks · ${result.profiles.reduce((n, profile) => n + profile.library.watchlist.length, 0)} watchlist titles · ${result.profiles.reduce((n, profile) => n + profile.library.recent.length, 0)} recent records · ${result.profiles.filter(profile => profile.library.homeLayout).length} source layouts`
       el('backup-review').hidden = false; status('Backup verified. Review the restore options below. Nothing has been saved yet.')
     } catch (error) { if (token === generation) status((error as Error).message) }
     finally { if (token === generation) { input('restore-passphrase').value = ''; lock(false); if (pending) el('backup-restore').focus() } }

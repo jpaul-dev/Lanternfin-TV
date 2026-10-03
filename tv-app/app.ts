@@ -8,6 +8,7 @@ import { TVDownloads, localDownload, type DownloadPlatform } from './downloads'
 import { downloadsUI } from './downloads-ui'
 import { updatesUI } from './updates-ui'
 import { homeLayoutUI } from './home-layout'
+import { findHomeCategories, homeKind, type HomeCategory } from './source-home'
 import { canSeek, scrubOSD } from './playback-osd'
 import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
@@ -69,7 +70,7 @@ let detailVariants: Channel[] = [], catalogVariants = new WeakMap<Channel, Varia
 let homeGeneration = 0
 let playbackReturn: 'catalog' | 'detail' | 'programme' | 'downloads' = 'catalog'
 let providerIndex: ProviderIndex | undefined, indexTimer: ReturnType<typeof setTimeout> | undefined
-let browseCategory: Category | undefined, guide: TVGuide | undefined, guideChannel: Channel | undefined
+let browseCategory: (Category & { kind: MediaKind }) | undefined, guide: TVGuide | undefined, guideChannel: Channel | undefined
 let guideLoading: AbortController | undefined, guideTimer: ReturnType<typeof setTimeout> | undefined, guideItems: Programme[] = []
 let preferences = readPreferences(null), preferenceStorage: Storage | null = null, trackPreferencesApplied = false
 let lastFocusedCard: HTMLElement | undefined
@@ -115,6 +116,7 @@ function show(next: Screen) {
   if (screen === 'backup' && next !== 'backup') backups.close()
   if (screen === 'diagnostics' && next !== 'diagnostics') diagnostics.close()
   if (screen === 'manage' && next !== 'manage') libraryManager.close()
+  if (screen === 'layout' && next !== 'layout') layoutEditor.close()
   if (next !== 'account') { accountLoading?.abort(); accountLoading = undefined }
   if (next !== 'programme') { replayLoading?.abort(); replayLoading = undefined }
   $('card-menu').hidden = true
@@ -695,7 +697,7 @@ function closeCardMenu() {
 }
 async function refreshCards() {
   if (screen === 'detail') renderDetails()
-  else if (browseView === 'home') await homeRows($('home-rows'), activeSource?.kind === 'xtream' ? libraryPool() : channels, library, watch, preferences.groupLanguages ? contentLanguage() : undefined, preferences.homeRows)
+  else if (browseView === 'home') await refreshHomeRows(watch)
   else await filter(false)
 }
 $('card-menu-close').onclick = closeCardMenu
@@ -877,9 +879,23 @@ function syncNav() {
     if (selected) element.setAttribute('aria-current', 'page'); else element.removeAttribute('aria-current')
   }
 }
+function refreshHomeRows(activate: (channel: Channel, versions?: Channel[]) => void) {
+  const layout = library?.homeLayout || { rows: preferences.homeRows, categories: [] }, source = activeSource
+  const categories = layout.categories.map(category => {
+    const cached = category.categoryId ? providerIndex?.cached(category.kind, { id: category.categoryId, name: category.title })?.channels : undefined
+    const current = browseCategory?.kind === category.kind && browseCategory.id === category.categoryId ? channels : undefined
+    return { category, channels: cached || current, open: () => { if (activeSource === source) void openHomeCategory(category) } }
+  })
+  return homeRows($('home-rows'), source?.kind === 'xtream' ? libraryPool() : channels, library, activate, preferences.groupLanguages ? contentLanguage() : undefined, layout.rows, categories)
+}
+async function openHomeCategory(category: HomeCategory) {
+  for (const id of ['search', 'media-filter', 'language-filter']) ($<HTMLInputElement | HTMLSelectElement>(id)).value = ''
+  select('watched-filter').value = 'all'; select('sort-order').value = 'provider'
+  await browse(category.kind, { id: category.categoryId || '', name: category.group || category.title })
+}
 function renderHome() {
   const token = ++homeGeneration
-  const rows = homeRows($('home-rows'), activeSource?.kind === 'xtream' ? libraryPool() : channels, library, (channel, versions) => { lastFocusedCard = document.activeElement as HTMLElement; watch(channel, versions) }, preferences.groupLanguages ? contentLanguage() : undefined, preferences.homeRows)
+  const rows = refreshHomeRows((channel, versions) => { lastFocusedCard = document.activeElement as HTMLElement; watch(channel, versions) })
   const pool = providerIndex?.items.length ? providerIndex.items : channels
   const featured = [...knownLibraryChannels.values()].find(channel => library?.isFavorite(channel)) || pool.find(channel => channel.mediaKind === 'movie' && channel.logo) || pool.find(channel => channel.logo) || pool[0]
   renderFeatured(featured)
@@ -954,16 +970,22 @@ function goHome() {
   $('section-title').textContent = tr('Home'); $('section-kicker').textContent = 'WELCOME BACK'
   renderHome(); show('catalog'); syncNav(); $('hero-play').focus()
 }
-async function browse(kind: 'search' | MediaKind) {
+async function browse(kind: 'search' | MediaKind, categoryToOpen?: Category) {
   cancelProviderLoad(); cancelGuide(); browseCategory = undefined; browseView = kind; libraryView = 'all'; input('search').value = ''; select('group').value = ''
   const title = { live: 'Live TV', movie: 'Movies', series: 'Series', search: 'Search' }[kind]
   browseLayout(tr(title))
   if (activeSource?.kind !== 'xtream' || kind === 'search') {
-    updateGroups(); await filter()
+    updateGroups()
+    if (categoryToOpen) {
+      // A removed playlist group must show an empty result, never all titles.
+      if (![...select('group').options].some(option => option.value === categoryToOpen.name)) select('group').add(new Option(categoryToOpen.name, categoryToOpen.name))
+      select('group').value = categoryToOpen.name
+    }
+    await filter()
     if (kind === 'search') input('search').focus()
     else {
       const list = $('category-list'); list.replaceChildren()
-      for (const group of new Set(channels.filter(channel => (channel.mediaKind || 'live') === kind).map(channel => channel.group))) { const item = document.createElement('button'); item.textContent = group; item.onclick = () => { select('group').value = group; void filter() }; list.append(item) }
+      for (const group of new Set(channels.filter(channel => homeKind(channel) === kind).map(channel => channel.group))) { const item = document.createElement('button'); item.textContent = group; item.onclick = () => { select('group').value = group; void filter() }; list.append(item) }
       $('categories-back').hidden = false
     }
     return
@@ -979,6 +1001,7 @@ async function browse(kind: 'search' | MediaKind) {
     for (const category of categories) {
       const item = document.createElement('button'); item.textContent = category.name; item.onclick = () => void openCategory(kind, category); list.append(item)
     }
+    if (categoryToOpen) { await openCategory(kind, categoryToOpen); return }
     if (!filtered.length) $('result-count').textContent = categories.length ? 'Choose a category, or wait for your library to load.' : 'Your provider returned no categories in this section.'
     else render()
     list.querySelector('button')?.focus()
@@ -992,7 +1015,7 @@ async function openCategory(kind: MediaKind, category: Category) {
   try {
     const result = providerIndex?.cached(kind, category) || await loadCategory(activeSource, kind, category, controller.signal)
     if (providerLoading !== controller) return
-    browseCategory = category; channels = result.channels; updateGroups(); browseLayout(category.name); await filter()
+    browseCategory = { ...category, kind }; channels = result.channels; updateGroups(); browseLayout(category.name); await filter()
     $('channels').querySelector<HTMLElement>('button')?.focus()
     if (result.skipped) notice(`${result.skipped} invalid entries were skipped.`)
   } catch (error) { if (providerLoading === controller) notice((error as Error).message) }
@@ -1093,12 +1116,15 @@ async function showAccount() {
 $('settings-account').onclick = showAccount; $('account-retry').onclick = showAccount; $('account-back').onclick = () => show('settings')
 $('nav-settings').onclick = () => { cancelProviderLoad(); show('settings'); syncNav() }
 $('settings-back').onclick = goHome
-const layoutEditor = homeLayoutUI($('layout'), rows => {
-  const next = normalizePreferences({ ...preferences, homeRows: rows })
-  savePreferences(preferenceStorage, next); preferences = next
-  $('settings-note').textContent = preferenceStorage ? 'Home layout saved.' : 'Home layout applies for this session.'
-}, () => { show('settings'); button('settings-home').focus() })
-$('settings-home').onclick = () => { layoutEditor.open(preferences.homeRows); show('layout') }
+const layoutEditor = homeLayoutUI($('layout'), layout => {
+  if (!library) throw new Error('Open a source first.')
+  library.setHomeLayout(layout)
+  $('settings-note').textContent = tr(library.persistent ? 'Home layout saved for this source.' : 'Home layout applies for this session. Remember the source to keep it.')
+}, () => { show('settings'); button('settings-home').focus() }, (kind, query, signal) => {
+  if (!activeSource) return Promise.resolve({ choices: [], more: false })
+  return findHomeCategories(activeSource, channels, { ...providerCategories, ...providerIndex?.categories }, kind, query, signal)
+})
+$('settings-home').onclick = () => { layoutEditor.open(library?.homeLayout || preferences.homeRows, activeSource?.kind !== 'direct'); show('layout') }
 function openDownloads(channel?: Channel) {
   cancelProviderLoad()
   downloadsReturn = screen === 'setup' ? 'setup' : screen === 'settings' ? 'settings' : screen === 'detail' ? 'detail' : 'catalog'

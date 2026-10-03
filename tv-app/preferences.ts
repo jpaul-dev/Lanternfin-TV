@@ -1,7 +1,7 @@
 export const ACCENTS = { fuchsia: ['#e68bdf', '#96368f'], rose: ['#ffa0b9', '#a82b50'], ember: ['#ffba86', '#9f480b'], emerald: ['#7cddba', '#126448'], cyan: ['#82dce7', '#086876'], blue: ['#98bcff', '#285eac'], violet: ['#bdabff', '#6743b9'], gold: ['#f2d279', '#795b00'], lime: ['#c4df85', '#536f09'], teal: ['#8dddd0', '#106a5c'], silver: ['#c3ccd6', '#566473'], white: ['#f4f6f8', '#343e49'] } as const
 export const LANGUAGES = { auto: 'Automatic', en: 'English', es: 'Español', fr: 'Français', de: 'Deutsch', it: 'Italiano', 'pt-BR': 'Português', nl: 'Nederlands', pl: 'Polski', tr: 'Türkçe', ru: 'Русский', ar: 'العربية', hi: 'हिन्दी', ja: '日本語', zh: '中文' } as const
 import { INTERFACE_LANGUAGES } from './i18n'
-import { DEFAULT_HOME_ROWS, normalizeHomeRows, type HomeRow } from './home-layout'
+import { DEFAULT_HOME_ROWS, normalizeHomeRows, type HomeRow } from './home-config'
 export type Preferences = { theme: 'dark' | 'light' | 'system'; accent: keyof typeof ACCENTS; scale: number; overscan: number; reducedMotion: boolean; audio: string; subtitles: string; guideClock: string; autoNext: boolean; groupLanguages: boolean; contentLanguage: string; interfaceLanguage: string; homeRows: HomeRow[] }
 export const DEFAULTS: Preferences = { theme: 'dark', accent: 'fuchsia', scale: 1, overscan: 0, reducedMotion: false, audio: 'auto', subtitles: 'off', guideClock: 'auto', autoNext: false, groupLanguages: false, contentLanguage: 'auto', interfaceLanguage: 'auto', homeRows: [...DEFAULT_HOME_ROWS] }
 const KEY = 'lanternfin.tv.preferences.v1'

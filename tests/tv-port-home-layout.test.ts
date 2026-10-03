@@ -4,6 +4,8 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { DEFAULT_HOME_ROWS, homeLayoutUI, normalizeHomeRows } from '../tv-app/home-layout'
 import { homeRows } from '../tv-app/presentation'
 import { DEFAULTS, normalizePreferences, readPreferences, savePreferences } from '../tv-app/preferences'
+import { TVLibrary } from '../tv-app/library'
+import { validateSource } from '../tv-app/catalog'
 import { createBackup, MemoryStore, restoreBackup } from '../tv-app/backup'
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers() })
@@ -26,7 +28,7 @@ it('keeps edits local until save and preserves remote focus when moving a row', 
   button('[data-row="movies"] input').click(); button('#layout-back').click()
   expect(saved).not.toHaveBeenCalled(); expect(close).toHaveBeenCalledOnce()
   ui.open(['movies', 'live']); button('[data-row="live"] [data-action="up"]').click(); button('#layout-save').click()
-  expect(saved).toHaveBeenLastCalledWith(['live', 'movies'])
+  expect(saved).toHaveBeenLastCalledWith({ rows: ['live', 'movies'], categories: [] })
   saved.mockImplementationOnce(() => { throw new Error('quota') }); button('#layout-save').click()
   expect(root.querySelector('#layout-status')?.textContent).toContain('previous layout is unchanged')
   expect(close).toHaveBeenCalledTimes(2)
@@ -52,17 +54,19 @@ it('applies the layout through settings and cancels later edits with the TV back
   await import('../tv-app/app')
   const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
   const click = async (id: string) => { el<HTMLButtonElement>(id).click(); await vi.advanceTimersByTimeAsync(0) }
-  el<HTMLInputElement>('source-url').value = 'https://example.com/list.m3u'; await click('connect'); await click('nav-settings'); await click('settings-home')
+  el<HTMLInputElement>('source-url').value = 'https://example.com/list.m3u'; el<HTMLInputElement>('remember').checked = true; await click('connect'); await click('nav-settings'); await click('settings-home')
   expect(el('layout').hidden).toBe(false); expect(el('settings').hidden).toBe(true)
   el('layout-rows').querySelector<HTMLInputElement>('[data-row="movies"] input')!.click()
   await click('layout-save'); await click('settings-back')
   expect(el('home-rows').querySelector('[data-row="Movies"]')).toBeNull()
   expect(el('home-rows').querySelector('[data-row="Live TV"]')).not.toBeNull()
-  expect(readPreferences(localStorage).homeRows).not.toContain('movies')
+  expect(new TVLibrary(localStorage, validateSource({ kind: 'playlist', url: 'https://example.com/list.m3u', username: '', password: '' })).homeLayout?.rows).not.toContain('movies')
+  expect(readPreferences(localStorage).homeRows).toContain('movies')
   await click('nav-settings'); await click('settings-home'); await click('layout-reset')
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   expect(el('layout').hidden).toBe(true)
   expect(el('settings').hidden).toBe(false); expect(document.activeElement).toBe(el('settings-home'))
-  expect(readPreferences(localStorage).homeRows).not.toContain('movies')
+  expect(new TVLibrary(localStorage, validateSource({ kind: 'playlist', url: 'https://example.com/list.m3u', username: '', password: '' })).homeLayout?.rows).not.toContain('movies')
+  expect(readPreferences(localStorage).homeRows).toContain('movies')
   vi.clearAllTimers()
 })
