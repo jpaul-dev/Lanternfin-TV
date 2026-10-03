@@ -2,17 +2,20 @@ import type { Channel, Source } from './catalog'
 import { mediaUrl } from './xtream'
 
 /** A bookmark can rebuild its address from the separately saved account. No URL, header or license key is stored here. */
-export type ProviderReference = { providerId: string; mediaKind: 'live' | 'movie' | 'series' | 'episode'; extension: string; name: string; group: string }
+export type ProviderReference = { providerId: string; mediaKind: 'live' | 'movie' | 'series' | 'episode'; extension: string; name: string; group: string; seriesId?: string; seriesName?: string }
 export function readProviderReference(value: unknown): ProviderReference | undefined {
   if (!value || typeof value !== 'object') return
   const item = value as ProviderReference
   if (typeof item.providerId !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(item.providerId) ||
     !['live', 'movie', 'series', 'episode'].includes(item.mediaKind) || typeof item.extension !== 'string' || !/^[a-zA-Z0-9]{1,8}$/.test(item.extension) ||
     typeof item.name !== 'string' || item.name.length > 200 || typeof item.group !== 'string' || item.group.length > 100) return
-  return { providerId: item.providerId, mediaKind: item.mediaKind, extension: item.extension, name: item.name, group: item.group }
+  const parent = item.mediaKind === 'episode' && typeof item.seriesId === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(item.seriesId)
+    ? { seriesId: item.seriesId, ...(typeof item.seriesName === 'string' ? { seriesName: item.seriesName.slice(0, 200) } : {}) } : {}
+  return { providerId: item.providerId, mediaKind: item.mediaKind, extension: item.extension, name: item.name, group: item.group, ...parent }
 }
 export function referenceChannel(source: Source, reference: ProviderReference): Channel {
   return { name: reference.name, group: reference.group, mediaKind: reference.mediaKind, providerId: reference.providerId,
+    ...(reference.seriesId ? { seriesId: reference.seriesId, seriesName: reference.seriesName } : {}),
     url: reference.mediaKind === 'series' ? '' : mediaUrl(source, reference.mediaKind === 'episode' ? 'series' : reference.mediaKind, reference.providerId, reference.extension) }
 }
 export function channelReference(source: Source, channel: Channel): ProviderReference | undefined {

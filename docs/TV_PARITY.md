@@ -6,12 +6,12 @@ This is the implementation checklist for the standalone TV ports. Reference: the
 | --- | --- | --- |
 | Shell / Home | Compact icon rail, dark canvas, pink focus, artwork hero, live/movie/series/favorite/recent rails, continue-watching progress and card actions | Closer empty/loading states |
 | Live TV | Category column, channel list, now/next programme panel, favorites, channel up/down, number tuning, playback programme OSD, programme details and archive replay | Broader archive-provider/device validation |
-| Movies / Series | Artwork grids, details, credits, season/episode browsing, resume, last-season restoration, next episode and optional countdown, natural title sorting | Episode context after a cold restart, detail enrichment where provider data is absent |
+| Movies / Series | Artwork grids, details, credits, season/episode browsing, resume, last-season restoration, next episode after cold resume and optional countdown, natural title sorting | Detail enrichment where provider data is absent |
 | Search | Cancellable M3U search and whole-provider Xtream index, explicit partial status, content-kind and watched filters | Persistent index, improved large-library browsing |
-| Sources | M3U, Xtream and direct URL, explicit Remember, cancel/refresh/forget, up to 20 named sources, source switching | Guide override, richer account status |
-| Library | Favorites, last 100 watched, VOD progress, saved Xtream references, continue-watching rail, card menus individual history removal and watched marking | Longer watched-state retention |
-| Guide | Xtream fallbacks and original streaming XMLTV worker; bounded cache, refresh, guide dates and bounded gzip fallback | Manual feed override |
-| Playback | Shaka HLS/DASH and DRM configuration, Samsung native path, safe HTML fallback, seek, retry, track menu, now/next OSD and episode continuation | Further OSD parity, supported quality/aspect controls |
+| Sources | M3U, Xtream and direct URL, explicit Remember, cancel/refresh/forget, up to 20 named sources, source switching, per-source XMLTV override and account status | Optional catalog cache |
+| Library | Favorites, last 100 watched, VOD progress, saved Xtream references, continue-watching rail, card menus individual history removal and 10,000 independent watched marks | Watched-list management |
+| Guide | Xtream fallbacks and original streaming XMLTV worker; bounded cache, refresh, guide dates, manual feed override and bounded gzip fallback | Broader provider guide validation |
+| Playback | Shaka HLS/DASH and DRM configuration, Samsung native path, safe HTML fallback, seek, retry, track menu, now/next OSD, episode continuation, seek bar, quality and picture size | Further OSD parity, supported speed controls |
 | Settings | Theme, accent, size, margins, reduced motion, guide clock, language preferences, optional automatic next episode | Localization, other applicable Android options and diagnostics |
 | Downloads / offline | Not implemented | Investigate platform storage, codec/DRM persistence and developer/store permissions before selecting a supported design |
 | Casting / receiver | Deliberately absent from the standalone install | Optional future feature only; not required to watch |

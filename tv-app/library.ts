@@ -26,6 +26,7 @@ export const channelId = (channel: Channel) => {
 export class TVLibrary {
   readonly favorites = new Set<string>()
   readonly recent = new Map<string, Recent>()
+  private readonly watched = new Set<string>()
   private readonly seasons = new Map<string, string>()
   private readonly references = new Map<string, ProviderReference>()
   private readonly key: string
@@ -40,7 +41,9 @@ export class TVLibrary {
         if (!item || !validId(item.id) || ![item.at, item.position, item.duration].every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0)) continue
         if (item.position > item.duration || item.at > Date.now() + 86400000) continue
         this.recent.set(item.id, { id: item.id, at: item.at, position: item.position, duration: item.duration, ...(item.completed === true ? { completed: true } : {}) })
+        if (item.completed === true) this.watched.add(item.id)
       }
+      if (Array.isArray(data.watched)) for (const id of data.watched.slice(-10000)) if (validId(id)) this.watched.add(id)
       if (Array.isArray(data.seasons)) for (const entry of data.seasons.slice(0, 1000)) { if (Array.isArray(entry) && validId(entry[0]) && typeof entry[1] === 'string' && entry[1].length <= 100) this.seasons.set(entry[0], entry[1]) }
       if (source.kind === 'xtream' && Array.isArray(data.references)) for (const item of data.references.slice(0, MAX_FAVORITES + MAX_RECENT)) {
         const reference = readProviderReference(item)
@@ -52,6 +55,14 @@ export class TVLibrary {
   }
   isFavorite(channel: Channel) { return this.favorites.has(channelId(channel)) }
   lastPlayed(channel: Channel) { return this.recent.get(channelId(channel)) }
+  isWatched(channel: Channel) { return this.watched.has(channelId(channel)) }
+  markWatched(channel: Channel, completed: boolean) {
+    const id = channelId(channel)
+    if (completed) this.addWatched(id)
+    else { this.watched.delete(id); const recent = this.recent.get(id); if (recent) delete recent.completed }
+    this.save()
+  }
+  private addWatched(id: string) { this.watched.delete(id); this.watched.add(id); while (this.watched.size > 10000) this.watched.delete(this.watched.keys().next().value!) }
   toggleFavorite(channel: Channel): boolean {
     const id = channelId(channel)
     if (this.favorites.has(id)) this.favorites.delete(id)
@@ -66,6 +77,7 @@ export class TVLibrary {
     const vod = channel.mediaKind !== 'live' && Number.isFinite(duration) && duration > 60 && Number.isFinite(position) && position >= 15 && position < duration - 15 && !ended
     this.recent.delete(id)
     const completed = channel.mediaKind !== 'live' && (ended || Number.isFinite(duration) && duration > 60 && Number.isFinite(position) && position >= duration - 15)
+    if (completed) this.addWatched(id)
     this.recent.set(id, { id, at: Date.now(), position: vod ? position : 0, duration: vod ? duration : 0, ...(completed ? { completed: true } : {}) })
     while (this.recent.size > MAX_RECENT) this.recent.delete(this.recent.keys().next().value!)
     this.remember(channel); this.save()
@@ -79,7 +91,7 @@ export class TVLibrary {
   private remember(channel: Channel) { const reference = channelReference(this.source, channel); if (reference) this.references.set(channelId(channel), reference) }
   private save() {
     for (const id of this.references.keys()) if (!this.favorites.has(id) && !this.recent.has(id)) this.references.delete(id)
-    this.storage?.setItem(this.key, JSON.stringify({ favorites: [...this.favorites], recent: [...this.recent.values()].reverse(), references: [...this.references.values()], seasons: [...this.seasons] }))
+    this.storage?.setItem(this.key, JSON.stringify({ favorites: [...this.favorites], recent: [...this.recent.values()].reverse(), references: [...this.references.values()], seasons: [...this.seasons], watched: [...this.watched] }))
   }
 }
 

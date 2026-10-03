@@ -3,6 +3,8 @@ import { browserHeaderProblem, needsAdaptivePlayer, type Media } from './media'
 
 type Request = { headers: Record<string, string> }
 type AdaptiveTrack = { id?: number; active: boolean; language: string; label?: string; roles?: string[]; channelsCount?: number; codecs?: string; spatialAudio?: boolean }
+type VideoTrack = { active: boolean; width?: number; height?: number; bandwidth?: number; frameRate?: number; codecs?: string; hdr?: string; language?: string; label?: string; roles?: string[]; pixelAspectRatio?: string; colorGamut?: string; videoLayout?: string; mimeType?: string }
+const videoKey = (track: VideoTrack) => JSON.stringify([track.width, track.height, track.bandwidth, track.frameRate, track.codecs, track.hdr, track.language, track.label, track.roles, track.pixelAspectRatio, track.colorGamut, track.videoLayout, track.mimeType])
 const audioKey = (track: AdaptiveTrack) => JSON.stringify([track.language, track.label, track.roles, track.channelsCount, track.codecs, track.spatialAudio])
 const trackLabel = (track: AdaptiveTrack) => [track.label || track.language || 'Unknown language', track.channelsCount ? `${track.channelsCount} ch` : '', track.roles?.filter(role => role !== 'main').join(', ')].filter(Boolean).join(' · ').slice(0, 160)
 type Engine = {
@@ -11,6 +13,7 @@ type Engine = {
   getNetworkingEngine(): { registerRequestFilter(filter: (type: number, request: Request) => void): void }
   getAudioTracks?(): AdaptiveTrack[]; getTextTracks?(): AdaptiveTrack[]
   selectAudioTrack?(track: AdaptiveTrack, safeMargin?: number): void; selectTextTrack?(track: AdaptiveTrack | null): void
+  getVideoTracks?(): VideoTrack[]; selectVideoTrack?(track: VideoTrack, clearBuffer?: boolean, safeMargin?: number): void
 }
 type Shaka = { Player: { new(): Engine; isBrowserSupported(): boolean }; polyfill: { installAll(): void }; net: { NetworkingEngine: { RequestType: { LICENSE: number; MANIFEST: number; SEGMENT: number } } } }
 let runtime: Promise<Shaka> | undefined
@@ -33,6 +36,7 @@ export function playbackError(error: { category?: number; code?: number }): stri
 /** Serializes decoder teardown, so rapid zapping never destroys the next stream. */
 export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka = loadRuntime): Player & { whenStopped(): Promise<void> } {
   let generation = 0, engine: Engine | undefined, queue = Promise.resolve(), cleanup = () => {}, timer: ReturnType<typeof setTimeout> | undefined
+  let automaticQuality = true
   const dispose = async () => { clearTimeout(timer); cleanup(); cleanup = () => {}; const old = engine; engine = undefined; if (old) await old.destroy().catch(() => {}) }
   const stop = () => {
     generation++
@@ -43,6 +47,7 @@ export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka
   return {
     play(input, position = 0) {
       stop(); const token = generation, media = typeof input === 'string' ? { url: input } : input
+      automaticQuality = true
       const options = media.playback
       const problem = options?.problem || browserHeaderProblem(options?.headers) || browserHeaderProblem(options?.drm?.headers)
       if (problem) { report('error', problem); return }
@@ -88,6 +93,24 @@ export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka
     seek(delta) { if (Number.isFinite(video.duration) && video.duration > 1) try { video.currentTime = Math.max(0, Math.min(video.duration - 1, video.currentTime + delta)) } catch { /* not seekable */ } },
     timeline() { return { position: video.currentTime || 0, duration: video.duration || 0 } },
     whenStopped() { return queue },
+    qualities() {
+      try {
+        const tracks = engine?.getVideoTracks?.() || []
+        if (!tracks.length || !engine?.selectVideoTrack) return []
+        return [{ id: 'auto', label: 'Automatic', active: automaticQuality }, ...tracks.sort((a, b) => (b.height || 0) - (a.height || 0) || (b.bandwidth || 0) - (a.bandwidth || 0)).map(track => ({ id: videoKey(track), label: [track.height ? `${track.height}p` : 'Video', track.frameRate ? `${Math.round(track.frameRate)} fps` : '', track.bandwidth ? `${(track.bandwidth / 1000000).toFixed(1)} Mbps` : '', track.hdr && track.hdr !== 'SDR' ? track.hdr : ''].filter(Boolean).join(' · '), active: !automaticQuality && track.active }))]
+      } catch { return [] }
+    },
+    selectQuality(id) {
+      try {
+        if (!engine?.selectVideoTrack) return false
+        const track = engine.getVideoTracks?.().find(item => videoKey(item) === id)
+        if (id !== 'auto' && !track) return false
+        if (!engine.configure({ abr: { enabled: id === 'auto' } })) return false
+        automaticQuality = id === 'auto'
+        if (track) engine.selectVideoTrack(track, true, 4)
+        return true
+      } catch { return false }
+    },
     tracks() {
       try {
         return [
@@ -131,6 +154,7 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
       current.stop()
       const token = ++generation, previous = current
       const media: Media = typeof input === 'string' ? { url: input } : input
+      video.style.objectFit = 'contain'
       mediaForFallback = media; fallbackPosition = position || 0
       const nativeHeaders = Object.keys(media.playback?.headers || {}).every(name => ['user-agent', 'cookie'].includes(name.toLowerCase()))
       const useNative = !!samsung && !media.playback?.drm && !media.playback?.problem && nativeHeaders
@@ -144,5 +168,8 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
     },
     stop() { generation++; current.stop() }, pause() { current.pause() }, resume() { current.resume() }, seek(delta) { current.seek(delta) }, timeline() { return current.timeline() },
     tracks() { return current.tracks?.() || [] }, selectTrack(kind, id) { return current.selectTrack?.(kind, id) || false },
+    qualities() { return current.qualities?.() || [] }, selectQuality(id) { return current.selectQuality?.(id) || false },
+    aspects() { return current === samsung ? samsung.aspects!() : ['fit', 'zoom', 'stretch'] },
+    setAspect(aspect) { if (current === samsung) return samsung.setAspect!(aspect); if (!['fit', 'zoom', 'stretch'].includes(aspect)) return false; video.style.objectFit = aspect === 'fit' ? 'contain' : aspect === 'zoom' ? 'cover' : 'fill'; return true },
   }
 }

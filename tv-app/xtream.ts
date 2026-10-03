@@ -107,7 +107,7 @@ function parseEpisodes(source: Source, series: Channel, response: Record<string,
       try {
         const id = identifier(row.id), season = Number(row.season ?? seasonKey), episode = Number(row.episode_num)
         if (!Number.isSafeInteger(season) || season < 0 || !Number.isSafeInteger(episode) || episode < 0) { skipped++; continue }
-        channels.push({ name: `S${season} E${episode} · ${text(row.title, series.name)}`, group: `Season ${season}`, url: mediaUrl(source, 'series', id, row.container_extension), mediaKind: 'episode', providerId: id, logo: artwork(record(row.info).movie_image) || series.logo, season, episode })
+        channels.push({ name: `S${season} E${episode} · ${text(row.title, series.name)}`, group: `Season ${season}`, url: mediaUrl(source, 'series', id, row.container_extension), mediaKind: 'episode', providerId: id, seriesId: series.providerId, seriesName: series.name, description: text(record(row.info).plot), logo: artwork(record(row.info).movie_image) || series.logo, season, episode })
       } catch { skipped++ }
     }
   }
@@ -115,7 +115,7 @@ function parseEpisodes(source: Source, series: Channel, response: Record<string,
   return { channels, skipped }
 }
 export async function loadEpisodes(source: Source, series: Channel, signal: AbortSignal): Promise<Catalog> {
-  return parseEpisodes(source, series, record(await request(source, 'get_series_info', signal, { series_id: identifier(series.providerId) })))
+  return parseEpisodes(source, series, record(await request(source, 'get_series_info', signal, { series_id: identifier(series.providerId) }, 8 * 1024 * 1024)))
 }
 export function basicDetails(channel: Channel): TitleDetails {
   return { channel, description: channel.description || '', poster: channel.logo, metadata: [channel.group], cast: '', director: '' }

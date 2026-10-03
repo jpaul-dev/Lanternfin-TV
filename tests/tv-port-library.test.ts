@@ -92,3 +92,11 @@ it('rejects forged provider references and never rewrites arbitrary media addres
   localStorage.setItem(key, JSON.stringify(data))
   expect(new TVLibrary(localStorage, account).bookmarkedChannels()).toEqual([])
 })
+it('retains watched flags beyond recent history and clears them independently', () => {
+  const library = new TVLibrary(localStorage, source); library.record(channel, 0, 0, true)
+  for (let i = 0; i < 105; i++) library.record({ ...channel, url: `https://example.com/${i}` })
+  const restored = new TVLibrary(localStorage, source)
+  expect(restored.lastPlayed(channel)).toBeUndefined(); expect(restored.isWatched(channel)).toBe(true)
+  restored.clearHistory(); expect(restored.isWatched(channel)).toBe(true)
+  restored.markWatched(channel, false); expect(new TVLibrary(localStorage, source).isWatched(channel)).toBe(false)
+})

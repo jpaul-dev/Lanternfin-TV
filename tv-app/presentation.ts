@@ -18,6 +18,7 @@ export function channelCard(channel: Channel, activate: () => void, library?: TV
   const name = document.createElement('span'); name.className = 'card-title'; name.textContent = (library?.isFavorite(channel) ? '★ ' : '') + channel.name
   const meta = document.createElement('small'); meta.textContent = channel.group
   const recent = library?.lastPlayed(channel)
+  if (library?.isWatched(channel)) { const badge = document.createElement('span'); badge.className = 'watched-badge'; badge.textContent = '✓ Watched'; art.append(badge); card.setAttribute('aria-label', `${channel.name} · ${channel.group} · Watched`) }
   if (recent?.position && recent.duration) { const progress = document.createElement('progress'); progress.max = recent.duration; progress.value = recent.position; progress.className = 'card-progress'; progress.setAttribute('aria-label', 'Viewing progress'); art.append(progress) }
   card.append(art, name, meta); card.onclick = activate
   return card

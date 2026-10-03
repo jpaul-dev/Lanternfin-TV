@@ -2,7 +2,7 @@ import { createM3UParser, isHlsStreamManifest } from '../src/scripts/lib/m3u-par
 import { providerMedia, type PlaybackOptions } from './media'
 
 export type Source = { kind: 'playlist' | 'xtream' | 'direct'; url: string; username: string; password: string }
-export type Channel = { name: string; url: string; group: string; mediaKind?: 'live' | 'movie' | 'series' | 'episode'; providerId?: string; tvgId?: string; logo?: string; description?: string; playback?: PlaybackOptions; tvArchive?: number; tvArchiveDuration?: number; catchup?: string; catchupDays?: number; catchupSource?: string; catchupCorrection?: number }
+export type Channel = { name: string; url: string; group: string; mediaKind?: 'live' | 'movie' | 'series' | 'episode'; providerId?: string; seriesId?: string; seriesName?: string; tvgId?: string; logo?: string; description?: string; playback?: PlaybackOptions; tvArchive?: number; tvArchiveDuration?: number; catchup?: string; catchupDays?: number; catchupSource?: string; catchupCorrection?: number }
 export type Catalog = { channels: Channel[]; skipped: number; epgUrl?: string }
 // Resource guards, not preview restrictions. Only compact playable entries are
 // retained; raw downloads and the parser's rich intermediate entries are not.

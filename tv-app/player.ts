@@ -3,7 +3,9 @@ import type { Media } from './media'
 export type State = 'loading' | 'playing' | 'paused' | 'buffering' | 'ended' | 'error' | 'idle'
 export type Report = (state: State, detail?: string) => void
 export type PlayerTrack = { id: string; kind: 'audio' | 'subtitle'; label: string; language?: string; active: boolean; disabled?: boolean }
-export interface Player { play(url: string | Media, position?: number): void; pause(): void; resume(): void; seek(delta: number): void; stop(): void; timeline(): { position: number; duration: number }; tracks?(): PlayerTrack[]; selectTrack?(kind: PlayerTrack['kind'], id: string): boolean }
+export type Aspect = 'fit' | 'zoom' | 'stretch'
+export type VideoQuality = { id: string; label: string; active: boolean }
+export interface Player { play(url: string | Media, position?: number): void; pause(): void; resume(): void; seek(delta: number): void; stop(): void; timeline(): { position: number; duration: number }; tracks?(): PlayerTrack[]; selectTrack?(kind: PlayerTrack['kind'], id: string): boolean; qualities?(): VideoQuality[]; selectQuality?(id: string): boolean; aspects?(): Aspect[]; setAspect?(aspect: Aspect): boolean }
 type NativeTrack = { type: string; index: number; extra_info?: string }
 export interface AVPlay {
   open(url: string): void; close(): void; stop(): void; play(): void; pause(): void
@@ -83,6 +85,11 @@ export function samsungPlayer(api: AVPlay, report: Report): Player {
       } catch { seeking = false }
     },
     stop() { close(); report('idle') },
+    aspects() { return ['fit', 'stretch'] },
+    setAspect(aspect) {
+      if (!['fit', 'stretch'].includes(aspect) || !['IDLE', 'READY', 'PLAYING', 'PAUSED'].includes(api.getState())) return false
+      try { api.setDisplayMethod(aspect === 'stretch' ? 'PLAYER_DISPLAY_MODE_FULL_SCREEN' : 'PLAYER_DISPLAY_MODE_LETTER_BOX'); return true } catch { return false }
+    },
     timeline() {
       try { return { position: api.getCurrentTime() / 1000, duration: api.getDuration() / 1000 } }
       catch { return { position: 0, duration: 0 } }

@@ -23,6 +23,15 @@ it('runs source loading, favorites, resume, failed-refresh recovery and forgetti
   const video = document.querySelector('video')!
   Object.defineProperty(video, 'duration', { value: 600 })
   video.currentTime = 120; video.dispatchEvent(new Event('playing'))
+  await vi.advanceTimersByTimeAsync(1000)
+  expect(el('seek-controls').hidden).toBe(false)
+  el<HTMLInputElement>('seek-position').focus()
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+  expect(video.currentTime).toBe(130)
+  video.currentTime = 120
+  await click('tracks-open'); el<HTMLSelectElement>('aspect-mode').value = 'zoom'; el('aspect-mode').dispatchEvent(new Event('change'))
+  expect(video.style.objectFit).toBe('cover'); expect(el<HTMLSelectElement>('quality-track').disabled).toBe(true)
+  await click('tracks-close')
   await click('favorite'); expect(el('favorite').getAttribute('aria-pressed')).toBe('true')
   await click('stop'); await click('view-favorites')
   expect(el('channels').querySelectorAll('button')).toHaveLength(1)

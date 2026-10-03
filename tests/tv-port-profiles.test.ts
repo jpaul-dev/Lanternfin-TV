@@ -1,11 +1,19 @@
 // @vitest-environment jsdom
 import { beforeEach, expect, it } from 'vitest'
-import { readProfiles, rememberProfile, removeProfile, forgetProfiles } from '../tv-app/profiles'
+import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles } from '../tv-app/profiles'
 import { readSource, storeSource } from '../tv-app/storage'
 import { TVLibrary, forgetLibrary } from '../tv-app/library'
 import type { Source } from '../tv-app/catalog'
 const source = (id: number): Source => ({ kind: 'xtream', url: `https://provider${id}.example/`, username: 'test', password: 'example-secret' })
 beforeEach(() => localStorage.clear())
+it('stores a source-specific guide override without changing the library identity', () => {
+  rememberProfile(localStorage, source(1), 'TV'); const id = readProfiles(localStorage)[0].id
+  rememberProfile(localStorage, source(1), 'TV', source(1), { guideUrl: 'https://guide.example/guide.xml.gz?token=test' })
+  expect(readProfiles(localStorage)[0]).toMatchObject({ id, guideUrl: 'https://guide.example/guide.xml.gz?token=test' })
+  expect(readProfiles(localStorage)).toHaveLength(1)
+  for (const invalid of ['file:///etc/passwd', 'javascript:alert(1)', 'https://u:p@example.com', 'x'.repeat(8193)]) expect(() => guideAddress(invalid)).toThrow()
+  removeProfile(localStorage, source(1)); expect(localStorage.length).toBe(0)
+})
 it('migrates the opted-in legacy account and supports independent named sources', () => {
   storeSource(localStorage, source(1)); expect(readProfiles(localStorage)).toHaveLength(1)
   rememberProfile(localStorage, source(2), 'Second TV library')

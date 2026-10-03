@@ -74,3 +74,16 @@ it('selects Shaka audio by track properties and can turn subtitles off', async (
   expect(h.player.selectTrack!('audio', 'unknown')).toBe(false)
   h.player.stop(); await settle(); expect(h.player.tracks!()).toEqual([]); vi.clearAllTimers()
 })
+it('changes video quality independently from audio and restores automatic adaptation', async () => {
+  vi.useFakeTimers(); const h = harness()
+  const hd = { active: true, width: 1280, height: 720, bandwidth: 2200000, frameRate: 30 }, sd = { active: false, width: 640, height: 360, bandwidth: 700000, frameRate: 30 }
+  const selectVideo = vi.fn(), selectAudio = vi.fn()
+  Object.assign(h.engine, { getVideoTracks: () => [sd, hd], selectVideoTrack: selectVideo, selectAudioTrack: selectAudio })
+  h.player.play('https://example.com/a.mpd'); await settle()
+  const options = h.player.qualities!(); expect(options.map(option => option.label)).toEqual(['Automatic', '720p · 30 fps · 2.2 Mbps', '360p · 30 fps · 0.7 Mbps'])
+  expect(h.player.selectQuality!(options[2].id)).toBe(true); expect(selectVideo).toHaveBeenCalledWith(sd, true, 4)
+  expect(h.engine.configure).toHaveBeenLastCalledWith({ abr: { enabled: false } }); expect(selectAudio).not.toHaveBeenCalled()
+  expect(h.player.selectQuality!('unknown')).toBe(false)
+  expect(h.player.selectQuality!('auto')).toBe(true); expect(h.engine.configure).toHaveBeenLastCalledWith({ abr: { enabled: true } })
+  h.player.stop(); await settle(); expect(h.player.qualities!()).toEqual([]); vi.clearAllTimers()
+})

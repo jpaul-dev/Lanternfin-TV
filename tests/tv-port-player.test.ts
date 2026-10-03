@@ -16,6 +16,14 @@ function fixture() {
 }
 afterEach(() => vi.useRealTimers())
 describe('Samsung native player lifecycle', () => {
+  it('offers only documented native picture modes and respects decoder state', () => {
+    const { api, player, pending } = fixture()
+    expect(player.setAspect!('stretch')).toBe(false)
+    player.play('https://example.com/a'); pending[0].success()
+    expect(player.aspects!()).toEqual(['fit', 'stretch']); expect(player.setAspect!('zoom')).toBe(false)
+    expect(player.setAspect!('stretch')).toBe(true); expect(api.setDisplayMethod).toHaveBeenLastCalledWith('PLAYER_DISPLAY_MODE_FULL_SCREEN')
+    player.stop(); expect(player.setAspect!('fit')).toBe(false)
+  })
   it('respects Samsung audio state and DASH subtitle constraints', () => {
     const { api, player, pending } = fixture()
     api.getTotalTrackInfo = () => [{ type: 'AUDIO', index: 2, extra_info: '{"language":"eng"}' }, { type: 'TEXT', index: 3, extra_info: '{"track_lang":"spa"}' }]

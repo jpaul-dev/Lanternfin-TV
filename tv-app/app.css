@@ -222,3 +222,18 @@ progress{width:100%;height:.15rem;border:0;accent-color:var(--accent)}progress::
 .browse-options{display:flex;align-items:center;gap:.8rem;margin:.4rem 0 .7rem}.browse-options label{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-size:.62rem;margin:0}.browse-options select{width:auto;max-width:11rem;font-size:.62rem;min-height:1.8rem;padding:.3rem .5rem;border-radius:2rem}.browse-options .check{margin-left:auto}
 
 #guide-programmes .programme-entry{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:.6rem .2rem;border-radius:.4rem;min-height:2.4rem}#guide-programmes .programme-entry:focus{background:#263039;outline-offset:-2px}#guide-programmes small{font-size:.5rem;color:var(--accent)}.guide-day-label{font-size:.55rem;color:var(--muted);margin:.5rem 0 0}.guide-day-label select{font-size:.6rem;min-height:1.8rem;padding:.3rem}.guide-pages{display:flex;justify-content:space-between;align-items:center;margin-top:.3rem;font-size:.6rem}.guide-pages button{font-size:.65rem;min-height:1.4rem;padding:.2rem .6rem}#programme-description{font-size:.85rem;line-height:1.6;max-height:40vh;overflow:auto}.replay-options{display:flex;gap:1rem;margin-top:1.2rem}.replay-options label{font-size:.7rem;min-width:10rem}.replay-options select{font-size:.7rem}[data-theme=light] #guide-programmes .programme-entry:focus{background:#e0e6ec}
+
+.watched-badge { position: absolute; right: .55rem; top: .55rem; background: #101419e6; color: #fff; border-radius: .35rem; padding: .25rem .5rem; font-size: .8rem; }
+
+.track-menu { max-height: calc(92vh - 2rem); overflow-y: auto; }
+#seek-position { width: 100%; min-height: 1.75rem; padding: 0; accent-color: var(--accent); }
+#seek-controls { margin: .8rem 0 .1rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+
+.track-menu label { margin-top: .5rem; }
+.track-menu select { min-height: 2.2rem; padding: .45rem .65rem; }
+
+#source-advanced-toggle { margin-top: .8rem; }
+.account-row { display: flex; justify-content: space-between; gap: 2rem; padding: 1rem 0; border-bottom: 1px solid var(--line); }
+.account-row dt { color: var(--muted); }
+.account-row dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
