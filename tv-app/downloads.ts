@@ -51,6 +51,7 @@ export class TVDownloads {
   private lastSave = 0
   private background = false
   private busy = false
+  private resetting = false
   onChange = () => {}
   message = ''
   constructor(private api?: DownloadPlatform, private getStorage: () => Storage = () => localStorage) {}
@@ -145,7 +146,7 @@ export class TVDownloads {
     const problem = downloadProblem(channel)
     if (problem) throw new Error(problem)
     if (!this.supported) throw new Error('Downloads require a Samsung TV with native download and private storage support.')
-    if (this.background || this.busy || this.items.some(active)) throw new Error('Pause the current transfer before starting another download.')
+    if (this.background || this.busy || this.resetting || this.items.some(active)) throw new Error('Pause the current transfer before starting another download.')
     if (this.items.length >= MAX_ITEMS || this.reserved() + DOWNLOAD_FILE_LIMIT > DOWNLOAD_TOTAL_LIMIT) throw new Error('Remove saved downloads to make space. Up to 20 entries and 4 GiB are allowed.')
     if (!this.storage) throw new Error(this.message || 'Saved app storage is required for downloads.')
     this.busy = true
@@ -182,7 +183,7 @@ export class TVDownloads {
   resume(key: string) {
     const item = this.items.find(item => item.key === key)
     if (!item || item.state !== 'paused') return
-    if (this.background || this.items.some(active) || !this.within(item, Math.max(item.received, item.total, DOWNLOAD_FILE_LIMIT))) throw new Error('Pause other transfers or remove downloads before resuming.')
+    if (this.background || this.resetting || this.items.some(active) || !this.within(item, Math.max(item.received, item.total, DOWNLOAD_FILE_LIMIT))) throw new Error('Pause other transfers or remove downloads before resuming.')
     if (!this.owns(item)) throw new Error('The transfer is no longer available. Remove it and start again from your library.')
     try { this.api!.download.resume(item.id!); item.state = 'downloading'; item.note = 'Downloading to this TV.'; this.changed() } catch { throw new Error(failure) }
   }
@@ -196,6 +197,42 @@ export class TVDownloads {
     for (const item of this.items) if (['starting', 'downloading'].includes(item.state)) { this.pause(item.key); if (item.state !== 'paused') this.cancel(item.key) }
   }
   foreground() { this.background = false }
+  async removeAll() {
+    if (this.busy || this.resetting) throw new Error('Wait for the current download operation to finish.')
+    const storage = this.getStorage(), raw = storage.getItem(KEY)
+    if (!this.supported) {
+      if (raw && raw !== '[]') throw new Error('This device cannot remove saved download files.')
+      storage.removeItem(KEY); if (storage.getItem(KEY) !== null) throw new Error('Download metadata could not be removed.'); return
+    }
+    this.load()
+    if (!this.storage) throw new Error('Saved download metadata could not be read. No files were changed.')
+    this.resetting = true
+    try {
+      const deadline = Date.now() + 12000, canceled = new Set<number>()
+      // A cancellation request alone is not proof that the OS stopped writing.
+      for (;;) {
+        let waiting = false
+        for (const item of this.items) {
+          if (item.id === undefined) continue
+          const owned = this.ownership(item)
+          let stopped = owned === 'missing' || owned === 'other'
+          if (owned === 'owned') {
+            const state = this.api!.download.getState(item.id)
+            stopped = ['CANCELED', 'FAILED', 'COMPLETED'].includes(state)
+            if (!stopped && !canceled.has(item.id)) { canceled.add(item.id); this.cancel(item.key) }
+          }
+          if (stopped) { item.id = undefined; item.state = 'failed'; this.save() }
+          else if (item.id !== undefined) waiting = true
+        }
+        if (!waiting) break
+        if (Date.now() >= deadline) throw new Error('The TV could not confirm that all transfers stopped. No download files were removed.')
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      for (const item of [...this.items]) await this.remove(item.key)
+      this.save(); storage.removeItem(KEY)
+      if (storage.getItem(KEY) !== null) throw new Error('Download metadata could not be removed.')
+    } finally { this.resetting = false }
+  }
   async remove(key: string) {
     const item = this.items.find(item => item.key === key); if (!item || !terminal(item) || this.busy) throw new Error('Cancel the transfer before removing its file.')
     this.busy = true

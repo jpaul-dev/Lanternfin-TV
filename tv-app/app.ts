@@ -1,6 +1,8 @@
 import './compatibility'
 import './app.css'
 import { backupUI } from './backup-ui'
+import { resetAppData } from './reset'
+import { resetUI } from './reset-ui'
 import { ScreenSaver, bindLifecycle, type AppCommon } from './lifecycle'
 import { PlaybackDiagnostics, capabilities, buildInfo, type DiagnosticReport } from './diagnostics'
 import { diagnosticsUI } from './diagnostics-ui'
@@ -56,12 +58,13 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const input = (id: string) => $<HTMLInputElement>(id)
 const select = (id: string) => $<HTMLSelectElement>(id)
 const button = (id: string) => $<HTMLButtonElement>(id)
-const SCREENS = ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout', 'guide-match'] as const
+const SCREENS = ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout', 'guide-match', 'reset'] as const
 type Screen = typeof SCREENS[number]
 let updatesReturn: 'settings' | 'about' = 'settings'
-let downloadsReturn: 'setup' | 'catalog' | 'settings' | 'detail' = 'setup'
+let downloadsReturn: 'setup' | 'catalog' | 'settings' | 'detail' | 'reset' = 'setup'
+let resetReturn: 'setup' | 'settings' = 'settings'
 let screen: Screen = 'setup', previousScreen: Screen = 'setup'
-let backupReturn: 'settings' | 'setup' | 'manage' = 'settings'
+let backupReturn: 'settings' | 'setup' | 'manage' | 'reset' = 'settings'
 let manageReturn: 'settings' | 'catalog' = 'settings'
 let diagnosticsReturn: 'settings' | 'setup' = 'settings'
 let channels: Channel[] = [], filtered: Channel[] = [], page = 0, lastChannel = 0
@@ -146,6 +149,18 @@ const diagnostics = diagnosticsUI($('diagnostics'), (): DiagnosticReport => ({ s
 const libraryManager = libraryUI($('manage'), () => { void refreshCards() })
 const downloads = new TVDownloads(__TV_TARGET__ === 'tizen' ? window.tizen as DownloadPlatform : undefined)
 const downloadView = downloadsUI($('downloads'), downloads, (channel, position) => { playbackReturn = 'downloads'; startWatching(channel, position) })
+const resetFlow = resetUI($('reset'), async removeDownloads => {
+  const storage = localStorage, session = sessionStorage
+  cancelLoad(); cancelBrowseEntry(); cancelProviderLoad(); cancelDetails(); cancelRelated(); cancelGuide()
+  searching?.abort(); clearTimeout(searchTimer); clearTimeout(indexTimer); indexTimer = undefined
+  providerIndex?.pause(); providerIndex = undefined; suspendedIndex = undefined
+  keepActiveLibrary = false; cacheSaving?.abort(); library?.setStorage(null)
+  cancelHomeRows(); guide?.clear(); playbackGuideLoading?.abort(); accountLoading?.abort(); replayLoading?.abort()
+  clearTimeout(holdTimer); clearTimeout(nextTimer); cancelZap(); episodeContext.clear(); browseHistory.forget()
+  resetSubtitles(); player?.stop(); screenSaver.release(); downloads.suspend()
+  await resetAppData(storage, session, catalogCache, removeDownloads ? () => downloads.removeAll() : undefined)
+  playbackDiagnostics.clear()
+}, () => window.location.reload())
 const updates = updatesUI($('updates'), __TV_TARGET__, undefined, () => preferences.updateChannel)
 const preferenceChoices = settingsChoices($('settings'))
 const guideMatcher = guideMatchUI($('guide-match'), (query, page, signal) => {
@@ -160,12 +175,14 @@ const guideMatcher = guideMatchUI($('guide-match'), (query, page, signal) => {
 downloads.load()
 if (away) downloads.suspend()
 function show(next: Screen) {
+  if (resetFlow.locked && next !== 'reset') return
   if (next !== 'settings') preferenceChoices.close(false)
   const returningToCatalog = next === 'catalog' && screen !== 'catalog' && screen !== 'guide-match' && !enteringBrowse && browseView !== 'home'
   if (screen === 'catalog' && next !== 'catalog') { rememberBrowsePosition(); cancelBrowseEntry(); cancelProviderLoad(); searching?.abort(); clearTimeout(searchTimer); searchTimer = undefined }
   if (screen === 'updates' && next !== 'updates') updates.close()
   if (screen === 'downloads' && next !== 'downloads') downloadView.close()
   if (screen === 'backup' && next !== 'backup') backups.close()
+  if (screen === 'reset' && next !== 'reset') resetFlow.close()
   if (screen === 'diagnostics' && next !== 'diagnostics') diagnostics.close()
   if (screen === 'manage' && next !== 'manage') libraryManager.close()
   if (screen === 'layout' && next !== 'layout') layoutEditor.close()
@@ -178,7 +195,7 @@ function show(next: Screen) {
   if (!['detail', 'playback', 'resume', 'downloads'].includes(next)) { cancelDetails(); detailTrail.length = 0 }
   if (next !== 'detail') cancelRelated()
   screen = next
-  $('about-open').hidden = next === 'guide-match'
+  $('about-open').hidden = next === 'guide-match' || next === 'reset'
   syncNav()
   document.documentElement.dataset.screen = next
   for (const id of SCREENS) $(id).hidden = id !== next
@@ -682,9 +699,10 @@ function back() {
   else if (screen === 'backup') returnFromBackup()
   else if (screen === 'diagnostics') show(diagnosticsReturn)
   else if (screen === 'manage') { if (!libraryManager.back()) show(manageReturn) }
-  else if (screen === 'downloads') { if (!downloadView.back()) show(downloadsReturn) }
+  else if (screen === 'downloads') returnFromDownloads()
   else if (screen === 'updates') show(updatesReturn)
   else if (screen === 'guide-match') button('guide-match-back').click()
+  else if (screen === 'reset') button('reset-back').click()
   else if (screen === 'catalog' && providerLoading) { cancelBrowseEntry(); cancelProviderLoad(); notice('Loading cancelled.') }
   else if (screen === 'catalog' && browseView !== 'home') goHome()
   else if (screen === 'catalog') show('exit')
@@ -838,6 +856,7 @@ bindLifecycle(document, window, () => {
   if (accountLoading) { accountLoading.abort(); accountLoading = undefined; button('account-retry').disabled = false; $('account-status').textContent = 'Account check stopped. Choose Refresh account to try again.' }
   if (replayLoading) { replayLoading.abort(); replayLoading = undefined; button('programme-replay').disabled = false; $('programme-note').textContent = 'Replay preparation stopped. Select Watch replay to try again.' }
   if (screen === 'backup') { backups.close(); notice('Backup fields were cleared while the app was away.') }
+  if (screen === 'reset' && !resetFlow.locked) { resetFlow.close(); show(resetReturn) }
   if (screen === 'playback') { stopWatching(); notice('Playback stopped while the app was away. Select a stream to continue.') }
   else if (interrupted) notice('Loading stopped while the app was away. Select the source or category again to continue.')
 }, () => {
@@ -1389,11 +1408,12 @@ function openDownloads(channel?: Channel) {
   if (channel && !$('downloads-review').hidden) $('downloads-cancel').focus()
 }
 for (const id of ['setup-downloads', 'nav-downloads', 'settings-downloads']) $(id).onclick = () => openDownloads()
-$('downloads-back').onclick = () => { if (!downloadView.back()) show(downloadsReturn) }
+function returnFromDownloads() { if (!downloadView.back()) { if (downloadsReturn === 'reset') openReset(resetReturn); else show(downloadsReturn) } }
+$('downloads-back').onclick = returnFromDownloads
 for (const [id, from] of [['settings-updates', 'settings'], ['about-updates', 'about']] as const) $(id).onclick = () => { updatesReturn = from; updates.open(); show('updates') }
 $('updates-back').onclick = () => show(updatesReturn)
 for (const [id, from] of [['settings-backup', 'settings'], ['setup-backup', 'setup']] as const) $(id).onclick = () => { backupReturn = from; backups.open(); button('backup-back').textContent = from === 'setup' ? 'Back to sources' : 'Back to settings'; show('backup') }
-function returnFromBackup() { if (backupReturn === 'manage') openLibraryManager(manageReturn); else show(backupReturn) }
+function returnFromBackup() { if (backupReturn === 'manage') openLibraryManager(manageReturn); else if (backupReturn === 'reset') openReset(resetReturn); else show(backupReturn) }
 $('backup-back').onclick = returnFromBackup
 function openLibraryManager(from: typeof manageReturn, preset?: 'history') {
   manageReturn = from
@@ -1411,6 +1431,11 @@ $('settings-source').onclick = () => show('setup')
 $('settings-clear-cache').onclick = async () => { cacheSaving?.abort(); try { await catalogCache.forget(); $('settings-note').textContent = 'Saved catalogs cleared. Sources, favorites and playback progress are retained. The next library refresh can save a new catalog.' } catch { $('settings-note').textContent = 'Saved catalogs could not be cleared. Try clearing app data in TV settings.' } }
 $('settings-refresh').onclick = () => button('refresh-catalog').click()
 $('settings-reset').onclick = () => { preferences = { ...DEFAULTS }; syncPreferences(); persistPreferences() }
+function openReset(from: typeof resetReturn) { resetReturn = from; resetFlow.open(); show('reset') }
+for (const from of ['setup', 'settings'] as const) $(`${from}-reset-app`).onclick = () => openReset(from)
+$('reset-back').onclick = () => { if (!resetFlow.locked) { show(resetReturn); button(`${resetReturn}-reset-app`).focus() } }
+$('reset-backup').onclick = () => { if (!resetFlow.locked) { backupReturn = 'reset'; backups.open(); button('backup-back').textContent = 'Back to reset review'; show('backup') } }
+$('reset-downloads').onclick = () => { if (!resetFlow.locked) { downloadsReturn = 'reset'; downloadView.open(); show('downloads') } }
 function syncPreferences() {
   for (const [id, value] of Object.entries({ theme: preferences.theme, accent: preferences.accent, scale: preferences.scale, overscan: preferences.overscan, motion: preferences.reducedMotion, audio: preferences.audio, subtitles: preferences.subtitles, clock: preferences.guideClock, autonext: preferences.autoNext, grouping: preferences.groupLanguages, content: preferences.contentLanguage, language: preferences.interfaceLanguage, 'update-channel': preferences.updateChannel })) select(`pref-${id}`).value = String(value)
 }

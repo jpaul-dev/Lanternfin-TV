@@ -1,4 +1,10 @@
 /* The original TV UI's dark canvas, accent, sidebar, hero, rails and poster focus. */
+.reset-view{max-width:52rem;margin:0 auto;padding-bottom:2rem}
+.reset-summary{background:var(--surface);border:1px solid var(--line);border-radius:.7rem;padding:.65rem 1rem;margin:.6rem 0}
+.reset-summary h2{margin:.2rem 0}.reset-summary p{font-size:.8rem;line-height:1.5;margin:.4rem 0}
+.reset-consent{border-top:1px solid var(--line);padding-top:1rem;margin-top:1rem}
+#reset-apply:not(:disabled){border-color:var(--accent);color:var(--accent)}
+:root[data-screen=reset] header,:root[data-screen=reset] footer{display:none}
 @font-face{font-family:Geist;src:url('../node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2') format('woff2');font-display:swap}
 
 :root{font-family:Geist,Arial,Helvetica,sans-serif;color:#f4f3f6;background:#101117;font-size:clamp(13px,1.52vw,29px);--accent:#eda4db;--muted:#aaa8b7;--surface:#1b1d27;--line:#343440;--lanternfin-styles:ready;color-scheme:dark}
