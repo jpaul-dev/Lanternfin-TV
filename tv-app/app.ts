@@ -4,6 +4,7 @@ import { backupUI } from './backup-ui'
 import { ScreenSaver, bindLifecycle, type AppCommon } from './lifecycle'
 import { PlaybackDiagnostics, capabilities, buildInfo, type DiagnosticReport } from './diagnostics'
 import { diagnosticsUI } from './diagnostics-ui'
+import { settingsChoices } from './settings-choices'
 import { libraryUI } from './library-ui'
 import { TVDownloads, localDownload, type DownloadPlatform } from './downloads'
 import { downloadsUI } from './downloads-ui'
@@ -144,9 +145,11 @@ const libraryManager = libraryUI($('manage'), () => { void refreshCards() })
 const downloads = new TVDownloads(__TV_TARGET__ === 'tizen' ? window.tizen as DownloadPlatform : undefined)
 const downloadView = downloadsUI($('downloads'), downloads, (channel, position) => { playbackReturn = 'downloads'; startWatching(channel, position) })
 const updates = updatesUI($('updates'), __TV_TARGET__)
+const preferenceChoices = settingsChoices($('settings'))
 downloads.load()
 if (away) downloads.suspend()
 function show(next: Screen) {
+  if (next !== 'settings') preferenceChoices.close(false)
   const returningToCatalog = next === 'catalog' && screen !== 'catalog' && !enteringBrowse && browseView !== 'home'
   if (screen === 'catalog' && next !== 'catalog') { rememberBrowsePosition(); cancelBrowseEntry(); cancelProviderLoad(); searching?.abort(); clearTimeout(searchTimer); searchTimer = undefined }
   if (screen === 'updates' && next !== 'updates') updates.close()
@@ -803,6 +806,7 @@ document.addEventListener('focusin', () => {
 })
 for (const event of ['pointerdown', 'keydown']) document.addEventListener(event, () => { browseInputRevision++; pendingBrowseVisit = undefined }, { capture: true })
 bindLifecycle(document, window, () => {
+  preferenceChoices.close(false)
   downloads.suspend()
   updates.close()
   away = true; screenSaver.release()
