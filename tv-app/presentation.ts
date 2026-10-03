@@ -32,12 +32,13 @@ export function channelCard(channel: Channel, activate: () => void, library?: TV
 }
 let rowGeneration = 0
 let grouping: AbortController | undefined
-export function cancelHomeRows() { rowGeneration++; grouping?.abort() }
+let activeRows: HTMLElement | undefined
+export function cancelHomeRows() { rowGeneration++; grouping?.abort(); activeRows?.setAttribute('aria-busy', 'false') }
 export async function homeRows(root: HTMLElement, channels: Channel[], library: TVLibrary | undefined, activate: (channel: Channel, versions?: Channel[]) => void, language?: string) {
   grouping?.abort(); const controller = new AbortController(); grouping = controller
   const token = ++rowGeneration
-  const focused = root.contains(document.activeElement) ? (document.activeElement as HTMLElement)?.dataset.channel : undefined
-  root.replaceChildren()
+  activeRows = root; root.setAttribute('aria-busy', 'true'); root.dataset.loading = tr('Loading…')
+  try {
   let grouped: Awaited<ReturnType<typeof groupVariants>> | undefined
   if (language) {
     try { grouped = await groupVariants(channels, language, controller.signal) } catch { return }
@@ -55,17 +56,31 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
     if (++index % 512 === 0 && performance.now() - started >= 12) { await new Promise<void>(resolve => setTimeout(resolve, 0)); if (token !== rowGeneration) return; started = performance.now() }
   }
   recent.sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
+  const fragment = document.createDocumentFragment()
   for (const [title, entries] of [['Continue watching', recent.filter(channel => !!library?.lastPlayed(channel)?.position).slice(0, 12)], ['Recently watched', recent.slice(0, 12)], ['Your favorites', favorites], ['Live TV', live], ['Movies', movies], ['Series & episodes', series]] as const) {
     if (!entries.length) continue
-    const section = document.createElement('section'); section.className = 'home-row'
+    const section = document.createElement('section'); section.className = 'home-row'; section.dataset.row = title
     const heading = document.createElement('h2'); heading.textContent = tr(title)
     const rail = document.createElement('div'); rail.className = 'poster-rail'
     for (const channel of entries) {
       const group = title === 'Movies' || title === 'Series & episodes' ? grouped?.groups.get(channel) : undefined
       rail.append(channelCard(channel, () => activate(channel, group?.members), library, group?.members))
     }
-    section.append(heading, rail); root.append(section)
+    section.append(heading, rail); fragment.append(section)
   }
-  if (focused) root.querySelector<HTMLElement>(`[data-channel="${focused}"]`)?.focus({ preventScroll: true })
+  if (token !== rowGeneration) return
+  // Keep old rails interactive until their replacements are ready. Restore only
+  // focus still inside these rows; never pull the user back from the sidebar.
+  const focused = root.contains(document.activeElement) ? (document.activeElement as HTMLElement)?.dataset.channel : undefined
+  const focusedRow = focused ? (document.activeElement?.closest('.home-row') as HTMLElement | null)?.dataset.row : undefined
+  const scroll = new Map([...root.querySelectorAll<HTMLElement>('.poster-rail')].map(rail => [rail.parentElement?.dataset.row, rail.scrollLeft]))
+  root.replaceChildren(fragment)
+  for (const rail of root.querySelectorAll<HTMLElement>('.poster-rail')) rail.scrollLeft = scroll.get(rail.parentElement?.dataset.row) || 0
+  if (focused) {
+    const row = [...root.querySelectorAll<HTMLElement>('.home-row')].find(row => row.dataset.row === focusedRow)
+    const target = row?.querySelector<HTMLElement>(`[data-channel="${focused}"]`) || root.querySelector<HTMLElement>(`[data-channel="${focused}"]`) || root.querySelector<HTMLElement>('button') || document.getElementById('hero-play')
+    target?.focus({ preventScroll: true })
+  }
   return grouped?.groups
+  } finally { if (token === rowGeneration) root.setAttribute('aria-busy', 'false') }
 }

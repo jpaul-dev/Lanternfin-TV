@@ -30,6 +30,7 @@ it('pages poster grids by remote, jumps by page number, and combines provider-la
   card(0).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); await click('card-menu-watched')
   await change('watched-filter', 'watched'); expect(el('result-count').textContent).toContain('1 title'); expect(card(0).textContent).toContain('Movie 2')
   card(0).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); await click('card-menu-watched')
-  expect(el('result-count').textContent).toContain('0 titles'); await click('reset-filters'); expect(el('result-count').textContent).toContain('60 titles')
+  expect(el('result-count').textContent).toContain('0 titles'); expect(el('browse-empty').hidden).toBe(false); expect(el('empty-title').textContent).toBe('No matching titles')
+  await click('empty-clear'); expect(el('result-count').textContent).toContain('60 titles'); expect(el('browse-empty').hidden).toBe(true)
   vi.clearAllTimers()
 })
