@@ -12,10 +12,11 @@ For a guided interface instead of terminal commands, open **Open TV Setup.vbs** 
 - Bundles Shaka Player 5.2.8 for adaptive HLS/DASH and EME DRM. Samsung AVPlay handles compatible native streams and User-Agent/Cookie overrides. Plain direct files can use HTML video. No phone, receiver service, or mandatory relay.
 - Handles directional navigation, pointer clicks, Back, media keys, pause/resume, and basic VOD seeking. Stops playback when the app is hidden and requires an explicit selection to start again.
 - Adds favorites, the 100 most recently played streams, VOD resume prompts, library refresh, playback retry, and stalled-stream recovery. Library changes stay in memory unless source saving is enabled.
+- Adds movie and series details with descriptions, artwork, credits, season selection, and paged episodes. Audio/subtitle controls use tracks exposed by Shaka, Samsung AVPlay, or HTML video; unsupported controls explain the limitation.
 - Keeps provider settings in memory by default. Opt-in persistence uses unencrypted TV browser storage, with a Forget action. Turning Remember off removes the previously saved source.
 - Includes original Lanternfin branding, original-project attribution, GPL license, source revision, and asset hashes in the packages.
 
-This remains **development software, not Android feature parity or certified TV support**. EPG, catch-up, audio/subtitle selection, downloads, casting, transcoding and an app updater are pending. Xtream search currently searches the open category. Favorites/recent items remain available across category changes during a session; after restarting, their saved identifiers are matched as those categories are loaded again. Full cross-category indexing and metadata persistence remain work items.
+This remains **development software, not Android feature parity or certified TV support**. EPG, catch-up, downloads, casting, transcoding and an app updater are pending. Xtream search currently searches the open category. New Xtream favorites/recent bookmarks restore immediately after reconnecting a saved account, without reloading their categories. Older saved identifiers are still matched as categories load. Full cross-category indexing remains a work item.
 
 ### DRM and custom headers
 
@@ -131,15 +132,15 @@ Automated coverage exercises URL and credential handling, malicious playlist tex
 Before calling either port supported, record the TV model, OS version, firmware, remote type, and provider in a device test log. Test cold install/start, on-screen keyboard, all focus paths, both Back behaviors, home/resume, standby, failed login, CORS/TLS failures, expired URLs, repeated channel switching, H.264/AAC HLS, MP4 seeking, a 30-minute live stream, audio/video sync, and loss/recovery of the network. Test HTTP only when intentionally chosen; check that forgetting a source removes it after a cold start.
 
 1. **Prove the platform foundations:** sign Samsung, install on one LG and one Samsung target, fix keyboard, native video-plane, lifecycle/screensaver and provider transport issues. This is the current acceptance gate.
-2. **Expand the shared catalog:** extract pure Xtream category/movie/series/episode helpers from the Android code, add favorites and resume state, and preserve a common data contract across platforms.
-3. **Add a TV guide and playback controls:** EPG cache with memory limits, audio/subtitle selection, then catch-up and format-specific fallbacks based on device evidence. Add one capability at a time to the hardware matrix.
+2. **Expand the shared catalog:** build on the implemented Xtream categories, details, favorites and resume state with cross-category search and bounded persistent indexing.
+3. **Add a TV guide and validate playback controls:** EPG cache with memory limits, physical-TV audio/subtitle checks, then catch-up and format-specific fallbacks based on device evidence. Add one capability at a time to the hardware matrix.
 4. **Prepare distribution:** settle the supported model years, resolve dependency findings, complete trademark/name checks and notices, privacy/store materials, accessibility tests, repeatable source publication and signing backups. Store submission is a separate milestone.
 
 ## Work toward everyday use
 
 The 8 MiB / 30,000-entry prototype restriction has been removed. The first hardening checkpoint passed all 153 test files / 3,080 tests, including split UTF-8, cancellation of stalled reads, downloads lasting longer than the old deadline, line/response memory guards, and shared-parser regressions. A real browser loaded all 120,000 entries from a streamed synthetic playlist and located entry 120,000 by search. The synthetic fixture uses unavailable media URLs and validates catalog behavior, not playback. Run `node scripts/preview-tv.mjs --fixtures --port 4324` and load `http://127.0.0.1:4324/_test/large.m3u` to repeat it; this public test-data endpoint allows simulator origins.
 
-The broader readiness goal remains active: add favorites and recent streams, resumable VOD and playback recovery, category-based Xtream live/movie/series browsing, program information, and a measured device acceptance pass. Passing the catalog checkpoint alone does not meet that goal.
+The broader readiness goal remains active: favorites, recent streams, resumable VOD, playback recovery, and category-based Xtream browsing are implemented. Program information, cross-category search, further UI parity, and a measured device acceptance pass remain. Passing the catalog checkpoint alone does not meet that goal.
 
 The library checkpoint passed the full suite (154 files / 3,091 tests), followed by an additional application integration test covering favorites, resume prompts, failed-source recovery, refresh, and forgetting. Browser testing played MDN's public five-second MP4 and verified favorites and recent history survived a reload after explicit saving. VOD resume and decoder lifecycle are tested with controlled HTML/AVPlay doubles; real-TV seek behavior remains an acceptance item. Saved library records contain lookup identifiers and playback positions, not stream URLs; the separately opted-in source settings still contain provider credentials without encryption.
 
@@ -154,4 +155,14 @@ Build output for LG’s simulator remains `dist/tv/webos`. Reload that folder us
 
 For UI-only provider tests, run the preview server with `--fixtures --port 4324` and enter an Xtream account at `http://127.0.0.1:4324/_test/provider` with username/password `demo`. The generated artwork is labelled UI TEST LIBRARY and media URLs deliberately fail. These fixtures are not included in TV packages.
 
-Remaining acceptance work: physical LG and Samsung DRM/license/codec/header matrix; persistent provider library indexing, full movie details and EPG; audio/subtitle controls; comparison against the original UI at each screen; extended remote navigation and playback soak tests. The broader readiness goal remains open.
+Remaining acceptance work: physical LG and Samsung DRM/license/codec/header matrix; persistent provider library indexing and EPG; comparison against the original UI at each screen; extended remote navigation and playback soak tests. The broader readiness goal remains open.
+
+## Details, bookmarks, and track controls checkpoint
+
+Movie/series detail pages now show provider descriptions, poster/backdrop artwork, year, genre, duration, rating, director, and cast where supplied. Series expose season selection and paged episodes. Back from playback returns to the same details and season. Empty or failed metadata responses retain a usable page and retry path.
+
+Opted-in Xtream bookmarks persist bounded item IDs, names, groups, and file extensions, rebuilding playback addresses from the separately saved account. Library records do not duplicate provider URLs, account passwords, media headers, or license keys. M3U library records still contain identifiers and positions only. Forget removes source and library records; without Remember, all changes remain session-only. This remains unencrypted local storage.
+
+The playback menu lists audio and subtitle tracks from the active engine, supports subtitle Off, and traps remote/keyboard focus in the menu. Shaka uses its 5.2.8 audio/text selection APIs. Samsung audio changes require playing state; native DASH text selection is unavailable and is not offered. HTML controls appear only when the browser exposes the corresponding tracks. Preferences currently apply to the current stream only.
+
+Validation: **158 test files / 3,115 tests** and TV type checks passed locally. Browser checks verified movie details, favorites restored after a reload before category loading, season switching, and return to the selected season after a failed test episode. Shaka's public Angel One DASH stream played successfully, switched to French audio and English subtitles, retained those selections when reopening the menu, and turned subtitles off. Native Samsung track behavior has controlled tests and still requires hardware validation. No protected provider content or physical-TV DRM was tested.

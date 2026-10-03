@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { apiUrl, loadCategories, loadCategory, loadEpisodes, mediaUrl } from '../tv-app/xtream'
+import { apiUrl, loadCategories, loadCategory, loadEpisodes, loadTitleDetails, mediaUrl } from '../tv-app/xtream'
 import type { Source } from '../tv-app/catalog'
 const source: Source = { kind: 'xtream', url: 'https://provider.example/sub', username: 'a&b', password: 'secret/#' }
 const signal = () => new AbortController().signal
@@ -35,4 +35,12 @@ it('enforces response bounds and cancellation', async () => {
   await expect(loadCategories(source, 'live', signal())).rejects.toThrow('unusually large')
   const abort = new AbortController(); abort.abort()
   await expect(loadCategories(source, 'live', abort.signal)).rejects.toThrow('cancelled')
+})
+it('normalizes title details while keeping descriptions inert and rejecting unsafe artwork', async () => {
+  respond({ info: { plot: '<script>inert text</script>', movie_image: 'javascript:alert(1)', backdrop_path: ['https://images.example/wide.jpg'], releasedate: '2024-02-10', rating: '8.4', genre: 'Drama', duration: '01:30:00', cast: 'A, B', director: 'C' } })
+  const channel = { name: 'A movie', url: mediaUrl(source, 'movie', '42', 'mp4'), group: 'Movies', mediaKind: 'movie' as const, providerId: '42', logo: 'https://images.example/poster.jpg' }
+  const details = await loadTitleDetails(source, channel, signal())
+  expect(details.description).toBe('<script>inert text</script>'); expect(details.poster).toBe(channel.logo)
+  expect(details.backdrop).toBe('https://images.example/wide.jpg'); expect(details.metadata).toEqual(['2024', 'Drama', '01:30:00', '8.4 / 10'])
+  expect(details.channel).toBe(channel)
 })

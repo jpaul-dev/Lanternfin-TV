@@ -16,7 +16,9 @@ createServer(async (request, response) => {
       const action = params.get('action') || ''
       const art = `http://127.0.0.1:${port}/_test/art.svg`
       const categories = [{ category_id: '1', category_name: 'UI test library' }]
-      const data = action.endsWith('_categories') ? categories : action === 'get_series_info' ? { episodes: { 1: [{ id: 1, season: 1, episode_num: 1, title: 'Test episode', container_extension: 'mp4' }] } } : Array.from({ length: 10 }, (_, index) => ({ stream_id: index + 1, series_id: index + 1, name: `${action === 'get_series' ? 'Series' : action === 'get_vod_streams' ? 'Movie' : 'Channel'} sample ${index + 1}`, stream_icon: art + `?n=${index}`, cover: art + `?n=${index}`, container_extension: 'mp4' }))
+      const info = { plot: 'A sample title for checking the TV detail page. Artwork, credits and episodes come from a local test provider. No media or subscriptions are included in this fixture.', movie_image: art, cover: art, backdrop_path: [art], releasedate: '2026-01-01', genre: 'UI demonstration', duration: '01:30:00', rating: '8.2', cast: 'Demo cast', director: 'Demo director' }
+      const episodes = { 1: [{ id: 1, season: 1, episode_num: 1, title: 'Test episode', container_extension: 'mp4' }], 2: [{ id: 2, season: 2, episode_num: 1, title: 'Second season test', container_extension: 'mp4' }] }
+      const data = action.endsWith('_categories') ? categories : action === 'get_series_info' ? { info, episodes } : action === 'get_vod_info' ? { info } : Array.from({ length: 10 }, (_, index) => ({ stream_id: index + 1, series_id: index + 1, name: `${action === 'get_series' ? 'Series' : action === 'get_vod_streams' ? 'Movie' : 'Channel'} sample ${index + 1}`, stream_icon: art + `?n=${index}`, cover: art + `?n=${index}`, container_extension: 'mp4' }))
       response.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(data)); return
     }
     if (fixtures && pathname === '/_test/art.svg') {

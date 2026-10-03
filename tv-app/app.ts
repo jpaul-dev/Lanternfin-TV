@@ -5,7 +5,7 @@ import { keyAction, moveFocus, type Direction } from './remote'
 import { type AVPlay, type Player, type State } from './player'
 import { tvPlayer } from './adaptive-player'
 import { channelCard, homeRows, cancelHomeRows } from './presentation'
-import { loadCategories, loadCategory, loadEpisodes, type Category, type MediaKind } from './xtream'
+import { loadCategories, loadCategory, basicDetails, loadTitleDetails, type TitleDetails, type Category, type MediaKind } from './xtream'
 import { searchCatalog } from './search'
 import { TVLibrary, durationLabel, forgetLibraries } from './library'
 import { channelId } from './library'
@@ -21,7 +21,7 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const input = (id: string) => $<HTMLInputElement>(id)
 const select = (id: string) => $<HTMLSelectElement>(id)
 const button = (id: string) => $<HTMLButtonElement>(id)
-type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings'
+type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail'
 let screen: Screen = 'setup', previousScreen: Screen = 'setup'
 let channels: Channel[] = [], filtered: Channel[] = [], page = 0, lastChannel = 0
 let state: State = 'idle', player: Player | undefined, loading: AbortController | undefined
@@ -34,7 +34,8 @@ let libraryView: 'all' | 'favorites' | 'recent' = 'all'
 let nativeSelectOpen = false
 let browseView: 'home' | 'all' | 'search' | MediaKind = 'home'
 let providerCategories: Partial<Record<MediaKind, Category[]>> = {}, providerLoading: AbortController | undefined
-let seriesParent: { channels: Channel[]; series: Channel } | undefined
+let detailInfo: TitleDetails | undefined, detailLoading: AbortController | undefined, episodePage = 0
+let playbackReturn: 'catalog' | 'detail' = 'catalog'
 let lastFocusedCard: HTMLElement | undefined
 const knownLibraryChannels = new Map<string, Channel>()
 const PAGE_SIZE = 24
@@ -42,12 +43,14 @@ const notice = (message: string) => { $('notice').textContent = message }
 
 function show(next: Screen) {
   if (next !== 'catalog') cancelHomeRows()
+  if (!['detail', 'playback', 'resume'].includes(next)) cancelDetails()
   screen = next
-  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings']) $(id).hidden = id !== next
-  $('tv-nav').hidden = !activeSource || !['catalog', 'settings'].includes(next)
+  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail']) $(id).hidden = id !== next
+  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail'].includes(next)
   document.documentElement.classList.toggle('in-library', !$('tv-nav').hidden)
   $('player-surface').hidden = next !== 'playback'
   document.documentElement.classList.toggle('watching', next === 'playback')
+  if (next !== 'playback') $('track-menu').hidden = true
   notice('')
   const focus = $(next).querySelector<HTMLElement>('button:not(:disabled), input, select')
   focus?.focus()
@@ -85,7 +88,7 @@ $('source-form').addEventListener('submit', async event => {
     })
     if (loading !== controller) return
     channels = catalog.channels; page = 0; input('search').value = ''; libraryView = 'all'; browseView = 'home'
-    providerCategories = initialCategories ? { live: initialCategories } : {}; seriesParent = undefined
+    providerCategories = initialCategories ? { live: initialCategories } : {}; detailInfo = undefined
     let storageMessage = ''
     try { storeSource(localStorage, input('remember').checked ? source : null); $('forget').hidden = !input('remember').checked }
     catch { storageMessage = ' Your TV could not update saved settings. This session will still work.' }
@@ -94,6 +97,7 @@ $('source-form').addEventListener('submit', async event => {
     if (JSON.stringify(activeSource) !== JSON.stringify(source) || !library) {
       knownLibraryChannels.clear()
       library = new TVLibrary(storage, source)
+      for (const channel of library.bookmarkedChannels()) knownLibraryChannels.set(channelId(channel), channel)
     } else try { library.setStorage(storage) } catch { storageMessage += ' Library changes could not be saved.' }
     activeSource = source
     $('library-note').textContent = input('remember').checked ? 'Favorites and recent streams are saved on this TV.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.'
@@ -162,7 +166,7 @@ $('refresh-catalog').onclick = () => {
 
 function controls() {
   clearTimeout(controlsTimer); $('controls').hidden = false
-  if (state === 'playing') controlsTimer = setTimeout(() => { if (screen === 'playback' && state === 'playing') $('controls').hidden = true }, 6500)
+  if (state === 'playing' && $('track-menu').hidden) controlsTimer = setTimeout(() => { if (screen === 'playback' && state === 'playing') $('controls').hidden = true }, 6500)
 }
 function report(next: State, detail?: string) {
   state = next
@@ -171,13 +175,19 @@ function report(next: State, detail?: string) {
   button('toggle').disabled = !['playing', 'paused', 'buffering'].includes(next)
   button('forward').disabled = button('rewind').disabled = !['playing', 'paused'].includes(next)
   button('hide-controls').disabled = next !== 'playing'
+  button('tracks-open').disabled = !['playing', 'paused'].includes(next)
+  if (['error', 'ended', 'idle'].includes(next)) $('track-menu').hidden = true
   $('retry').hidden = !['error', 'ended'].includes(next)
   if (next === 'playing' && currentChannel) saveProgress()
   if (next === 'ended' && currentChannel) { lastTimeline = { position: 0, duration: 0 }; saveProgress(true) }
   if (screen === 'playback') { controls(); if (['error', 'ended'].includes(next)) button('stop').focus() }
 }
 function watch(channel: Channel) {
-  if (channel.mediaKind === 'series') { void openSeries(channel); return }
+  if (channel.mediaKind === 'series' || channel.mediaKind === 'movie') { void openTitle(channel); return }
+  playChannel(channel)
+}
+function playChannel(channel: Channel) {
+  playbackReturn = screen === 'detail' ? 'detail' : 'catalog'
   const recent = library?.lastPlayed(channel)
   if (recent?.position) {
     pendingChannel = channel; $('resume-title').textContent = channel.name
@@ -213,7 +223,9 @@ function saveProgress(ended = false) {
 }
 function stopWatching() {
   saveProgress(); currentChannel = undefined
-  clearTimeout(controlsTimer); player?.stop(); render(); show('catalog')
+  clearTimeout(controlsTimer); player?.stop()
+  if (playbackReturn === 'detail' && detailInfo) { renderDetails(); show('detail'); button('detail-play').focus(); return }
+  render(); show('catalog')
   const items = $('channels').querySelectorAll('button'); (items[lastChannel] || button('change-source')).focus()
   if (browseView === 'home') { renderHome(); $('hero-play').focus() }
   else if (lastFocusedCard?.isConnected) lastFocusedCard.focus()
@@ -227,25 +239,26 @@ $('favorite').onclick = () => { if (!currentChannel) return; try { library?.togg
 $('retry').onclick = () => { if (currentChannel) startWatching(currentChannel, lastTimeline.position) }
 $('resume-continue').onclick = () => { if (pendingChannel) startWatching(pendingChannel, library?.lastPlayed(pendingChannel)?.position || 0); pendingChannel = undefined }
 $('resume-start').onclick = () => { if (pendingChannel) startWatching(pendingChannel); pendingChannel = undefined }
-$('resume-back').onclick = () => { pendingChannel = undefined; show('catalog') }
+$('resume-back').onclick = () => { pendingChannel = undefined; show(playbackReturn) }
 setInterval(() => {
   if (screen !== 'playback') return
   const timeline = player?.timeline()
   $('playback-time').textContent = timeline && Number.isFinite(timeline.duration) && timeline.duration > 0 ? `${durationLabel(timeline.position)} / ${durationLabel(timeline.duration)}` : 'Live stream'
   if (['playing', 'paused', 'buffering'].includes(state) && Date.now() - lastSaved > 10000) saveProgress()
 }, 1000)
-$('player-surface').onclick = () => { controls(); button('stop').focus() }
+$('player-surface').onclick = () => { controls(); if (!$('track-menu').hidden) button('tracks-close').focus(); else button('stop').focus() }
 $('about-open').onclick = () => { previousScreen = screen; show('about') }
 $('about-back').onclick = () => show(previousScreen)
 $('stay').onclick = () => show('setup')
 $('leave').onclick = () => { if (__TV_TARGET__ === 'tizen') window.tizen?.application?.getCurrentApplication().exit(); else if (__TV_TARGET__ === 'webos') window.close(); else { show('setup'); notice('You can close this browser tab.'); } }
 function back() {
-  if (screen === 'playback') stopWatching()
-  else if (screen === 'resume') { pendingChannel = undefined; show('catalog') }
+  if (screen === 'playback' && !$('track-menu').hidden) closeTracks()
+  else if (screen === 'playback') stopWatching()
+  else if (screen === 'resume') { pendingChannel = undefined; show(playbackReturn) }
+  else if (screen === 'detail') returnFromDetails()
   else if (screen === 'about') show(previousScreen)
   else if (screen === 'settings') goHome()
   else if (screen === 'catalog' && providerLoading) { cancelProviderLoad(); notice('Loading cancelled.') }
-  else if (screen === 'catalog' && seriesParent) restoreSeries()
   else if (screen === 'catalog' && browseView !== 'home') goHome()
   else if (screen === 'catalog') show('exit')
   else if (screen === 'exit') activeSource ? goHome() : show('setup')
@@ -255,10 +268,18 @@ function back() {
 document.addEventListener('keydown', event => {
   if (event.isComposing) return
   const active = document.activeElement
+  if (!$('track-menu').hidden && event.key === 'Tab') {
+    const items = [...$('track-menu').querySelectorAll<HTMLElement>('select:not(:disabled), button')]
+    const index = items.indexOf(active as HTMLElement); event.preventDefault(); items[(index + (event.shiftKey ? -1 : 1) + items.length) % items.length]?.focus(); return
+  }
   if (active instanceof HTMLInputElement && active.type === 'checkbox' && (event.key === 'Enter' || event.keyCode === 13)) { event.preventDefault(); active.click(); return }
   if (active instanceof HTMLSelectElement && (event.key === 'Enter' || event.keyCode === 13)) { nativeSelectOpen = true; return }
   const action = keyAction(event.key, event.keyCode)
   if (!action) return
+  if (active === $('detail-description') && ['up', 'down'].includes(action)) {
+    const description = $('detail-description'), remaining = description.scrollHeight - description.clientHeight - description.scrollTop
+    if ((action === 'down' && remaining > 1) || (action === 'up' && description.scrollTop > 0)) { event.preventDefault(); description.scrollTop += action === 'down' ? 60 : -60; return }
+  }
   if (active instanceof HTMLSelectElement && nativeSelectOpen) { if (action === 'back') nativeSelectOpen = false; return }
   if (action === 'back') { event.preventDefault(); back(); return }
   if (screen === 'playback') {
@@ -269,7 +290,7 @@ document.addEventListener('keydown', event => {
     else if (action === 'toggle') toggle()
     else if (action === 'rewind' || action === 'forward') player?.seek(action === 'rewind' ? -10 : 10)
     else if (wasHidden) button('toggle').disabled ? button('stop').focus() : button('toggle').focus()
-    else moveFocus(action as Direction, $('playback'))
+    else moveFocus(action as Direction, !$('track-menu').hidden ? $('track-menu') : $('playback'))
     event.preventDefault(); return
   }
   if (!['left', 'right', 'up', 'down'].includes(action)) return
@@ -300,7 +321,6 @@ function browseLayout(title: string) {
   $('catalog').querySelector<HTMLElement>('.filters')!.hidden = false
   $('section-title').textContent = title; $('section-kicker').textContent = activeSource?.kind === 'xtream' ? 'YOUR PROVIDER LIBRARY' : 'YOUR LIBRARY'
   $('categories-back').hidden = activeSource?.kind !== 'xtream' || !['live', 'movie', 'series'].includes(browseView)
-  $('episodes-back').hidden = !seriesParent
   show('catalog'); syncNav()
 }
 function syncNav() {
@@ -311,7 +331,7 @@ function syncNav() {
 }
 function renderHome() {
   void homeRows($('home-rows'), activeSource?.kind === 'xtream' ? libraryPool() : channels, library, channel => { lastFocusedCard = document.activeElement as HTMLElement; watch(channel) })
-  const featured = channels.find(channel => channel.logo) || channels[0]
+  const featured = channels.find(channel => channel.logo) || channels[0] || knownLibraryChannels.values().next().value
   $('hero-title').textContent = featured?.name || 'Your evening starts here.'
   $('hero-meta').textContent = featured ? `${featured.group} · ${featured.mediaKind === 'movie' ? 'Movie' : featured.mediaKind === 'series' ? 'Series' : 'From your library'}` : 'Live television, movies, and series. All in one place.'
   $('hero-kicker').textContent = featured ? 'FROM YOUR LIBRARY' : 'MAKE YOURSELF AT HOME'
@@ -332,13 +352,13 @@ function libraryPool(): Channel[] {
   return result
 }
 function goHome() {
-  cancelProviderLoad(); searching?.abort(); clearTimeout(searchTimer); seriesParent = undefined; browseView = 'home'; libraryView = 'all'
+  cancelProviderLoad(); searching?.abort(); clearTimeout(searchTimer); browseView = 'home'; libraryView = 'all'
   $('home-content').hidden = false; $('browse-content').hidden = true
   $('section-title').textContent = 'Home'; $('section-kicker').textContent = 'WELCOME BACK'
   renderHome(); show('catalog'); syncNav(); $('hero-play').focus()
 }
 async function browse(kind: 'search' | MediaKind) {
-  cancelProviderLoad(); seriesParent = undefined; browseView = kind; libraryView = 'all'; input('search').value = ''; select('group').value = ''
+  cancelProviderLoad(); browseView = kind; libraryView = 'all'; input('search').value = ''; select('group').value = ''
   const title = { live: 'Live TV', movie: 'Movies', series: 'Series', search: 'Search' }[kind]
   browseLayout(title)
   if (activeSource?.kind !== 'xtream' || kind === 'search') { await filter(); if (kind === 'search') input('search').focus(); return }
@@ -371,23 +391,62 @@ async function openCategory(kind: MediaKind, category: Category) {
   } catch (error) { if (providerLoading === controller) notice((error as Error).message) }
   finally { if (providerLoading === controller) { providerLoading = undefined; $('cancel-category').hidden = true } }
 }
-async function openSeries(series: Channel) {
-  if (!activeSource || activeSource.kind !== 'xtream') return
-  cancelProviderLoad(); const controller = new AbortController(); providerLoading = controller
-  $('cancel-category').hidden = false; notice('Loading episodes…')
+function cancelDetails() { detailLoading?.abort(); detailLoading = undefined }
+async function openTitle(channel: Channel) {
+  if (!activeSource) return
+  cancelProviderLoad(); cancelDetails(); searching?.abort()
+  detailInfo = basicDetails(channel); episodePage = 0; select('detail-season').replaceChildren()
+  renderDetails(); show('detail'); button('detail-play').focus()
+  const controller = new AbortController(); detailLoading = controller
+  $('detail-status').textContent = 'Loading details…'; $('detail-retry').hidden = true
   try {
-    const result = await loadEpisodes(activeSource, series, controller.signal)
-    if (providerLoading !== controller) return
-    seriesParent = { channels, series }; channels = result.channels; browseView = 'series'; updateGroups(); input('search').value = ''
-    browseLayout(series.name); await filter(); $('channels').querySelector<HTMLElement>('button')?.focus()
-  } catch (error) { if (providerLoading === controller) notice((error as Error).message) }
-  finally { if (providerLoading === controller) { providerLoading = undefined; $('cancel-category').hidden = true } }
+    const result = await loadTitleDetails(activeSource, channel, controller.signal)
+    if (detailLoading !== controller) return
+    detailLoading = undefined; detailInfo = result; renderDetails(); $('detail-status').textContent = ''
+  } catch (error) { if (detailLoading === controller) { $('detail-status').textContent = (error as Error).message; $('detail-retry').hidden = false } }
+  finally { if (detailLoading === controller) { detailLoading = undefined; renderEpisodes() } }
 }
-function restoreSeries() {
-  if (!seriesParent) return
-  cancelProviderLoad(); channels = seriesParent.channels; seriesParent = undefined; updateGroups(); input('search').value = ''; browseView = 'series'
-  browseLayout('Series'); void filter()
+function renderDetails() {
+  if (!detailInfo) return
+  const info = detailInfo, series = info.channel.mediaKind === 'series'
+  $('detail-title').textContent = info.channel.name; $('detail-kind').textContent = series ? 'SERIES' : 'MOVIE'
+  $('detail-meta').textContent = info.metadata.join(' · ')
+  $('detail-description').textContent = info.description || 'No description is available for this title.'
+  $('detail-credits').textContent = [info.director ? `Director: ${info.director}` : '', info.cast ? `Cast: ${info.cast}` : ''].filter(Boolean).join(' · ')
+  for (const [id, url] of [['detail-poster', info.poster], ['detail-backdrop', info.backdrop]] as const) {
+    const img = $<HTMLImageElement>(id); img.hidden = !url; img.referrerPolicy = 'no-referrer'
+    if (url) { img.src = url; img.onerror = () => { img.hidden = true } } else img.removeAttribute('src')
+  }
+  const favorite = !!library?.isFavorite(info.channel)
+  button('detail-favorite').textContent = favorite ? '★ Favorited' : '☆ Add favorite'
+  button('detail-favorite').setAttribute('aria-pressed', String(favorite))
+  button('detail-play').disabled = series && !info.episodes?.length
+  button('detail-play').textContent = series ? '▶ Play first episode' : library?.lastPlayed(info.channel)?.position ? '▶ Continue watching' : '▶ Play movie'
+  $('detail-episodes').hidden = !series
+  const seasons = select('detail-season'), selected = seasons.value; seasons.replaceChildren()
+  for (const season of new Set(info.episodes?.map(episode => episode.group))) seasons.add(new Option(season, season))
+  if ([...seasons.options].some(option => option.value === selected)) seasons.value = selected
+  renderEpisodes()
 }
+function renderEpisodes() {
+  const episodes = (detailInfo?.episodes || []).filter(episode => episode.group === select('detail-season').value)
+  const grid = $('episode-grid'); grid.replaceChildren()
+  episodePage = Math.min(episodePage, Math.max(0, Math.ceil(episodes.length / PAGE_SIZE) - 1))
+  for (const episode of episodes.slice(episodePage * PAGE_SIZE, (episodePage + 1) * PAGE_SIZE)) grid.append(channelCard(episode, () => playChannel(episode), library))
+  $('episode-page').textContent = episodes.length ? `Page ${episodePage + 1} of ${Math.ceil(episodes.length / PAGE_SIZE)}` : detailLoading ? 'Loading episodes…' : 'No episodes available'
+  button('episode-previous').disabled = episodePage === 0; button('episode-next').disabled = (episodePage + 1) * PAGE_SIZE >= episodes.length
+}
+function returnFromDetails() {
+  cancelDetails(); show('catalog')
+  if (browseView === 'home') { renderHome(); $('hero-play').focus() }
+  else { render(); ($('channels').querySelectorAll<HTMLElement>('button')[lastChannel] || button('view-all')).focus(); if (libraryView !== 'all') void filter() }
+}
+$('detail-back').onclick = returnFromDetails
+$('detail-play').onclick = () => { const channel = detailInfo?.channel.mediaKind === 'series' ? detailInfo.episodes?.[0] : detailInfo?.channel; if (channel) playChannel(channel) }
+$('detail-favorite').onclick = () => { if (!detailInfo) return; try { library?.toggleFavorite(detailInfo.channel); rememberLibraryChannel(detailInfo.channel); renderDetails() } catch (error) { $('detail-status').textContent = (error as Error).message } }
+$('detail-retry').onclick = () => { if (detailInfo) void openTitle(detailInfo.channel) }
+select('detail-season').onchange = () => { episodePage = 0; renderEpisodes() }
+for (const [id, delta] of [['episode-previous', -1], ['episode-next', 1]] as const) $(id).onclick = () => { episodePage += delta; renderEpisodes(); $('episode-grid').querySelector<HTMLElement>('button')?.focus() }
 $('nav-home').onclick = goHome
 for (const kind of ['live', 'movie', 'series', 'search'] as const) {
   $(`nav-${kind}`).onclick = () => void browse(kind)
@@ -398,8 +457,27 @@ $('settings-back').onclick = goHome
 $('settings-source').onclick = () => show('setup')
 $('settings-about').onclick = () => { previousScreen = 'settings'; show('about') }
 $('categories-back').onclick = () => { if (['live', 'movie', 'series'].includes(browseView)) void browse(browseView as MediaKind) }
-$('episodes-back').onclick = restoreSeries
 $('cancel-category').onclick = () => { cancelProviderLoad(); notice('Loading cancelled.') }
+function refreshTracks() {
+  const tracks = player?.tracks?.() || []
+  for (const kind of ['audio', 'subtitle'] as const) {
+    const list = select(`${kind}-track`), available = tracks.filter(track => track.kind === kind)
+    list.replaceChildren()
+    if (kind === 'subtitle') list.add(new Option('Off', 'off', false, !available.some(track => track.active)))
+    else if (!available.some(track => track.active)) { const current = new Option(available.length ? 'Current audio' : 'No alternate audio available', ''); current.disabled = true; current.selected = true; list.add(current) }
+    for (const track of available) { const option = new Option(track.label, track.id, false, track.active); option.disabled = !!track.disabled; list.add(option) }
+    list.disabled = !available.length || available.every(track => track.disabled)
+  }
+  $('track-status').textContent = tracks.some(track => track.kind === 'audio' && track.disabled) ? 'Resume playback to change audio on this TV.' : !tracks.length ? 'This stream or player does not expose alternate tracks.' : ''
+}
+function closeTracks() { $('track-menu').hidden = true; controls(); button('tracks-open').focus() }
+$('tracks-open').onclick = () => { $('track-menu').hidden = false; refreshTracks(); clearTimeout(controlsTimer); ($('track-menu').querySelector<HTMLElement>('select:not(:disabled)') || button('tracks-close')).focus() }
+$('tracks-close').onclick = closeTracks
+for (const kind of ['audio', 'subtitle'] as const) select(`${kind}-track`).onchange = () => {
+  const success = player?.selectTrack?.(kind, select(`${kind}-track`).value)
+  if (!success) { refreshTracks(); $('track-status').textContent = 'This track could not be selected. Resume playback and try again.' }
+  else $('track-status').textContent = kind === 'audio' ? 'Audio selection applied.' : select('subtitle-track').value === 'off' ? 'Subtitles off.' : 'Subtitle selection applied.'
+}
 $('stay').onclick = () => activeSource ? goHome() : show('setup')
 $('platform').textContent = (__TV_TARGET__ === 'webos' ? 'LG webOS' : __TV_TARGET__ === 'tizen' ? 'Samsung Tizen' : 'Browser') + ' · development build'
 try {

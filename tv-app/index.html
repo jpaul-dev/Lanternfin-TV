@@ -52,7 +52,7 @@
       </div>
       <div id="browse-content">
       <div class="filters"><div><label for="search">Find a title</label><input id="search" type="search" placeholder="Search your library" autocomplete="off"></div><div><label for="group">Category</label><select id="group"><option value="">All groups</option></select></div></div>
-      <div class="actions"><button id="categories-back" hidden>All categories</button><button id="episodes-back" hidden>Back to series</button><button id="cancel-category" hidden>Cancel loading</button><button id="clear-history" hidden>Clear history</button></div>
+      <div class="actions"><button id="categories-back" hidden>All categories</button><button id="cancel-category" hidden>Cancel loading</button><button id="clear-history" hidden>Clear history</button></div>
       <p id="result-count" class="muted"></p>
       <div id="category-list" class="category-grid" hidden></div>
       <div id="channels" class="grid"></div>
@@ -60,9 +60,23 @@
       </div>
     </section>
     <section id="settings" class="info-panel" hidden><p class="eyebrow">MAKE IT YOURS</p><h1>Settings</h1><h2>Source & library</h2><p id="library-note" class="hint"></p><div class="actions"><button id="settings-source">Manage source</button><button id="settings-about">About Lanternfin TV</button><button id="settings-back">Back to home</button></div><h2>Playback</h2><p>Adaptive streams use Shaka Player for HLS, DASH, and supported DRM. Samsung also uses its native player for compatible streams and User-Agent / Cookie overrides.</p><p class="hint">LG’s simulator has no DRM support. Provider cross-origin permissions and TV codec support still apply. Referer overrides need a provider-compatible stream or a separate relay; they are not silently ignored.</p></section>
-    <section id="playback" hidden>
-      <div id="controls" class="play-controls"><p class="eyebrow">NOW WATCHING</p><h1 id="playing-title"></h1><p id="player-status" role="status"></p><p id="playback-time" class="hint"></p><div class="actions"><button id="toggle" class="primary">Pause</button><button id="rewind">Back 10 seconds</button><button id="forward">Forward 10 seconds</button><button id="favorite" aria-pressed="false">☆ Add favorite</button><button id="retry" hidden>Retry stream</button><button id="hide-controls">Hide controls</button><button id="stop">Back to streams</button></div><p class="hint">Press an arrow to show controls. Back returns to your streams.</p></div>
+    <section id="detail" hidden>
+      <button id="detail-back" class="subtle">← Back to library</button>
+      <div class="detail-hero">
+        <img id="detail-backdrop" class="detail-backdrop" alt="" hidden><div class="detail-shade"></div>
+        <div class="detail-content"><img id="detail-poster" class="detail-poster" alt="" hidden>
+          <div class="detail-copy"><p id="detail-kind" class="eyebrow"></p><h1 id="detail-title"></h1><p id="detail-meta" class="muted"></p><p id="detail-description" tabindex="0"></p><p id="detail-credits" class="hint"></p>
+            <div class="actions"><button id="detail-play" class="primary">▶ Play</button><button id="detail-favorite" aria-pressed="false">☆ Add favorite</button><button id="detail-retry" hidden>Retry details</button></div>
+            <p id="detail-status" class="hint" role="status"></p>
+          </div>
+        </div>
+      </div>
+      <div id="detail-episodes" hidden><div class="episode-heading"><h2>Episodes</h2><div><label for="detail-season">Season</label><select id="detail-season"></select></div></div><div id="episode-grid" class="grid"></div><div class="pagination"><button id="episode-previous">Previous episodes</button><span id="episode-page"></span><button id="episode-next">More episodes</button></div></div>
     </section>
+    <section id="playback" hidden>
+      <div id="controls" class="play-controls"><p class="eyebrow">NOW WATCHING</p><h1 id="playing-title"></h1><p id="player-status" role="status"></p><p id="playback-time" class="hint"></p><div class="actions"><button id="toggle" class="primary">Pause</button><button id="rewind">Back 10 seconds</button><button id="forward">Forward 10 seconds</button><button id="favorite" aria-pressed="false">☆ Add favorite</button><button id="retry" hidden>Retry stream</button><button id="tracks-open">Audio &amp; subtitles</button><button id="hide-controls">Hide controls</button><button id="stop">Back to streams</button></div><p class="hint">Press an arrow to show controls. Back returns to your streams.</p></div>
+    </section>
+    <div id="track-menu" class="track-menu" role="dialog" aria-modal="true" aria-labelledby="tracks-title" hidden><h2 id="tracks-title">Audio &amp; subtitles</h2><p class="hint">Available languages come from this stream.</p><label for="audio-track">Audio</label><select id="audio-track"></select><label for="subtitle-track">Subtitles</label><select id="subtitle-track"></select><p id="track-status" class="hint" role="status"></p><button id="tracks-close" class="primary">Done</button></div>
     <section id="resume" class="info-panel" hidden><p class="eyebrow">PICK UP WHERE YOU LEFT OFF</p><h1 id="resume-title"></h1><p id="resume-description"></p><div class="actions"><button id="resume-continue" class="primary">Continue watching</button><button id="resume-start">Start over</button><button id="resume-back">Back to streams</button></div></section>
     <section id="about" class="info-panel" hidden>
       <p class="eyebrow">AN INDEPENDENT FORK</p><h1>A little light for your screen.</h1>

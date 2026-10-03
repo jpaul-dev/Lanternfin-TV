@@ -2,6 +2,7 @@
 import { beforeEach, expect, it } from 'vitest'
 import { channelId, durationLabel, forgetLibraries, TVLibrary } from '../tv-app/library'
 import type { Source } from '../tv-app/catalog'
+import { mediaUrl } from '../tv-app/xtream'
 const source: Source = { kind: 'playlist', url: 'https://example.com/list?password=private', username: '', password: '' }
 const channel = { name: 'Private channel', group: 'Movies', url: 'https://example.com/movie/user/secret/1.mp4' }
 beforeEach(() => localStorage.clear())
@@ -41,6 +42,9 @@ it('never offers a resume point for live, finished or nearly finished streams', 
     library.record(channel, position, duration, ended)
     expect(library.lastPlayed(channel)?.position).toBe(0)
   }
+  const live = { ...channel, mediaKind: 'live' as const }
+  library.record(live, 120, 3600)
+  expect(library.lastPlayed(live)?.position).toBe(0)
 })
 it('does not recreate deleted records after disabling persistence', () => {
   const library = new TVLibrary(localStorage, source); library.toggleFavorite(channel)
@@ -50,4 +54,32 @@ it('does not recreate deleted records after disabling persistence', () => {
 })
 it('formats a readable movie position', () => {
   expect(durationLabel(3661)).toBe('1:01:01'); expect(durationLabel(84)).toBe('1:24'); expect(durationLabel(Infinity)).toBe('0:00')
+})
+it('restores provider favorites and resume items without reloading their categories or storing credentials', () => {
+  const account: Source = { kind: 'xtream', url: 'https://provider.example/sub', username: 'my-user', password: 'my-password' }
+  const movie = { name: 'A saved movie', group: 'Drama', mediaKind: 'movie' as const, providerId: '25', url: mediaUrl(account, 'movie', '25', 'mkv') }
+  const series = { name: 'A saved series', group: 'Shows', mediaKind: 'series' as const, providerId: '26', url: '' }
+  const library = new TVLibrary(localStorage, account)
+  library.toggleFavorite(movie); library.toggleFavorite(series); library.record(movie, 120, 1800)
+  const stored = localStorage.getItem(localStorage.key(0)!)!
+  for (const secret of ['https:', 'my-user', 'my-password', 'provider.example']) expect(stored).not.toContain(secret)
+  const restored = new TVLibrary(localStorage, account)
+  expect(restored.bookmarkedChannels()).toEqual([movie, series])
+  expect(restored.lastPlayed(restored.bookmarkedChannels()[0])?.position).toBe(120)
+  const longEpisode = { ...movie, mediaKind: 'episode' as const, providerId: '27', name: 'Episode '.repeat(40), group: 'Season '.repeat(20), url: mediaUrl(account, 'series', '27', 'mp4') }
+  restored.record(longEpisode, 100, 1800)
+  const episode = new TVLibrary(localStorage, account).bookmarkedChannels().find(item => item.providerId === '27')!
+  expect(episode.name.length).toBe(200); expect(episode.group.length).toBe(100); expect(episode.url).toBe(longEpisode.url)
+  restored.toggleFavorite(movie); restored.clearHistory()
+  expect(new TVLibrary(localStorage, account).bookmarkedChannels()).toEqual([series])
+})
+it('rejects forged provider references and never rewrites arbitrary media addresses as bookmarks', () => {
+  const account: Source = { kind: 'xtream', url: 'https://provider.example', username: 'u', password: 'p' }
+  const library = new TVLibrary(localStorage, account)
+  library.toggleFavorite({ ...channel, mediaKind: 'movie', providerId: '9' })
+  expect(library.bookmarkedChannels()).toEqual([])
+  const key = localStorage.key(0)!, data = JSON.parse(localStorage.getItem(key)!)
+  data.references = [{ providerId: '../9', mediaKind: 'movie', extension: 'mp4', name: 'bad', group: '' }, { providerId: '9', mediaKind: 'movie', extension: 'mp4', name: 'unrelated', group: '' }]
+  localStorage.setItem(key, JSON.stringify(data))
+  expect(new TVLibrary(localStorage, account).bookmarkedChannels()).toEqual([])
 })

@@ -2,6 +2,7 @@ import { httpUrl, playlistUrl, validateSource, type Catalog, type Channel, type 
 
 export type MediaKind = 'live' | 'movie' | 'series'
 export type Category = { id: string; name: string }
+export type TitleDetails = { channel: Channel; description: string; poster?: string; backdrop?: string; metadata: string[]; cast: string; director: string; episodes?: Channel[] }
 const CATEGORY_ACTION = { live: 'get_live_categories', movie: 'get_vod_categories', series: 'get_series_categories' }
 const STREAM_ACTION = { live: 'get_live_streams', movie: 'get_vod_streams', series: 'get_series' }
 const ID = /^[A-Za-z0-9_-]{1,80}$/
@@ -96,8 +97,7 @@ export async function loadCategory(source: Source, kind: MediaKind, category: Ca
   }
   return { channels, skipped }
 }
-export async function loadEpisodes(source: Source, series: Channel, signal: AbortSignal): Promise<Catalog> {
-  const response = record(await request(source, 'get_series_info', signal, { series_id: identifier(series.providerId) }))
+function parseEpisodes(source: Source, series: Channel, response: Record<string, unknown>): Catalog {
   const episodes = response.episodes, seasons = Array.isArray(episodes) ? { '1': episodes } : record(episodes)
   const channels: Array<Channel & { season: number; episode: number }> = []; let skipped = 0
   for (const [seasonKey, values] of Object.entries(seasons)) {
@@ -113,4 +113,26 @@ export async function loadEpisodes(source: Source, series: Channel, signal: Abor
   }
   channels.sort((a, b) => a.season - b.season || a.episode - b.episode)
   return { channels, skipped }
+}
+export async function loadEpisodes(source: Source, series: Channel, signal: AbortSignal): Promise<Catalog> {
+  return parseEpisodes(source, series, record(await request(source, 'get_series_info', signal, { series_id: identifier(series.providerId) })))
+}
+export function basicDetails(channel: Channel): TitleDetails {
+  return { channel, description: channel.description || '', poster: channel.logo, metadata: [channel.group], cast: '', director: '' }
+}
+export async function loadTitleDetails(source: Source, channel: Channel, signal: AbortSignal): Promise<TitleDetails> {
+  if (source.kind !== 'xtream' || !channel.providerId || !['movie', 'series'].includes(channel.mediaKind || '')) return basicDetails(channel)
+  const series = channel.mediaKind === 'series'
+  const response = record(await request(source, series ? 'get_series_info' : 'get_vod_info', signal, { [series ? 'series_id' : 'vod_id']: identifier(channel.providerId) }, 8 * 1024 * 1024))
+  const info = record(response.info), details = basicDetails(channel)
+  const description = info.plot || info.description
+  details.description = typeof description === 'string' ? description.slice(0, 4000) : details.description
+  details.poster = artwork(info.movie_image || info.cover) || channel.logo
+  details.backdrop = artwork(Array.isArray(info.backdrop_path) ? info.backdrop_path[0] : info.backdrop_path)
+  details.cast = text(info.cast || info.actors); details.director = text(info.director)
+  const year = String(info.releasedate || info.releaseDate || info.year || '').match(/\b(19|20)\d{2}\b/)?.[0]
+  const rating = Number(info.rating), duration = text(info.duration), genre = text(info.genre)
+  details.metadata = [year, genre, duration, rating > 0 && rating <= 10 ? `${rating.toFixed(1)} / 10` : ''].filter(Boolean) as string[]
+  if (series) details.episodes = parseEpisodes(source, channel, response).channels
+  return details
 }

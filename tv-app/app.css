@@ -114,3 +114,20 @@ html.watching,.watching body{background:transparent}
 .home-shortcuts{grid-template-columns:1fr}
 .category-grid{grid-template-columns:repeat(2,1fr)}
 }
+
+/* Detail-page composition adapted from the original TV detail chrome. */
+.subtle{background:transparent;border:0;font-size:.72rem;margin-bottom:.9rem}
+.detail-hero{position:relative;isolation:isolate;overflow:hidden;border-radius:.8rem;background:#1b1c28}
+.detail-backdrop{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.45}
+.detail-shade{position:absolute;inset:0;background:linear-gradient(90deg,#181822f2,#181822c9 60%,#18182280)}
+.detail-content{position:relative;display:flex;gap:1.6rem;align-items:flex-end;min-height:19rem;padding:1.7rem}
+.detail-poster{width:9rem;max-height:15rem;object-fit:contain;border-radius:.5rem;flex-shrink:0;align-self:center;box-shadow:0 .6rem 2rem #0007}
+.detail-copy{flex:1;min-width:0;max-width:38rem}.detail-copy h1{font-size:2.1rem;overflow-wrap:anywhere}.detail-copy .muted{font-size:.72rem}
+#detail-description{font-size:.8rem;line-height:1.6;max-height:9rem;overflow-y:auto;padding-right:.5rem}#detail-description:focus{outline:2px solid var(--accent);outline-offset:4px;border-radius:.2rem}
+.detail-copy .actions{margin-top:1.2rem}.detail-copy .actions button{font-size:.75rem;min-height:2.4rem}.detail-copy .hint{line-height:1.7}
+.episode-heading{display:flex;align-items:center;justify-content:space-between;margin:1.2rem 0}.episode-heading>div{display:flex;align-items:center;gap:.75rem}.episode-heading label{margin:0}.episode-heading select{min-width:8rem;font-size:.72rem}
+#episode-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#episode-grid .card-art{height:7rem}#episode-grid .card-art img{object-fit:cover}
+@media(max-width:800px){.detail-content{flex-direction:column;align-items:flex-start}.detail-poster{display:none}.detail-copy h1{font-size:1.65rem}}
+
+.track-menu{position:fixed;z-index:60;right:3vw;bottom:4vh;width:22rem;max-width:90vw;border:1px solid #514557;border-radius:1rem;background:#1a1925f5;padding:1.6rem;box-shadow:0 1rem 6rem #000a}.track-menu h2{font-size:1.35rem;margin:0 0 .5rem}.track-menu .primary{margin-top:1rem;width:100%}.track-menu select{font-size:.85rem}.track-menu .hint{font-size:.68rem}
+video::cue{font-family:Geist,Arial,sans-serif;background:#000b;color:#fff}

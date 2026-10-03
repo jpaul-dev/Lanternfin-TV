@@ -2,13 +2,17 @@ import { httpUrl } from './catalog'
 import type { Media } from './media'
 export type State = 'loading' | 'playing' | 'paused' | 'buffering' | 'ended' | 'error' | 'idle'
 export type Report = (state: State, detail?: string) => void
-export interface Player { play(url: string | Media, position?: number): void; pause(): void; resume(): void; seek(delta: number): void; stop(): void; timeline(): { position: number; duration: number } }
+export type PlayerTrack = { id: string; kind: 'audio' | 'subtitle'; label: string; active: boolean; disabled?: boolean }
+export interface Player { play(url: string | Media, position?: number): void; pause(): void; resume(): void; seek(delta: number): void; stop(): void; timeline(): { position: number; duration: number }; tracks?(): PlayerTrack[]; selectTrack?(kind: PlayerTrack['kind'], id: string): boolean }
+type NativeTrack = { type: string; index: number; extra_info?: string }
 export interface AVPlay {
   open(url: string): void; close(): void; stop(): void; play(): void; pause(): void
   getState(): string; getDuration(): number; getCurrentTime(): number
   setDisplayRect(x: number, y: number, width: number, height: number): void
   setDisplayMethod(method: string): void
   setStreamingProperty?(name: string, value: string): void
+  getTotalTrackInfo?(): NativeTrack[]; getCurrentStreamInfo?(): NativeTrack[]
+  setSelectTrack?(type: 'AUDIO' | 'TEXT', index: number): void; setSilentSubtitle?(hidden: boolean): void
   setListener(listener: Record<string, (...args: any[]) => void>): void
   prepareAsync(success: () => void, failure: () => void): void
   seekTo(milliseconds: number, success: () => void, failure: () => void): void
@@ -17,6 +21,7 @@ const PLAYBACK_ERROR = 'This stream could not play. Check your network and provi
 
 export function samsungPlayer(api: AVPlay, report: Report): Player {
   let generation = 0, timer: ReturnType<typeof setTimeout> | undefined, seeking = false
+  let subtitlesHidden = true, dash = false
   const close = () => {
     generation++; seeking = false; clearTimeout(timer)
     try { if (['READY', 'PLAYING', 'PAUSED'].includes(api.getState())) api.stop() } catch { /* close still releases the decoder */ }
@@ -31,6 +36,9 @@ export function samsungPlayer(api: AVPlay, report: Report): Player {
         const media = typeof url === 'string' ? { url } : url
         if (media.playback?.drm || media.playback?.problem) throw new Error('Use the adaptive player for DRM.')
         api.open(httpUrl(media.url))
+        dash = /\.mpd(?:\?|$)/i.test(media.url) || ['mpd', 'dash'].includes(media.playback?.manifestType || '')
+        subtitlesHidden = true
+        try { api.setSilentSubtitle?.(true) } catch { /* Optional subtitle support must not prevent video playback. */ }
         for (const [name, value] of Object.entries(media.playback?.headers || {})) {
           const property = name.toLowerCase() === 'user-agent' ? 'USER_AGENT' : name.toLowerCase() === 'cookie' ? 'COOKIE' : ''
           if (!property || !api.setStreamingProperty) throw new Error('Unsupported native header.')
@@ -79,6 +87,30 @@ export function samsungPlayer(api: AVPlay, report: Report): Player {
       try { return { position: api.getCurrentTime() / 1000, duration: api.getDuration() / 1000 } }
       catch { return { position: 0, duration: 0 } }
     },
+    tracks() {
+      try {
+        if (!['PLAYING', 'PAUSED', 'READY'].includes(api.getState()) || !api.setSelectTrack) return []
+        const selected = api.getCurrentStreamInfo?.() || []
+        return (api.getTotalTrackInfo?.() || []).filter(track => track.type === 'AUDIO' || (track.type === 'TEXT' && !dash && !!api.setSilentSubtitle)).map(track => {
+          let info: Record<string, unknown> = {}; try { info = JSON.parse(track.extra_info || '{}') || {} } catch { /* Language may be missing. */ }
+          const language = typeof info.language === 'string' ? info.language : typeof info.track_lang === 'string' ? info.track_lang : ''
+          return { id: String(track.index), kind: track.type === 'AUDIO' ? 'audio' as const : 'subtitle' as const, label: language.slice(0, 80) || `${track.type === 'AUDIO' ? 'Audio' : 'Subtitle'} ${track.index + 1}`, active: (track.type !== 'TEXT' || !subtitlesHidden) && selected.some(item => item.type === track.type && item.index === track.index), disabled: track.type === 'AUDIO' && api.getState() !== 'PLAYING' }
+        })
+      } catch { return [] }
+    },
+    selectTrack(kind, id) {
+      try {
+        if (!['PLAYING', 'PAUSED'].includes(api.getState())) return false
+        if (kind === 'subtitle' && id === 'off') { if (!api.setSilentSubtitle) return false; api.setSilentSubtitle(true); subtitlesHidden = true; return true }
+        if (!api.setSelectTrack || (kind === 'audio' && api.getState() !== 'PLAYING') || (kind === 'subtitle' && (dash || !api.setSilentSubtitle))) return false
+        const type = kind === 'audio' ? 'AUDIO' : 'TEXT'
+        const track = api.getTotalTrackInfo?.().find(item => item.type === type && String(item.index) === id)
+        if (!track) return false
+        api.setSelectTrack(type, track.index)
+        if (kind === 'subtitle') { api.setSilentSubtitle!(false); subtitlesHidden = false }
+        return true
+      } catch { return false }
+    },
   }
 }
 
@@ -112,5 +144,25 @@ export function htmlPlayer(video: HTMLVideoElement, report: Report): Player {
     },
     stop() { close(); report('idle') },
     timeline() { return { position: video.currentTime || 0, duration: video.duration || 0 } },
+    tracks() { return htmlTracks(video).tracks },
+    selectTrack(kind, id) {
+      const { audio, subtitles } = htmlTracks(video)
+      if (kind === 'audio') {
+        const chosen = audio.find((_, index) => String(index) === id); if (!chosen) return false
+        audio.forEach(track => { track.enabled = track === chosen }); return true
+      }
+      if (id !== 'off' && !subtitles.some((_, index) => String(index) === id)) return false
+      subtitles.forEach((track, index) => { track.mode = String(index) === id ? 'showing' : 'disabled' }); return true
+    },
   }
+}
+type AudioTrack = { label: string; language: string; enabled: boolean }
+function htmlTracks(video: HTMLVideoElement) {
+  const audio = Array.from((video as HTMLVideoElement & { audioTracks?: ArrayLike<AudioTrack> }).audioTracks || [])
+  const subtitles = Array.from(video.textTracks || []).filter(track => ['subtitles', 'captions'].includes(track.kind))
+  const tracks: PlayerTrack[] = [
+    ...audio.map((track, index) => ({ id: String(index), kind: 'audio' as const, label: (track.label || track.language || `Audio ${index + 1}`).slice(0, 120), active: track.enabled })),
+    ...subtitles.map((track, index) => ({ id: String(index), kind: 'subtitle' as const, label: (track.label || track.language || `Subtitles ${index + 1}`).slice(0, 120), active: track.mode === 'showing' })),
+  ]
+  return { audio, subtitles, tracks }
 }

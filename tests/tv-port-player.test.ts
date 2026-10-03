@@ -16,6 +16,19 @@ function fixture() {
 }
 afterEach(() => vi.useRealTimers())
 describe('Samsung native player lifecycle', () => {
+  it('respects Samsung audio state and DASH subtitle constraints', () => {
+    const { api, player, pending } = fixture()
+    api.getTotalTrackInfo = () => [{ type: 'AUDIO', index: 2, extra_info: '{"language":"eng"}' }, { type: 'TEXT', index: 3, extra_info: '{"track_lang":"spa"}' }]
+    api.getCurrentStreamInfo = () => [{ type: 'AUDIO', index: 2 }]
+    api.setSelectTrack = vi.fn(); api.setSilentSubtitle = vi.fn()
+    player.play('https://example.com/movie.mp4'); pending[0].success()
+    expect(player.tracks!()).toMatchObject([{ label: 'eng', active: true }, { label: 'spa', active: false }])
+    expect(player.selectTrack!('subtitle', '3')).toBe(true); expect(api.setSelectTrack).toHaveBeenCalledWith('TEXT', 3)
+    expect(player.selectTrack!('subtitle', 'off')).toBe(true); expect(api.setSilentSubtitle).toHaveBeenLastCalledWith(true)
+    player.pause(); expect(player.selectTrack!('audio', '2')).toBe(false); expect(player.tracks!()[0].disabled).toBe(true)
+    player.play('https://example.com/movie.mpd'); pending[1].success()
+    expect(player.tracks!()).toHaveLength(1); expect(player.selectTrack!('subtitle', '3')).toBe(false); player.stop()
+  })
   it('applies native User-Agent and Cookie properties before preparation', () => {
     const { api, player, pending } = fixture(); api.setStreamingProperty = vi.fn()
     player.play({ url: 'https://example.com/a.m3u8', playback: { headers: { 'user-agent': 'TV example', cookie: 'session=test' } } })

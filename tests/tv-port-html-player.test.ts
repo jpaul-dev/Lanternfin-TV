@@ -53,3 +53,18 @@ it('releases a permanently buffering stream so the UI can offer retry', () => {
   vi.advanceTimersByTime(60000)
   expect(video.hasAttribute('src')).toBe(false); expect(report).toHaveBeenLastCalledWith('error', expect.any(String))
 })
+it('switches exposed audio and captions, rejects unknown tracks, and leaves metadata tracks alone', () => {
+  const video = document.createElement('video'), player = htmlPlayer(video, vi.fn())
+  const audio = [{ label: 'English', enabled: true }, { label: 'French', enabled: false }]
+  const captions = [{ label: 'English CC', kind: 'captions', mode: 'disabled' }, { label: 'Metadata', kind: 'metadata', mode: 'hidden' }]
+  Object.defineProperty(video, 'audioTracks', { value: audio })
+  Object.defineProperty(video, 'textTracks', { value: captions })
+  expect(player.tracks?.().map(track => track.label)).toEqual(['English', 'French', 'English CC'])
+  expect(player.selectTrack?.('audio', '1')).toBe(true)
+  expect(audio.map(track => track.enabled)).toEqual([false, true])
+  expect(player.selectTrack?.('subtitle', '0')).toBe(true)
+  expect(captions.map(track => track.mode)).toEqual(['showing', 'hidden'])
+  expect(player.selectTrack?.('subtitle', '99')).toBe(false)
+  expect(player.selectTrack?.('subtitle', 'off')).toBe(true)
+  expect(captions.map(track => track.mode)).toEqual(['disabled', 'hidden'])
+})

@@ -2,10 +2,15 @@ import { htmlPlayer, samsungPlayer, type AVPlay, type Player, type Report } from
 import { browserHeaderProblem, needsAdaptivePlayer, type Media } from './media'
 
 type Request = { headers: Record<string, string> }
+type AdaptiveTrack = { id?: number; active: boolean; language: string; label?: string; roles?: string[]; channelsCount?: number; codecs?: string; spatialAudio?: boolean }
+const audioKey = (track: AdaptiveTrack) => JSON.stringify([track.language, track.label, track.roles, track.channelsCount, track.codecs, track.spatialAudio])
+const trackLabel = (track: AdaptiveTrack) => [track.label || track.language || 'Unknown language', track.channelsCount ? `${track.channelsCount} ch` : '', track.roles?.filter(role => role !== 'main').join(', ')].filter(Boolean).join(' · ').slice(0, 160)
 type Engine = {
   attach(video: HTMLVideoElement): Promise<void>; load(url: string, position?: number, mime?: string): Promise<void>; destroy(): Promise<void>
   configure(config: object): boolean; addEventListener(name: string, callback: (event: any) => void): void
   getNetworkingEngine(): { registerRequestFilter(filter: (type: number, request: Request) => void): void }
+  getAudioTracks?(): AdaptiveTrack[]; getTextTracks?(): AdaptiveTrack[]
+  selectAudioTrack?(track: AdaptiveTrack, safeMargin?: number): void; selectTextTrack?(track: AdaptiveTrack | null): void
 }
 type Shaka = { Player: { new(): Engine; isBrowserSupported(): boolean }; polyfill: { installAll(): void }; net: { NetworkingEngine: { RequestType: { LICENSE: number; MANIFEST: number; SEGMENT: number } } } }
 let runtime: Promise<Shaka> | undefined
@@ -79,10 +84,31 @@ export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka
         } catch (error) { fail(playbackError(error as { category?: number; code?: number })) }
       })
     },
-    stop() { stop(); report('idle') }, pause() { video.pause() }, resume() { void video.play().catch(() => report('error', 'Playback could not resume. Choose Retry stream.')) },
+    stop() { stop(); report('idle') }, pause() { video.pause() }, resume() { const token = generation; void video.play().catch(() => { if (token === generation) report('error', 'Playback could not resume. Choose Retry stream.') }) },
     seek(delta) { if (Number.isFinite(video.duration) && video.duration > 1) try { video.currentTime = Math.max(0, Math.min(video.duration - 1, video.currentTime + delta)) } catch { /* not seekable */ } },
     timeline() { return { position: video.currentTime || 0, duration: video.duration || 0 } },
     whenStopped() { return queue },
+    tracks() {
+      try {
+        return [
+          ...(engine?.getAudioTracks?.() || []).map(track => ({ id: audioKey(track), kind: 'audio' as const, label: trackLabel(track), active: track.active })),
+          ...(engine?.getTextTracks?.() || []).map(track => ({ id: String(track.id), kind: 'subtitle' as const, label: trackLabel(track), active: track.active })),
+        ]
+      } catch { return [] }
+    },
+    selectTrack(kind, id) {
+      try {
+        if (kind === 'audio') {
+          const track = engine?.getAudioTracks?.().find(track => audioKey(track) === id)
+          if (!track || !engine?.selectAudioTrack) return false
+          engine.selectAudioTrack(track, 2); return true
+        }
+        if (!engine?.selectTextTrack) return false
+        const track = engine.getTextTracks?.().find(track => String(track.id) === id)
+        if (id !== 'off' && !track) return false
+        engine.selectTextTrack(track || null); return true
+      } catch { return false }
+    },
   }
 }
 export function canUseNativeHls(media: Media, video: HTMLVideoElement): boolean {
@@ -117,5 +143,6 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
       if (previous === adaptive) void adaptive.whenStopped().then(begin); else begin()
     },
     stop() { generation++; current.stop() }, pause() { current.pause() }, resume() { current.resume() }, seek(delta) { current.seek(delta) }, timeline() { return current.timeline() },
+    tracks() { return current.tracks?.() || [] }, selectTrack(kind, id) { return current.selectTrack?.(kind, id) || false },
   }
 }

@@ -60,3 +60,17 @@ it('never falls back by silently dropping DRM or required headers', () => {
     expect(canUseNativeHls({ url: 'https://example.com/live.m3u8', playback }, video)).toBe(false)
   }
 })
+it('selects Shaka audio by track properties and can turn subtitles off', async () => {
+  vi.useFakeTimers(); const h = harness()
+  const english = { active: true, language: 'en', roles: ['main'], channelsCount: 2 }, french = { active: false, language: 'fr', roles: ['main'], channelsCount: 2 }
+  const caption = { active: false, language: 'en', id: 7, label: 'English captions' }
+  const selectAudio = vi.fn(), selectText = vi.fn()
+  Object.assign(h.engine, { getAudioTracks: () => [english, french], getTextTracks: () => [caption], selectAudioTrack: selectAudio, selectTextTrack: selectText })
+  h.player.play('https://example.com/a.mpd'); await settle()
+  const tracks = h.player.tracks!(); expect(tracks).toHaveLength(3)
+  expect(h.player.selectTrack!('audio', tracks[1].id)).toBe(true); expect(selectAudio).toHaveBeenCalledWith(french, 2)
+  expect(h.player.selectTrack!('subtitle', '7')).toBe(true); expect(selectText).toHaveBeenLastCalledWith(caption)
+  expect(h.player.selectTrack!('subtitle', 'off')).toBe(true); expect(selectText).toHaveBeenLastCalledWith(null)
+  expect(h.player.selectTrack!('audio', 'unknown')).toBe(false)
+  h.player.stop(); await settle(); expect(h.player.tracks!()).toEqual([]); vi.clearAllTimers()
+})

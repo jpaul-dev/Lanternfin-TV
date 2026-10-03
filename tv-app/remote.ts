@@ -15,7 +15,7 @@ export function nextFocus(origin: Box, boxes: Box[], direction: Direction): numb
 }
 
 export function moveFocus(direction: Direction, root: HTMLElement): void {
-  const items = Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]'))
+  const items = Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]'))
     .filter(node => node.getClientRects().length && !node.closest('[hidden]'))
     .filter(node => !['up', 'down'].includes(direction) || !!node.closest('#tv-nav') === !!document.activeElement?.closest('#tv-nav'))
   const active = document.activeElement as HTMLElement
