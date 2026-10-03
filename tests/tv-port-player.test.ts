@@ -16,6 +16,13 @@ function fixture() {
 }
 afterEach(() => vi.useRealTimers())
 describe('Samsung native player lifecycle', () => {
+  it('applies native User-Agent and Cookie properties before preparation', () => {
+    const { api, player, pending } = fixture(); api.setStreamingProperty = vi.fn()
+    player.play({ url: 'https://example.com/a.m3u8', playback: { headers: { 'user-agent': 'TV example', cookie: 'session=test' } } })
+    expect(api.setStreamingProperty).toHaveBeenNthCalledWith(1, 'USER_AGENT', 'TV example')
+    expect(api.setStreamingProperty).toHaveBeenNthCalledWith(2, 'COOKIE', 'session=test')
+    expect(pending).toHaveLength(1); player.stop()
+  })
   it('resumes a prepared movie at the saved time before starting playback', () => {
     const { api, pending, player } = fixture()
     player.play('https://example.com/movie.mp4', 30); pending[0].success()

@@ -42,5 +42,24 @@ it('runs source loading, favorites, resume, failed-refresh recovery and forgetti
   await click('refresh-catalog'); expect(el('catalog').hidden).toBe(false); expect(kind.value).toBe('direct')
   await click('change-source'); await click('forget')
   expect(localStorage.length).toBe(0); expect(el('return-catalog').hidden).toBe(true)
+  // Native provider browsing keeps a series separate from its playable episodes.
+  kind.value = 'xtream'; kind.dispatchEvent(new Event('change'))
+  el<HTMLInputElement>('source-url').value = 'https://example.com'
+  el<HTMLInputElement>('username').value = 'demo'; el<HTMLInputElement>('password').value = 'demo'
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    const action = new URL(url).searchParams.get('action') || ''
+    const data = action.endsWith('_categories') ? [{ category_id: '1', category_name: 'Drama' }] : action === 'get_series_info' ? { episodes: { 1: [{ id: 5, episode_num: 1, title: 'Opening', container_extension: 'mp4' }] } } : [{ series_id: 42, name: 'Test series' }]
+    return new Response(JSON.stringify(data))
+  }))
+  await click('connect'); expect(el('home-content').hidden).toBe(false)
+  await click('nav-series'); expect(el('category-list').textContent).toContain('Drama')
+  ;(el('category-list').querySelector('button') as HTMLButtonElement).click(); await vi.advanceTimersByTimeAsync(0)
+  expect(el('channels').textContent).toContain('Test series')
+  ;(el('channels').querySelector('button') as HTMLButtonElement).click(); await vi.advanceTimersByTimeAsync(0)
+  expect(el('channels').textContent).toContain('S1 E1 · Opening'); expect(el('episodes-back').hidden).toBe(false)
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await vi.advanceTimersByTimeAsync(0)
+  expect(el('channels').textContent).toContain('Test series')
+  await click('nav-settings'); expect(el('settings').hidden).toBe(false)
+  await click('settings-back'); expect(el('home-content').hidden).toBe(false)
   vi.clearAllTimers()
 })

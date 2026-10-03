@@ -15,7 +15,12 @@ export function libraryId(value: string): string {
   }
   return (a >>> 0).toString(16).padStart(8, '0') + (b >>> 0).toString(16).padStart(8, '0')
 }
-export const channelId = (channel: Channel) => libraryId(channel.url)
+const channelIds = new WeakMap<Channel, string>()
+export const channelId = (channel: Channel) => {
+  let id = channelIds.get(channel)
+  if (!id) { id = libraryId(channel.url || `${channel.mediaKind}:${channel.providerId}`); channelIds.set(channel, id) }
+  return id
+}
 
 export class TVLibrary {
   readonly favorites = new Set<string>()

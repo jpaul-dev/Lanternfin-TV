@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' file:; style-src 'self'; img-src 'self'; connect-src https: http:; media-src https: http: blob:; object-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' file:; style-src 'self'; font-src 'self' data:; img-src 'self' https: http:; connect-src https: http:; media-src https: http: blob:; worker-src 'self' blob:; object-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Lanternfin TV</title>
   <link rel="icon" href="icon.png">
   <link rel="stylesheet" href="app.css">
@@ -14,12 +14,24 @@
 <body>
   <div id="player-surface" hidden></div>
   <main id="app">
-    <header><div class="brand"><img src="icon.png" alt="" width="56" height="56"><span>Lanternfin <b>TV</b></span></div><span id="platform" class="badge">TV preview</span></header>
+    <nav id="tv-nav" aria-label="Main navigation" hidden>
+      <img class="nav-logo" src="icon.png" alt="Lanternfin TV">
+      <button id="nav-home" aria-current="page"><span aria-hidden="true">âŒ‚</span>Home</button>
+      <button id="nav-live"><span aria-hidden="true">â–£</span>Live TV</button>
+      <button id="nav-movie"><span aria-hidden="true">â–·</span>Movies</button>
+      <button id="nav-series"><span aria-hidden="true">â–¤</span>Series</button>
+      <button id="nav-search"><span aria-hidden="true">âŒ•</span>Search</button>
+      <div class="nav-divider"></div>
+      <button id="view-favorites" aria-pressed="false"><span aria-hidden="true">â˜†</span>Favorites</button>
+      <button id="view-recent" aria-pressed="false"><span aria-hidden="true">â—·</span>Recent</button>
+      <button id="nav-settings"><span aria-hidden="true">âš™</span>Settings</button>
+    </nav>
+    <header><div class="brand"><img src="icon.png" alt="" width="56" height="56"><span>Lanternfin <b>TV</b></span></div><span id="platform" class="badge">TV development build</span></header>
     <section id="setup" class="panel">
       <div class="intro"><p class="eyebrow">YOUR STREAMS. YOUR SCREEN.</p><h1>Settle in.</h1><p>Connect your own playlist and watch directly on your TV.</p><p class="muted">No casting device needed. No channels are included.</p></div>
       <form id="source-form" autocomplete="off">
         <label for="source-kind">Source type</label>
-        <select id="source-kind"><option value="playlist">M3U playlist</option><option value="xtream">Xtream playlist login</option><option value="direct">Direct stream</option></select>
+        <select id="source-kind"><option value="playlist">M3U playlist</option><option value="xtream">Xtream account</option><option value="direct">Direct stream</option></select>
         <label id="url-label" for="source-url">Playlist address</label>
         <input id="source-url" type="text" inputmode="url" spellcheck="false" autocomplete="off" placeholder="https://your-provider.example/playlist.m3u" maxlength="8192" required>
         <div id="login-fields" hidden>
@@ -32,30 +44,39 @@
       </form>
     </section>
     <section id="catalog" hidden>
-      <div class="heading"><div><p class="eyebrow">READY WHEN YOU ARE</p><h1>Your streams</h1></div><div class="actions"><button id="refresh-catalog">Refresh</button><button id="change-source">Change source</button></div></div>
-      <div class="actions library-tabs" aria-label="Library views"><button id="view-all" aria-pressed="true">All streams</button><button id="view-favorites" aria-pressed="false">Favorites</button><button id="view-recent" aria-pressed="false">Recently watched</button><button id="clear-history" hidden>Clear history</button></div>
-      <p id="library-note" class="hint"></p>
-      <div class="filters"><div><label for="search">Find a stream</label><input id="search" type="search" placeholder="Search by name" autocomplete="off"></div><div><label for="group">Group</label><select id="group"><option value="">All groups</option></select></div></div>
+      <div class="heading"><div><p id="section-kicker" class="eyebrow">YOUR LIBRARY</p><h1 id="section-title">Home</h1></div><div class="actions"><button id="view-all" aria-pressed="true">All streams</button><button id="refresh-catalog">Refresh</button><button id="change-source">Change source</button></div></div>
+      <div id="home-content">
+        <section class="hero"><img id="hero-art" alt="" hidden><div class="hero-shade"></div><div class="hero-copy"><p id="hero-kicker" class="eyebrow">MAKE YOURSELF AT HOME</p><h2 id="hero-title">Your evening starts here.</h2><p id="hero-meta">Live television, movies, and series. All in one place.</p><button id="hero-play" class="primary">Browse Live TV</button></div></section>
+        <div id="home-rows"></div>
+        <div class="home-shortcuts"><button id="home-live">Live TV <span>On your screen, right now â†’</span></button><button id="home-movie">Movies <span>Find your next watch â†’</span></button><button id="home-series">Series <span>One more episode â†’</span></button></div>
+      </div>
+      <div id="browse-content">
+      <div class="filters"><div><label for="search">Find a title</label><input id="search" type="search" placeholder="Search your library" autocomplete="off"></div><div><label for="group">Category</label><select id="group"><option value="">All groups</option></select></div></div>
+      <div class="actions"><button id="categories-back" hidden>All categories</button><button id="episodes-back" hidden>Back to series</button><button id="cancel-category" hidden>Cancel loading</button><button id="clear-history" hidden>Clear history</button></div>
       <p id="result-count" class="muted"></p>
+      <div id="category-list" class="category-grid" hidden></div>
       <div id="channels" class="grid"></div>
-      <div class="pagination"><button id="previous">Previous page</button><span id="page-label"></span><button id="next">Next page</button></div>
+      <div id="pagination" class="pagination"><button id="previous">Previous page</button><span id="page-label"></span><button id="next">Next page</button></div>
+      </div>
     </section>
+    <section id="settings" class="info-panel" hidden><p class="eyebrow">MAKE IT YOURS</p><h1>Settings</h1><h2>Source & library</h2><p id="library-note" class="hint"></p><div class="actions"><button id="settings-source">Manage source</button><button id="settings-about">About Lanternfin TV</button><button id="settings-back">Back to home</button></div><h2>Playback</h2><p>Adaptive streams use Shaka Player for HLS, DASH, and supported DRM. Samsung also uses its native player for compatible streams and User-Agent / Cookie overrides.</p><p class="hint">LGâ€™s simulator has no DRM support. Provider cross-origin permissions and TV codec support still apply. Referer overrides need a provider-compatible stream or a separate relay; they are not silently ignored.</p></section>
     <section id="playback" hidden>
-      <div id="controls" class="play-controls"><p class="eyebrow">NOW WATCHING</p><h1 id="playing-title"></h1><p id="player-status" role="status"></p><p id="playback-time" class="hint"></p><div class="actions"><button id="toggle" class="primary">Pause</button><button id="rewind">Back 10 seconds</button><button id="forward">Forward 10 seconds</button><button id="favorite" aria-pressed="false">☆ Add favorite</button><button id="retry" hidden>Retry stream</button><button id="hide-controls">Hide controls</button><button id="stop">Back to streams</button></div><p class="hint">Press an arrow to show controls. Back returns to your streams.</p></div>
+      <div id="controls" class="play-controls"><p class="eyebrow">NOW WATCHING</p><h1 id="playing-title"></h1><p id="player-status" role="status"></p><p id="playback-time" class="hint"></p><div class="actions"><button id="toggle" class="primary">Pause</button><button id="rewind">Back 10 seconds</button><button id="forward">Forward 10 seconds</button><button id="favorite" aria-pressed="false">â˜† Add favorite</button><button id="retry" hidden>Retry stream</button><button id="hide-controls">Hide controls</button><button id="stop">Back to streams</button></div><p class="hint">Press an arrow to show controls. Back returns to your streams.</p></div>
     </section>
     <section id="resume" class="info-panel" hidden><p class="eyebrow">PICK UP WHERE YOU LEFT OFF</p><h1 id="resume-title"></h1><p id="resume-description"></p><div class="actions"><button id="resume-continue" class="primary">Continue watching</button><button id="resume-start">Start over</button><button id="resume-back">Back to streams</button></div></section>
     <section id="about" class="info-panel" hidden>
       <p class="eyebrow">AN INDEPENDENT FORK</p><h1>A little light for your screen.</h1>
-      <p>Lanternfin TV — LG / Samsung preview 0.1.0.</p>
+      <p>Lanternfin TV â€” LG / Samsung development build 0.1.0.</p>
       <p>Based on Extreme InfiniTV by Ludovico Ferrara / infinitel8p and contributors. Original notice: Copyright (c) 2025 Ludovico Ferrara. The shared M3U parser comes from that project.</p>
       <p>Free software under GPL-3.0-or-later. License and attribution are included in this app package. Corresponding source: github.com/jpaul-dev/Lanternfin-TV.</p>
-      <p>This preview uses your TV’s native player. Formats depend on your TV and provider. DRM, custom stream headers, a programme guide, and series browsing are not implemented yet.</p>
+      <p>Includes Shaka Player 5.2.8, Copyright Google LLC, under Apache-2.0. Its license is included in this package. The TV layout adapts the original appâ€™s sidebar, hero and artwork rows.</p>
+      <p>Hardware playback validation is ongoing. An electronic programme guide, downloads, and full Android feature parity are still in development.</p>
       <p>Your TV connects to the source you enter. This app adds no analytics, account service, receiver, or update downloads.</p>
       <button id="about-back" class="primary">Back</button>
     </section>
     <section id="exit" class="info-panel" hidden><h1>All done for now?</h1><p>Exit Lanternfin TV?</p><div class="actions"><button id="stay" class="primary">Keep watching</button><button id="leave">Exit app</button></div></section>
     <p id="notice" role="status" aria-live="polite"></p>
-    <footer><span>Arrows to move · OK to select · Back to return</span><button id="about-open">About this preview</button></footer>
+    <footer><span>Arrows to move Â· OK to select Â· Back to return</span><button id="about-open">About Lanternfin TV</button></footer>
   </main>
 </body>
 </html>

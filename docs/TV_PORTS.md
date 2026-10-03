@@ -1,20 +1,41 @@
-# LG and Samsung preview ports
+# LG and Samsung TV ports
 
 The first standalone TV port lives in `tv-app/`, on branch `ports/webos-tizen`. The Android baseline remains on `main`. Local checkout: `C:\Users\jayco\Desktop\Codex Projects\Lanternfin-TV`.
 
 For a guided interface instead of terminal commands, open **Open TV Setup.vbs** in the checkout or the **Lanternfin TV Setup** desktop shortcut. See [the setup companion guide](TV_SETUP.md).
 
-## What this preview does
+## Current development build
 
-- Opens your M3U playlist, an Xtream provider's `get.php` playlist, or a direct HTTP/HTTPS stream.
-- Groups, searches, and pages through streams, with 24 cards per page. Incremental loading discards raw text and rich intermediate records, reports progress, and yields to the UI. Searches are cancellable. Resource guards are 256 MiB downloaded, 500,000 entries, 64 Mi characters of retained names/URLs/group strings, and 64 Ki characters per line; catalogs are never silently truncated. A 45-second inactivity timeout replaces the former 20-second total deadline.
-- Uses HTML video on LG and Samsung AVPlay on Tizen; no phone, receiver service, or mandatory relay.
+- Opens M3U playlists, Xtream accounts, and direct HTTP/HTTPS streams. Xtream uses the category, live, movie, series and episode APIs, loading one category at a time. M3U remains available for provider compatibility.
+- Groups, searches, and pages through streams, with 24 cards per page. Incremental loading discards raw text and rich intermediate records, reports progress, and yields to the UI. Searches are cancellable. Resource guards are 256 MiB downloaded, 500,000 entries, 64 Mi characters of retained names, URLs, groups, artwork and playback settings, and 64 Ki characters per line; catalogs are never silently truncated. A 45-second inactivity timeout replaces the former 20-second total deadline.
+- Restores the original TV interface’s dark canvas, sidebar navigation, hero, artwork rows, poster grids, and focus treatment through portable components. Live TV, Movies, Series, Search, Favorites, Recent and Settings are separate views. This is an adaptation of the original UI, not complete feature parity.
+- Bundles Shaka Player 5.2.8 for adaptive HLS/DASH and EME DRM. Samsung AVPlay handles compatible native streams and User-Agent/Cookie overrides. Plain direct files can use HTML video. No phone, receiver service, or mandatory relay.
 - Handles directional navigation, pointer clicks, Back, media keys, pause/resume, and basic VOD seeking. Stops playback when the app is hidden and requires an explicit selection to start again.
 - Adds favorites, the 100 most recently played streams, VOD resume prompts, library refresh, playback retry, and stalled-stream recovery. Library changes stay in memory unless source saving is enabled.
 - Keeps provider settings in memory by default. Opt-in persistence uses unencrypted TV browser storage, with a Forget action. Turning Remember off removes the previously saved source.
 - Includes original Lanternfin branding, original-project attribution, GPL license, source revision, and asset hashes in the packages.
 
-This is a functional port foundation, **not Android feature parity or certified TV support**. Xtream support presently consumes the provider's M3U output; it is not the full movies/series API. No EPG, catch-up, subtitle/audio selection, DRM, custom HTTP headers, downloads, casting, transcoding, or app updater yet. Entries explicitly requiring DRM or custom headers are skipped with a count. Provider codec support remains a hardware question.
+This remains **development software, not Android feature parity or certified TV support**. EPG, catch-up, audio/subtitle selection, downloads, casting, transcoding and an app updater are pending. Xtream search currently searches the open category. Favorites/recent items remain available across category changes during a session; after restarting, their saved identifiers are matched as those categories are loaded again. Full cross-category indexing and metadata persistence remain work items.
+
+### DRM and custom headers
+
+The port preserves M3U `#KODIPROP` license settings, `#EXTVLCOPT` User-Agent/Referer settings, and URL-pipe headers. Protected/header-dependent entries are no longer discarded. Artwork and media kind are retained, with HTTP/HTTPS-only artwork and inert text rendering.
+
+| Requirement | Current implementation and limit |
+| --- | --- |
+| HLS / DASH | Shaka, using MSE when available; native Samsung path for compatible unprotected streams |
+| Widevine / PlayReady | Shaka EME configuration with provider license URL; requires a compatible CDM, codec and valid provider access; not yet verified on physical TVs |
+| ClearKey | Explicit 32-character hexadecimal KID/key pairs passed to Shaka; not a DRM bypass |
+| License authorization headers | Sent only on license requests, separate from media credentials |
+| Media authorization headers | Sent on Shaka manifest/segment requests; provider must permit cross-origin requests. Direct MP4 header injection is unsupported on this path |
+| User-Agent / Cookie | Samsung AVPlay native streaming properties; real-TV verification pending |
+| Referer, Origin and other browser-controlled headers | Explicit unsupported message; never silently ignored. A provider-compatible URL or separately designed, opt-in local relay is needed |
+| Kodi license payload/response transforms | Only raw challenge requests accepted; nontrivial transformations explicitly reported as unsupported |
+| LG simulator | UI and unprotected playback only; LG documents no DRM or mediaOption support |
+
+[Shaka’s platform matrix](https://github.com/shaka-project/shaka-player#platform-and-browser-support-matrix) includes Samsung; webOS is community supported. [Shaka’s DRM configuration](https://shaka-project.github.io/shaka-player/docs/api/tutorial-drm-config.html) and [license header guide](https://shaka-project.github.io/shaka-player/docs/api/tutorial-license-server-auth.html) describe the integration. [LG’s DRM matrix](https://webostv.developer.lge.com/develop/specifications/streaming-protocol-drm) supports PlayReady and Widevine on real TVs, while the [simulator limitations](https://webostv.developer.lge.com/develop/tools/simulator-introduction) explicitly exclude DRM. Samsung’s [AVPlay reference](https://developer.samsung.com/smarttv/develop/api-references/samsung-product-api-references/avplay-api.html) documents the native streaming properties.
+
+React and Next.js are presentation frameworks, not a solution to CDM, codec, CORS or forbidden-header limits. We retained the original project’s lightweight TypeScript interface approach and added Shaka as a playback adapter. A future component-framework migration should be justified by maintainability, not DRM support.
 
 ## Compatibility approach
 
@@ -24,7 +45,7 @@ The portable UI uses a classic bundled script, relative packaged resources, plai
 
 LG uses a packaged HTML application described by [appinfo.json](https://webostv.developer.lge.com/develop/references/appinfo-json). Its Back key is handled explicitly, with our own exit confirmation as permitted by [LG's Back guidance](https://webostv.developer.lge.com/develop/guides/back-button). Native HLS/MP4 playback still needs tests against [LG's streaming specifications](https://webostv.developer.lge.com/develop/specifications/streaming-protocol-drm).
 
-Samsung uses [AVPlay](https://developer.samsung.com/smarttv/develop/guides/multimedia/media-playback/using-avplay.html) with asynchronous preparation, a 1920×1080 native video plane, and stale-callback guards. Optional [media keys](https://developer.samsung.com/smarttv/develop/guides/user-interaction/remote-control.html) are registered individually. The Tizen manifest requests internet and TV input access only. `LantFin001.LanternfinTV` is a development application identifier, subject to store registration checks.
+Samsung uses [AVPlay](https://developer.samsung.com/smarttv/develop/guides/multimedia/media-playback/using-avplay.html) with asynchronous preparation, a 1920×1080 native video plane, and stale-callback guards. Optional [media keys](https://developer.samsung.com/smarttv/develop/guides/user-interaction/remote-control.html) are registered individually. The Tizen manifest requests internet, TV input, and DRM playback access. The CSP permits provider artwork and media while keeping executable scripts local. `LantFin001.LanternfinTV` is a development application identifier, subject to store registration checks.
 
 ## Build and package
 
@@ -46,7 +67,7 @@ Outputs:
 | --- | --- |
 | `dist/tv/webos/` | LG packaged app resources |
 | `dist/tv/tizen/` | Samsung project resources, ready for the SDK signing step |
-| `dist/tv/browser/` | Browser UI preview using HTML video |
+| `dist/tv/browser/` | Browser UI build with HTML video and Shaka |
 | `artifacts/tv-preview-0.1.0/io.github.jpauldev.lanternfin_0.1.0_all.ipk` | LG developer installer, built by official LG CLI 3.2.6 |
 | `artifacts/tv-preview-0.1.0/Lanternfin-TV-0.1.0-tizen-UNSIGNED.wgt` | Unsigned Samsung widget; **cannot be installed on a TV until signed** |
 | `artifacts/tv-preview-0.1.0/*-SHA256SUMS.txt` | Package checksums |
@@ -121,3 +142,16 @@ The 8 MiB / 30,000-entry prototype restriction has been removed. The first harde
 The broader readiness goal remains active: add favorites and recent streams, resumable VOD and playback recovery, category-based Xtream live/movie/series browsing, program information, and a measured device acceptance pass. Passing the catalog checkpoint alone does not meet that goal.
 
 The library checkpoint passed the full suite (154 files / 3,091 tests), followed by an additional application integration test covering favorites, resume prompts, failed-source recovery, refresh, and forgetting. Browser testing played MDN's public five-second MP4 and verified favorites and recent history survived a reload after explicit saving. VOD resume and decoder lifecycle are tested with controlled HTML/AVPlay doubles; real-TV seek behavior remains an acceptance item. Saved library records contain lookup identifiers and playback positions, not stream URLs; the separately opted-in source settings still contain provider credentials without encryption.
+
+
+## UI and adaptive playback checkpoint
+
+The rebuild restores sidebar navigation, an artwork hero, bounded home rails, poster grids, separate Live/Movie/Series browsing, and the original TV UI’s dark/pink visual treatment. The original Astro/Tailwind/desktop dependencies are not pulled into the packaged TV entry point. The small portable presentation module records its original UI sources for attribution.
+
+Validation: the full suite passed 158 files / 3,106 tests at the first rebuild checkpoint. Browser testing successfully played Shaka’s public Angel One DASH sample. Mock-provider browsing verified movie categories, series artwork, and season/episode results. DRM configuration, media/license header isolation, invalid metadata, pending-load cancellation, and provider response limits have controlled tests; those tests do not establish TV DRM compatibility.
+
+Build output for LG’s simulator remains `dist/tv/webos`. Reload that folder using the simulator’s app launcher; do not open the Android/Astro build. The packaged Shaka script and its Apache license, plus the bundled Geist font license, are included alongside the app.
+
+For UI-only provider tests, run the preview server with `--fixtures --port 4324` and enter an Xtream account at `http://127.0.0.1:4324/_test/provider` with username/password `demo`. The generated artwork is labelled UI TEST LIBRARY and media URLs deliberately fail. These fixtures are not included in TV packages.
+
+Remaining acceptance work: physical LG and Samsung DRM/license/codec/header matrix; persistent provider library indexing, full movie details and EPG; audio/subtitle controls; comparison against the original UI at each screen; extended remote navigation and playback soak tests. The broader readiness goal remains open.

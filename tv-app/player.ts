@@ -1,17 +1,19 @@
 import { httpUrl } from './catalog'
+import type { Media } from './media'
 export type State = 'loading' | 'playing' | 'paused' | 'buffering' | 'ended' | 'error' | 'idle'
 export type Report = (state: State, detail?: string) => void
-export interface Player { play(url: string, position?: number): void; pause(): void; resume(): void; seek(delta: number): void; stop(): void; timeline(): { position: number; duration: number } }
+export interface Player { play(url: string | Media, position?: number): void; pause(): void; resume(): void; seek(delta: number): void; stop(): void; timeline(): { position: number; duration: number } }
 export interface AVPlay {
   open(url: string): void; close(): void; stop(): void; play(): void; pause(): void
   getState(): string; getDuration(): number; getCurrentTime(): number
   setDisplayRect(x: number, y: number, width: number, height: number): void
   setDisplayMethod(method: string): void
+  setStreamingProperty?(name: string, value: string): void
   setListener(listener: Record<string, (...args: any[]) => void>): void
   prepareAsync(success: () => void, failure: () => void): void
   seekTo(milliseconds: number, success: () => void, failure: () => void): void
 }
-const PLAYBACK_ERROR = 'This stream could not play. Check your network and provider access, then retry. Supported formats depend on the TV; DRM and custom stream headers need additional platform support.'
+const PLAYBACK_ERROR = 'This stream could not play. Check your network and provider access, then retry. The stream’s codec or format may not be supported on this device.'
 
 export function samsungPlayer(api: AVPlay, report: Report): Player {
   let generation = 0, timer: ReturnType<typeof setTimeout> | undefined, seeking = false
@@ -26,7 +28,15 @@ export function samsungPlayer(api: AVPlay, report: Report): Player {
       close()
       const token = generation
       try {
-        api.open(httpUrl(url)); api.setDisplayRect(0, 0, 1920, 1080)
+        const media = typeof url === 'string' ? { url } : url
+        if (media.playback?.drm || media.playback?.problem) throw new Error('Use the adaptive player for DRM.')
+        api.open(httpUrl(media.url))
+        for (const [name, value] of Object.entries(media.playback?.headers || {})) {
+          const property = name.toLowerCase() === 'user-agent' ? 'USER_AGENT' : name.toLowerCase() === 'cookie' ? 'COOKIE' : ''
+          if (!property || !api.setStreamingProperty) throw new Error('Unsupported native header.')
+          api.setStreamingProperty(property, value)
+        }
+        api.setDisplayRect(0, 0, 1920, 1080)
         api.setDisplayMethod('PLAYER_DISPLAY_MODE_LETTER_BOX')
         api.setListener({
           onbufferingstart: () => { if (token === generation) { if (api.getState() === 'PLAYING') { clearTimeout(timer); timer = setTimeout(() => { if (token === generation) fail() }, 60000) } report('buffering') } },
@@ -92,7 +102,7 @@ export function htmlPlayer(video: HTMLVideoElement, report: Report): Player {
         video.addEventListener(event, fn); return () => video.removeEventListener(event, fn)
       })
       clean = () => guarded.forEach(fn => fn())
-      try { video.src = httpUrl(url); report('loading'); timer = setTimeout(() => { if (token === generation) fail() }, 30000); start(token) }
+      try { if (typeof url !== 'string' && url.playback) throw new Error('Use an adaptive or native header-capable player.'); video.src = httpUrl(typeof url === 'string' ? url : url.url); report('loading'); timer = setTimeout(() => { if (token === generation) fail() }, 30000); start(token) }
       catch { fail() }
     },
     pause() { video.pause() }, resume() { if (video.hasAttribute('src')) start(generation) },

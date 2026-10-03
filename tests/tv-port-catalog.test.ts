@@ -18,12 +18,13 @@ describe('TV source boundary', () => {
   it('recognizes HLS as one playable stream, not its segments', () => expect(parseCatalog('#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6,\nsegment.ts', source.url).channels).toEqual([{ name: 'Direct stream', group: 'Streams', url: source.url }]))
   it('reuses the existing parser, resolving relative URLs and preserving inert titles', () => {
     const result = parseCatalog('#EXTM3U\n#EXTINF:-1 group-title="News",<b>Untrusted title</b>\n../live/1.m3u8', source.url)
-    expect(result.channels[0]).toEqual({ name: '<b>Untrusted title</b>', group: 'News', url: 'https://provider.example/live/1.m3u8' })
+    expect(result.channels[0]).toEqual({ name: '<b>Untrusted title</b>', group: 'News', url: 'https://provider.example/live/1.m3u8', mediaKind: 'live' })
   })
-  it('reports unsupported headers/DRM/URLs instead of playing them silently', () => {
+  it('retains header requirements for the player and skips unsafe URLs', () => {
     const text = '#EXTM3U\n#EXTINF:-1,Good\nhttps://example.com/a\n#EXTINF:-1,Bad\nfile:///private\n#EXTINF:-1,Headers\n#EXTVLCOPT:http-user-agent=Spoof\nhttps://example.com/b'
     const result = parseCatalog(text, source.url)
-    expect(result.channels).toHaveLength(1); expect(result.skipped).toBe(2)
+    expect(result.channels).toHaveLength(2); expect(result.skipped).toBe(1)
+    expect(result.channels[1].playback?.headers).toEqual({ 'user-agent': 'Spoof' })
   })
   it('rejects HTML login and error responses', () => expect(() => parseCatalog('<html>secret provider error</html>', source.url)).toThrow('did not return an M3U'))
   it('direct streams require no catalog network request', async () => {
@@ -64,7 +65,7 @@ describe('TV source boundary', () => {
       const catalog = await loadCatalog(source, new AbortController().signal, progress)
       expect(bytes).toBeGreaterThan(8 * 1024 * 1024)
       expect(catalog.channels).toHaveLength(count)
-      expect(catalog.channels.at(-1)).toEqual({ name: 'Channel 44999', group: 'Group 39', url: 'https://cdn.example/stream/44999.m3u8' })
+      expect(catalog.channels.at(-1)).toEqual({ name: 'Channel 44999', group: 'Group 39', url: 'https://cdn.example/stream/44999.m3u8', mediaKind: 'live', logo: `https://images.example/${'a'.repeat(120)}` })
       expect(progress.mock.calls.at(-1)![0]).toMatchObject({ bytes, channels: count, skipped: 0 })
       expect(uiTicks).toBeGreaterThan(0)
     } finally { clearInterval(heartbeat) }
@@ -74,7 +75,7 @@ describe('TV source boundary', () => {
     const bytes = new TextEncoder().encode(text); let offset = 0
     const body = new ReadableStream({ pull(controller) { if (offset === bytes.length) controller.close(); else controller.enqueue(bytes.subarray(offset, ++offset)) } })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body)))
-    expect((await loadCatalog(source, new AbortController().signal)).channels).toEqual([{ name: 'Réunion 📺', group: 'Français', url: 'https://provider.example/stream.m3u8' }])
+    expect((await loadCatalog(source, new AbortController().signal)).channels).toEqual([{ name: 'Réunion 📺', group: 'Français', url: 'https://provider.example/stream.m3u8', mediaKind: 'live' }])
   })
   it('cancels a stalled reader promptly and never returns a partial catalog', async () => {
     const controller = new AbortController(), cancelled = vi.fn()

@@ -26,6 +26,10 @@ const html = (await readFile(resolve(root, 'tv-app/index.html'), 'utf8'))
   .replace('<!-- PLATFORM_SCRIPT -->', target === 'tizen' ? '<script src="$WEBAPIS/webapis/webapis.js"></script>' : '')
 await writeFile(resolve(out, 'index.html'), html)
 await copyFile(resolve(root, 'LICENSE'), resolve(out, 'LICENSE'))
+// Bundle the pinned engine; playback never fetches executable code from a CDN.
+await copyFile(resolve(root, 'node_modules/shaka-player/dist/shaka-player.compiled.js'), resolve(out, 'shaka-player.compiled.js'))
+await copyFile(resolve(root, 'node_modules/shaka-player/LICENSE'), resolve(out, 'LICENSE-Shaka.txt'))
+await copyFile(resolve(root, 'node_modules/@fontsource-variable/geist/LICENSE'), resolve(out, 'LICENSE-Geist.txt'))
 await copyFile(resolve(root, 'tv-app/icons', target === 'webos' ? '80.png' : '117.png'), resolve(out, 'icon.png'))
 if (target === 'webos') {
   await copyFile(resolve(root, 'tv-app/icons/130.png'), resolve(out, 'large-icon.png'))

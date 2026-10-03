@@ -11,6 +11,21 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1:4323').pathname)
+    if (fixtures && pathname === '/_test/provider/player_api.php') {
+      const params = new URL(request.url, `http://127.0.0.1:${port}`).searchParams
+      const action = params.get('action') || ''
+      const art = `http://127.0.0.1:${port}/_test/art.svg`
+      const categories = [{ category_id: '1', category_name: 'UI test library' }]
+      const data = action.endsWith('_categories') ? categories : action === 'get_series_info' ? { episodes: { 1: [{ id: 1, season: 1, episode_num: 1, title: 'Test episode', container_extension: 'mp4' }] } } : Array.from({ length: 10 }, (_, index) => ({ stream_id: index + 1, series_id: index + 1, name: `${action === 'get_series' ? 'Series' : action === 'get_vod_streams' ? 'Movie' : 'Channel'} sample ${index + 1}`, stream_icon: art + `?n=${index}`, cover: art + `?n=${index}`, container_extension: 'mp4' }))
+      response.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(data)); return
+    }
+    if (fixtures && pathname === '/_test/art.svg') {
+      const index = Number(new URL(request.url, `http://127.0.0.1:${port}`).searchParams.get('n')) || 0
+      const palette = ['#7962a7', '#a4785b', '#538e9b', '#927590', '#729077']
+      const color = palette[Math.abs(index) % palette.length]
+      response.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-store' })
+      response.end(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600"><defs><linearGradient id="g" x2="0" y2="1"><stop stop-color="${color}"/><stop offset="1" stop-color="#131726"/></linearGradient></defs><path fill="url(#g)" d="M0 0h400v600H0z"/><circle cx="290" cy="180" r="80" fill="#ffffff28"/><path d="M0 420L170 220 330 410 400 300V600H0" fill="#11192988"/><path d="M0 490L250 350 400 490V600H0" fill="#111724"/><text x="32" y="75" fill="#fff" font-family="sans-serif" font-size="18" letter-spacing="5">UI TEST LIBRARY</text><text x="32" y="525" fill="#fff" font-family="sans-serif" font-size="44">SAMPLE ${index + 1}</text><text x="32" y="560" fill="#aaa" font-family="sans-serif" font-size="16">Generated test artwork · no media</text></svg>`); return
+    }
     if (fixtures && ['/_test/playlist.m3u', '/_test/large.m3u'].includes(pathname)) {
       response.writeHead(200, { 'Content-Type': 'audio/x-mpegurl', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
       const count = pathname === '/_test/large.m3u' ? 120000 : 50

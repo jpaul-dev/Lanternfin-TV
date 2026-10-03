@@ -1,7 +1,8 @@
 import { createM3UParser, isHlsStreamManifest } from '../src/scripts/lib/m3u-parser'
+import { providerMedia, type PlaybackOptions } from './media'
 
 export type Source = { kind: 'playlist' | 'xtream' | 'direct'; url: string; username: string; password: string }
-export type Channel = { name: string; url: string; group: string }
+export type Channel = { name: string; url: string; group: string; mediaKind?: 'live' | 'movie' | 'series' | 'episode'; providerId?: string; logo?: string; description?: string; playback?: PlaybackOptions }
 export type Catalog = { channels: Channel[]; skipped: number }
 // Resource guards, not preview restrictions. Only compact playable entries are
 // retained; raw downloads and the parser's rich intermediate entries are not.
@@ -54,16 +55,20 @@ function catalogParser(base: string) {
   const groups = new Map<string, string>()
   const parser = createM3UParser(entry => {
     if (++entries > MAX_CHANNELS) throw new CatalogError('This catalog exceeds the 500,000-entry TV memory budget. Request a category-specific playlist from your provider.')
-    // Header overrides and DRM need platform-specific support. Never silently ignore them.
-    if (entry.drmScheme || entry.licenseKey || entry.userAgent || entry.referer || entry.url.includes('|') || entry.url.length > 8192) { skipped++; return }
-    let url: string
-    try { url = httpUrl(entry.url, base) } catch { skipped++; return }
+    if (entry.url.length > 16384) { skipped++; return }
+    let media: ReturnType<typeof providerMedia>
+    try { media = providerMedia(entry, base) } catch { skipped++; return }
+    const { url } = media
+    let logo: string | undefined
+    try { if (entry.logo && entry.logo.length <= 2048) logo = httpUrl(entry.logo, base) } catch { /* Artwork is optional. */ }
+    const kind = (entry.tvgType || '').toLowerCase()
+    const mediaKind = /^(movie|vod)$/.test(kind) || /\/movie\//i.test(url) ? 'movie' : /^(series|episode)$/.test(kind) || /\/series\//i.test(url) ? 'episode' : 'live'
     const name = entry.name.slice(0, 200) || 'Untitled stream', group = (entry.category || 'Ungrouped').slice(0, 100)
     // Share group strings instead of retaining a fresh copy for every entry.
     if (!groups.has(group)) { groups.set(group, group); retained += group.length }
-    retained += name.length + url.length
+    retained += name.length + url.length + (logo?.length || 0) + (media.playback ? JSON.stringify(media.playback).length : 0)
     if (retained > MAX_RETAINED_CHARACTERS) throw new CatalogError('The catalog needs more memory than this TV budget allows. Request a category-specific playlist from your provider.')
-    channels.push({ name, url, group: groups.get(group)! })
+    channels.push({ name, url, group: groups.get(group)!, mediaKind, ...(logo ? { logo } : {}), ...(media.playback ? { playback: media.playback } : {}) })
   })
   return {
     writeLine(raw: string) {
@@ -82,7 +87,7 @@ function catalogParser(base: string) {
     finish(): Catalog {
       if (hls) return { channels: [{ name: 'Direct stream', url: httpUrl(base), group: 'Streams' }], skipped: 0 }
       if (!header) throw new CatalogError('The provider did not return an M3U playlist. Check your address and login.')
-      if (!channels.length) throw new CatalogError('No supported streams found. HTTP/HTTPS streams are supported; DRM and custom headers need additional platform support.')
+      if (!channels.length) throw new CatalogError('No valid HTTP or HTTPS stream addresses were found in this playlist.')
       return { channels, skipped }
     },
   }

@@ -1,0 +1,108 @@
+import { htmlPlayer, samsungPlayer, type AVPlay, type Player, type Report } from './player'
+import { browserHeaderProblem, needsAdaptivePlayer, type Media } from './media'
+
+type Request = { headers: Record<string, string> }
+type Engine = {
+  attach(video: HTMLVideoElement): Promise<void>; load(url: string, position?: number, mime?: string): Promise<void>; destroy(): Promise<void>
+  configure(config: object): boolean; addEventListener(name: string, callback: (event: any) => void): void
+  getNetworkingEngine(): { registerRequestFilter(filter: (type: number, request: Request) => void): void }
+}
+type Shaka = { Player: { new(): Engine; isBrowserSupported(): boolean }; polyfill: { installAll(): void }; net: { NetworkingEngine: { RequestType: { LICENSE: number; MANIFEST: number; SEGMENT: number } } } }
+let runtime: Promise<Shaka> | undefined
+function loadRuntime(): Promise<Shaka> {
+  if (!runtime) runtime = new Promise<Shaka>((resolve, reject) => {
+    const script = document.createElement('script'); script.src = 'shaka-player.compiled.js'
+    script.onload = () => { const shaka = (window as Window & { shaka?: Shaka }).shaka; shaka ? resolve(shaka) : reject(new Error('Player engine unavailable.')) }
+    script.onerror = () => reject(new Error('Player engine could not be loaded. Reinstall the complete app package.'))
+    document.head.append(script)
+  }).catch(error => { runtime = undefined; throw error })
+  return runtime
+}
+export function playbackError(error: { category?: number; code?: number }): string {
+  const code = Number.isInteger(error.code) ? ` (code ${error.code})` : ''
+  if (error.category === 6) return `DRM license or device support failed${code}. LG's simulator cannot play DRM; a physical TV with the required DRM system and provider access is needed.`
+  if (error.category === 1) return `The media or license server could not be reached${code}. Check provider access, network, and cross-origin permissions.`
+  if (error.category === 3 || error.category === 4) return `The stream format or codec could not be loaded${code}. Try another format from your provider.`
+  return `Playback could not start${code}. Check the stream format and provider access.`
+}
+/** Serializes decoder teardown, so rapid zapping never destroys the next stream. */
+export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka = loadRuntime): Player & { whenStopped(): Promise<void> } {
+  let generation = 0, engine: Engine | undefined, queue = Promise.resolve(), cleanup = () => {}, timer: ReturnType<typeof setTimeout> | undefined
+  const dispose = async () => { clearTimeout(timer); cleanup(); cleanup = () => {}; const old = engine; engine = undefined; if (old) await old.destroy().catch(() => {}) }
+  const stop = () => {
+    generation++
+    // Destroy immediately to abort a pending load; queuing destroy behind load can deadlock.
+    const closing = dispose(); video.pause()
+    queue = Promise.all([queue.catch(() => {}), closing]).then(() => {})
+  }
+  return {
+    play(input, position = 0) {
+      stop(); const token = generation, media = typeof input === 'string' ? { url: input } : input
+      const options = media.playback
+      const problem = options?.problem || browserHeaderProblem(options?.headers) || browserHeaderProblem(options?.drm?.headers)
+      if (problem) { report('error', problem); return }
+      if (Object.keys(options?.headers || {}).length && /\.(mp4|webm|mkv|ts)(?:\?|$)/i.test(media.url)) { report('error', 'Custom media headers require an HLS or DASH manifest with this engine. Use an adaptive URL from your provider.'); return }
+      report('loading', 'Opening with Shaka Player…')
+      queue = queue.then(async () => {
+        if (token !== generation) return
+        const fail = (message: string) => { if (token === generation) { stop(); report('error', message) } }
+        try {
+          const shaka = await getShaka()
+          if (token !== generation) return
+          shaka.polyfill.installAll()
+          if (!shaka.Player.isBrowserSupported()) { fail('This device does not expose the media APIs needed by Shaka Player. Try a supported physical TV.'); return }
+          const current = new shaka.Player(); engine = current
+          current.addEventListener('error', event => { if (event.detail?.severity === 2) fail(playbackError(event.detail)) })
+          await current.attach(video)
+          if (token !== generation) return
+          const drm = options?.drm
+          if (drm && !['com.widevine.alpha', 'com.microsoft.playready', 'org.w3.clearkey'].includes(drm.system)) { fail('This DRM system is not supported by the TV port.'); return }
+          if (drm && !navigator.requestMediaKeySystemAccess) { fail('DRM is unavailable in this environment. LG’s simulator does not support DRM; test this stream on a physical TV.'); return }
+          current.configure({ streaming: { bufferingGoal: 20, rebufferingGoal: 2, preferNativeHls: false }, ...(drm ? { drm: { ...(drm.licenseUrl ? { servers: { [drm.system]: drm.licenseUrl } } : {}), ...(drm.clearKeys ? { clearKeys: drm.clearKeys } : {}) } } : {}) })
+          const types = shaka.net.NetworkingEngine.RequestType
+          current.getNetworkingEngine().registerRequestFilter((type, request) => {
+            // Never send media authorization headers to a license server or vice versa.
+            const values = type === types.LICENSE ? drm?.headers : type === types.MANIFEST || type === types.SEGMENT ? options?.headers : undefined
+            if (values) Object.assign(request.headers, values)
+          })
+          const wait = () => { clearTimeout(timer); timer = setTimeout(() => fail('The stream stopped responding. Check your connection and retry.'), 60000) }
+          const events: Record<string, () => void> = {
+            playing: () => { clearTimeout(timer); report('playing') }, pause: () => { clearTimeout(timer); report('paused') },
+            waiting: () => { wait(); report('buffering') }, ended: () => { stop(); report('ended') },
+          }
+          for (const [name, fn] of Object.entries(events)) video.addEventListener(name, fn)
+          cleanup = () => { for (const [name, fn] of Object.entries(events)) video.removeEventListener(name, fn) }
+          wait()
+          const mime = options?.manifestType === 'mpd' || options?.manifestType === 'dash' ? 'application/dash+xml' : options?.manifestType === 'hls' ? 'application/x-mpegurl' : undefined
+          await current.load(media.url, position || undefined, mime)
+          if (token === generation) await video.play()
+        } catch (error) { fail(playbackError(error as { category?: number; code?: number })) }
+      })
+    },
+    stop() { stop(); report('idle') }, pause() { video.pause() }, resume() { void video.play().catch(() => report('error', 'Playback could not resume. Choose Retry stream.')) },
+    seek(delta) { if (Number.isFinite(video.duration) && video.duration > 1) try { video.currentTime = Math.max(0, Math.min(video.duration - 1, video.currentTime + delta)) } catch { /* not seekable */ } },
+    timeline() { return { position: video.currentTime || 0, duration: video.duration || 0 } },
+    whenStopped() { return queue },
+  }
+}
+export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api: AVPlay; surface: HTMLElement }): Player {
+  const html = htmlPlayer(video, report), adaptive = adaptivePlayer(video, report), samsung = native && samsungPlayer(native.api, report)
+  let current: Player = html, generation = 0
+  return {
+    play(input, position) {
+      current.stop()
+      const token = ++generation, previous = current
+      const media: Media = typeof input === 'string' ? { url: input } : input
+      const nativeHeaders = Object.keys(media.playback?.headers || {}).every(name => ['user-agent', 'cookie'].includes(name.toLowerCase()))
+      const useNative = !!samsung && !media.playback?.drm && !media.playback?.problem && nativeHeaders
+      const begin = () => {
+        if (token !== generation) return
+        current = useNative ? samsung! : needsAdaptivePlayer(media) ? adaptive : html
+        video.hidden = useNative; if (native) native.surface.hidden = !useNative
+        current.play(media, position)
+      }
+      if (previous === adaptive) void adaptive.whenStopped().then(begin); else begin()
+    },
+    stop() { generation++; current.stop() }, pause() { current.pause() }, resume() { current.resume() }, seek(delta) { current.seek(delta) }, timeline() { return current.timeline() },
+  }
+}
