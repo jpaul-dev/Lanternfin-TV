@@ -20,6 +20,12 @@ it('checks only fixed public endpoints without credentials or viewing data', asy
     expect(options.headers).toEqual({ Accept: 'application/vnd.github+json' }); expect(options.body).toBeUndefined()
   }
 })
+it('retains later platform and stable candidates until the UI applies its display limit', () => {
+  const values = Array.from({ length: 19 }, () => release(['Lanternfin-TV-0.2.0-tizen.wgt']))
+  values.push(release(['io.github.jpauldev.lanternfin_0.2.0_all.ipk'], { prerelease: false }))
+  expect(tvReleases(values)).toHaveLength(20)
+  expect(tvReleases(values)[19]).toMatchObject({ prerelease: false, targets: ['webos'] })
+})
 it('reports partial failures without declaring the app up to date or echoing server details', async () => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('/releases?') ? new Response('private token', { status: 403 }) : new Response(JSON.stringify({ object: { sha: 'a'.repeat(40) } }))))
   const result = await checkUpdates(new AbortController().signal)

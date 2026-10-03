@@ -75,3 +75,13 @@ it('can restore sources without their library and rejects duplicate profiles or 
   expect(readProfiles(target)).toHaveLength(1)
   backup.profiles.push(backup.profiles[0]); expect(() => validateBackup(backup)).toThrow('supported')
 })
+it('round-trips the update channel and migrates legacy backups without a channel to stable', () => {
+  const { storage } = fixture(), target = new MemoryStore()
+  savePreferences(storage, { ...DEFAULTS, updateChannel: 'beta', homeRows: ['movies', 'live'] })
+  const backup = createBackup(storage)
+  restoreBackup(target, backup, { library: false, preferences: true })
+  expect(readPreferences(target)).toMatchObject({ updateChannel: 'beta', homeRows: ['movies', 'live'] })
+  const legacy = JSON.parse(JSON.stringify(backup)); delete legacy.preferences.updateChannel
+  restoreBackup(target, legacy, { library: false, preferences: true })
+  expect(readPreferences(target)).toMatchObject({ updateChannel: 'stable', homeRows: ['movies', 'live'] })
+})

@@ -144,7 +144,7 @@ const diagnostics = diagnosticsUI($('diagnostics'), (): DiagnosticReport => ({ s
 const libraryManager = libraryUI($('manage'), () => { void refreshCards() })
 const downloads = new TVDownloads(__TV_TARGET__ === 'tizen' ? window.tizen as DownloadPlatform : undefined)
 const downloadView = downloadsUI($('downloads'), downloads, (channel, position) => { playbackReturn = 'downloads'; startWatching(channel, position) })
-const updates = updatesUI($('updates'), __TV_TARGET__)
+const updates = updatesUI($('updates'), __TV_TARGET__, undefined, () => preferences.updateChannel)
 const preferenceChoices = settingsChoices($('settings'))
 downloads.load()
 if (away) downloads.suspend()
@@ -1386,7 +1386,7 @@ $('settings-clear-cache').onclick = async () => { cacheSaving?.abort(); try { aw
 $('settings-refresh').onclick = () => button('refresh-catalog').click()
 $('settings-reset').onclick = () => { preferences = { ...DEFAULTS }; syncPreferences(); persistPreferences() }
 function syncPreferences() {
-  for (const [id, value] of Object.entries({ theme: preferences.theme, accent: preferences.accent, scale: preferences.scale, overscan: preferences.overscan, motion: preferences.reducedMotion, audio: preferences.audio, subtitles: preferences.subtitles, clock: preferences.guideClock, autonext: preferences.autoNext, grouping: preferences.groupLanguages, content: preferences.contentLanguage, language: preferences.interfaceLanguage })) select(`pref-${id}`).value = String(value)
+  for (const [id, value] of Object.entries({ theme: preferences.theme, accent: preferences.accent, scale: preferences.scale, overscan: preferences.overscan, motion: preferences.reducedMotion, audio: preferences.audio, subtitles: preferences.subtitles, clock: preferences.guideClock, autonext: preferences.autoNext, grouping: preferences.groupLanguages, content: preferences.contentLanguage, language: preferences.interfaceLanguage, 'update-channel': preferences.updateChannel })) select(`pref-${id}`).value = String(value)
 }
 function persistPreferences() {
   applyPreferences(preferences)
@@ -1404,8 +1404,7 @@ select('pref-clock').add(new Option('Device time zone', 'auto'))
 for (let offset = -720; offset <= 840; offset += 30) select('pref-clock').add(new Option(`UTC${offset < 0 ? '−' : '+'}${String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0')}:${String(Math.abs(offset) % 60).padStart(2, '0')}`, String(offset)))
 for (const option of select('pref-clock').options) if (option.value !== 'auto') select('replay-clock').add(new Option(option.text, option.value))
 for (const element of $('settings').querySelectorAll<HTMLSelectElement>('select[id^="pref-"]')) element.onchange = () => {
-  preferences = normalizePreferences({ theme: select('pref-theme').value, accent: select('pref-accent').value, scale: Number(select('pref-scale').value), overscan: Number(select('pref-overscan').value), reducedMotion: select('pref-motion').value === 'true', audio: select('pref-audio').value, subtitles: select('pref-subtitles').value, guideClock: select('pref-clock').value, autoNext: select('pref-autonext').value === 'true', groupLanguages: select('pref-grouping').value === 'true', contentLanguage: select('pref-content').value })
-  preferences = normalizePreferences({ ...preferences, interfaceLanguage: select('pref-language').value })
+  preferences = normalizePreferences({ ...preferences, theme: select('pref-theme').value, accent: select('pref-accent').value, scale: Number(select('pref-scale').value), overscan: Number(select('pref-overscan').value), reducedMotion: select('pref-motion').value === 'true', audio: select('pref-audio').value, subtitles: select('pref-subtitles').value, guideClock: select('pref-clock').value, autoNext: select('pref-autonext').value === 'true', groupLanguages: select('pref-grouping').value === 'true', contentLanguage: select('pref-content').value, interfaceLanguage: select('pref-language').value, updateChannel: select('pref-update-channel').value })
   persistPreferences()
 }
 for (const id of ['guide-offset', 'source-guide-offset']) {

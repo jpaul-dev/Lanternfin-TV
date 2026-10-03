@@ -2,13 +2,15 @@ export const ACCENTS = { fuchsia: ['#e68bdf', '#96368f'], rose: ['#ffa0b9', '#a8
 export const LANGUAGES = { auto: 'Automatic', en: 'English', es: 'Español', fr: 'Français', de: 'Deutsch', it: 'Italiano', 'pt-BR': 'Português', nl: 'Nederlands', pl: 'Polski', tr: 'Türkçe', ru: 'Русский', ar: 'العربية', hi: 'हिन्दी', ja: '日本語', zh: '中文' } as const
 import { INTERFACE_LANGUAGES } from './i18n'
 import { DEFAULT_HOME_ROWS, normalizeHomeRows, type HomeRow } from './home-config'
-export type Preferences = { theme: 'dark' | 'light' | 'system'; accent: keyof typeof ACCENTS; scale: number; overscan: number; reducedMotion: boolean; audio: string; subtitles: string; guideClock: string; autoNext: boolean; groupLanguages: boolean; contentLanguage: string; interfaceLanguage: string; homeRows: HomeRow[] }
-export const DEFAULTS: Preferences = { theme: 'dark', accent: 'fuchsia', scale: 1, overscan: 0, reducedMotion: false, audio: 'auto', subtitles: 'off', guideClock: 'auto', autoNext: false, groupLanguages: false, contentLanguage: 'auto', interfaceLanguage: 'auto', homeRows: [...DEFAULT_HOME_ROWS] }
+export type UpdateChannel = 'stable' | 'beta'
+export type Preferences = { theme: 'dark' | 'light' | 'system'; accent: keyof typeof ACCENTS; scale: number; overscan: number; reducedMotion: boolean; audio: string; subtitles: string; guideClock: string; autoNext: boolean; groupLanguages: boolean; contentLanguage: string; interfaceLanguage: string; homeRows: HomeRow[]; updateChannel: UpdateChannel }
+export const DEFAULTS: Preferences = { theme: 'dark', accent: 'fuchsia', scale: 1, overscan: 0, reducedMotion: false, audio: 'auto', subtitles: 'off', guideClock: 'auto', autoNext: false, groupLanguages: false, contentLanguage: 'auto', interfaceLanguage: 'auto', homeRows: [...DEFAULT_HOME_ROWS], updateChannel: 'stable' }
 const KEY = 'lanternfin.tv.preferences.v1'
 const owns = (object: object, key: string) => Object.prototype.hasOwnProperty.call(object, key)
 export function normalizePreferences(raw: unknown): Preferences {
   const result = { ...DEFAULTS }, value = raw && typeof raw === 'object' ? raw as Partial<Preferences> : {}
   result.homeRows = normalizeHomeRows(value.homeRows)
+  if (value.updateChannel === 'stable' || value.updateChannel === 'beta') result.updateChannel = value.updateChannel
   if (['dark', 'light', 'system'].includes(value.theme || '')) result.theme = value.theme!
   if (owns(ACCENTS, value.accent || '')) result.accent = value.accent!
   if ([.85, 1, 1.15, 1.3].includes(value.scale || 0)) result.scale = value.scale!

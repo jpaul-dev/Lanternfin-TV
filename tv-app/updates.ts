@@ -24,7 +24,8 @@ export function tvReleases(value: unknown): TVRelease[] {
     }
     if (targets.size) result.push({ name: typeof release.name === 'string' && release.name.trim() ? release.name.slice(0, 120) : release.tag_name, url, prerelease: release.prerelease, targets: [...targets] })
   }
-  return result.slice(0, 10)
+  // Retain the bounded response so channel/TV filtering precedes the display limit.
+  return result
 }
 
 async function read(path: string, signal: AbortSignal): Promise<unknown> {

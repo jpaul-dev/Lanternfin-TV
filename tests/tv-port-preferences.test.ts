@@ -18,3 +18,8 @@ it('matches regional and ISO three-letter track language codes', () => {
   expect(languageMatch('fre', 'fr-FR')).toBe(true); expect(languageMatch('eng', 'en')).toBe(true)
   expect(languageMatch('pt-PT', 'pt-BR')).toBe(true); expect(languageMatch('es', 'en')).toBe(false)
 })
+it('defaults old or invalid update channels to stable and persists an explicit beta choice', () => {
+  for (const updateChannel of [undefined, null, 'nightly', 'constructor', true, ['beta']]) expect(normalizePreferences({ updateChannel }).updateChannel).toBe('stable')
+  savePreferences(localStorage, { ...DEFAULTS, updateChannel: 'beta' })
+  expect(readPreferences(localStorage).updateChannel).toBe('beta')
+})
