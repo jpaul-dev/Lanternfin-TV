@@ -3,6 +3,7 @@ import { loadCatalog, validateSource, type Source, type Channel } from './catalo
 import { readSource, storeSource } from './storage'
 import { keyAction, moveFocus, type Direction } from './remote'
 import { htmlPlayer, samsungPlayer, type AVPlay, type Player, type State } from './player'
+import { searchCatalog } from './search'
 
 declare const __TV_TARGET__: 'webos' | 'tizen' | 'browser'
 declare global {
@@ -20,6 +21,7 @@ let screen: Screen = 'setup', previousScreen: Screen = 'setup'
 let channels: Channel[] = [], filtered: Channel[] = [], page = 0, lastChannel = 0
 let state: State = 'idle', player: Player | undefined, loading: AbortController | undefined
 let controlsTimer: ReturnType<typeof setTimeout> | undefined
+let searching: AbortController | undefined, searchTimer: ReturnType<typeof setTimeout> | undefined
 let nativeSelectOpen = false
 const PAGE_SIZE = 24
 const notice = (message: string) => { $('notice').textContent = message }
@@ -56,10 +58,13 @@ $('source-form').addEventListener('submit', async event => {
   let source: Source
   try { source = currentSource() } catch (error) { notice((error as Error).message); return }
   const controller = new AbortController(); loading = controller
-  const timeout = setTimeout(() => controller.abort(), 20000)
   setBusy(true); notice('Opening your playlist…')
   try {
-    const catalog = await loadCatalog(source, controller.signal)
+    const catalog = await loadCatalog(source, controller.signal, progress => {
+      if (loading !== controller) return
+      const megabytes = (progress.bytes / 1024 / 1024).toFixed(1)
+      notice(`Loading ${megabytes} MB${progress.total ? ` of ${(progress.total / 1024 / 1024).toFixed(1)} MB` : ''} · ${progress.channels.toLocaleString()} streams found. You can cancel at any time.`)
+    })
     if (loading !== controller) return
     channels = catalog.channels; page = 0; input('search').value = ''
     let storageMessage = ''
@@ -67,11 +72,13 @@ $('source-form').addEventListener('submit', async event => {
     catch { storageMessage = ' Your TV could not update saved settings. This session will still work.' }
     // Credentials remain only in the form/session unless saving was explicitly chosen.
     const group = select('group'); group.textContent = ''; group.add(new Option('All groups', ''))
-    for (const name of Array.from(new Set(channels.map(channel => channel.group))).sort()) group.add(new Option(name, name))
-    filter(); show('catalog')
+    const groups = new Set<string>()
+    for (const channel of channels) groups.add(channel.group)
+    for (const name of Array.from(groups).sort()) group.add(new Option(name, name))
+    await filter(); show('catalog')
     notice((catalog.skipped ? `${catalog.skipped} unsupported entries were skipped (DRM, custom headers, or invalid addresses).` : '') + storageMessage)
   } catch (error) { if (loading === controller) notice((error as Error).message) }
-  finally { clearTimeout(timeout); if (loading === controller) { loading = undefined; setBusy(false); if (screen === 'setup') button('connect').focus() } }
+  finally { if (loading === controller) { loading = undefined; setBusy(false); if (screen === 'setup') button('connect').focus() } }
 })
 $('cancel-load').onclick = () => { cancelLoad(); notice('Loading cancelled.'); button('connect').focus() }
 select('source-kind').onchange = sourceKind
@@ -85,10 +92,17 @@ $('forget').onclick = () => {
   catch { notice('The TV could not remove its saved settings. Try clearing app data in TV settings.') }
 }
 
-function filter() {
-  const query = input('search').value.trim().toLocaleLowerCase(), group = select('group').value
-  filtered = channels.filter(channel => (!group || channel.group === group) && channel.name.toLocaleLowerCase().includes(query))
-  page = 0; render()
+async function filter() {
+  searching?.abort(); clearTimeout(searchTimer)
+  const controller = new AbortController(); searching = controller
+  $('result-count').textContent = 'Searching your streams…'
+  button('previous').disabled = button('next').disabled = true
+  try {
+    const matches = await searchCatalog(channels, input('search').value, select('group').value, controller.signal)
+    if (searching !== controller) return
+    filtered = matches; page = 0; render()
+  } catch { /* Superseded searches do not replace current results. */ }
+  finally { if (searching === controller) searching = undefined }
 }
 function render() {
   const grid = $('channels'); grid.textContent = ''
@@ -102,7 +116,8 @@ function render() {
   $('page-label').textContent = `Page ${page + 1} of ${Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))}`
   button('previous').disabled = page === 0; button('next').disabled = (page + 1) * PAGE_SIZE >= filtered.length
 }
-input('search').oninput = filter; select('group').onchange = filter
+input('search').oninput = () => { searching?.abort(); searchTimer && clearTimeout(searchTimer); searchTimer = setTimeout(filter, 180) }
+select('group').onchange = () => { void filter() }
 for (const [id, delta] of [['previous', -1], ['next', 1]] as const) $(id).onclick = () => { page += delta; render(); $('channels').querySelector('button')?.focus() }
 $('change-source').onclick = () => show('setup')
 

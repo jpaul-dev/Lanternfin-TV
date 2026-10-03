@@ -7,7 +7,7 @@ For a guided interface instead of terminal commands, open **Open TV Setup.vbs** 
 ## What this preview does
 
 - Opens your M3U playlist, an Xtream provider's `get.php` playlist, or a direct HTTP/HTTPS stream.
-- Groups, searches, and pages through streams, with 24 cards per page. Limits downloads to 8 MB and catalogues to 30,000 entries.
+- Groups, searches, and pages through streams, with 24 cards per page. Incremental loading discards raw text and rich intermediate records, reports progress, and yields to the UI. Searches are cancellable. Resource guards are 256 MiB downloaded, 500,000 entries, 64 Mi characters of retained names/URLs/group strings, and 64 Ki characters per line; catalogs are never silently truncated. A 45-second inactivity timeout replaces the former 20-second total deadline.
 - Uses HTML video on LG and Samsung AVPlay on Tizen; no phone, receiver service, or mandatory relay.
 - Handles directional navigation, pointer clicks, Back, media keys, pause/resume, and basic VOD seeking. Stops playback when the app is hidden and requires an explicit selection to start again.
 - Keeps provider settings in memory by default. Opt-in persistence uses unencrypted TV browser storage, with a Forget action. Turning Remember off removes the previously saved source.
@@ -112,3 +112,9 @@ Before calling either port supported, record the TV model, OS version, firmware,
 2. **Expand the shared catalog:** extract pure Xtream category/movie/series/episode helpers from the Android code, add favorites and resume state, and preserve a common data contract across platforms.
 3. **Add a TV guide and playback controls:** EPG cache with memory limits, audio/subtitle selection, then catch-up and format-specific fallbacks based on device evidence. Add one capability at a time to the hardware matrix.
 4. **Prepare distribution:** settle the supported model years, resolve dependency findings, complete trademark/name checks and notices, privacy/store materials, accessibility tests, repeatable source publication and signing backups. Store submission is a separate milestone.
+
+## Work toward everyday use
+
+The 8 MiB / 30,000-entry prototype restriction has been removed. The first hardening checkpoint passed all 153 test files / 3,080 tests, including split UTF-8, cancellation of stalled reads, downloads lasting longer than the old deadline, line/response memory guards, and shared-parser regressions. A real browser loaded all 120,000 entries from a streamed synthetic playlist and located entry 120,000 by search. The synthetic fixture uses unavailable media URLs and validates catalog behavior, not playback. Run `node scripts/preview-tv.mjs --fixtures --port 4324` and load `http://127.0.0.1:4324/_test/large.m3u` to repeat it; this public test-data endpoint allows simulator origins.
+
+The broader readiness goal remains active: add favorites and recent streams, resumable VOD and playback recovery, category-based Xtream live/movie/series browsing, program information, and a measured device acceptance pass. Passing the catalog checkpoint alone does not meet that goal.

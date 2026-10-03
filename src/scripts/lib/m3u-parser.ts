@@ -314,11 +314,8 @@ function bareUrlPending(url: string): Omit<M3UEntry, "url"> & { siptvDays: numbe
   }
 }
 
-export function parseM3U(text: string): M3UParseResult {
-  let payload = text
-  if (payload.charCodeAt(0) === 0xfeff) payload = payload.slice(1)
-
-  const entries: M3UEntry[] = []
+/** Incremental parser. The caller owns line splitting and entry retention. */
+export function createM3UParser(onEntry: (entry: M3UEntry) => void) {
   let epgUrl = ""
   let epgUrls: string[] = []
   let pending: (Omit<M3UEntry, "url"> & { siptvDays: number }) | null = null
@@ -332,9 +329,9 @@ export function parseM3U(text: string): M3UParseResult {
   let headerTvgShift: number | null = null
   let headerSiptvDays = 0
 
-  for (const raw of payload.split(/\r?\n/)) {
+  function writeLine(raw: string): void {
     const line = raw.trim()
-    if (!line) continue
+    if (!line) return
 
     if (line.startsWith("#EXTM3U")) {
       const epgUrlRaw =
@@ -355,52 +352,52 @@ export function parseM3U(text: string): M3UParseResult {
       headerCatchupCorrection = readHoursAttr(line, "catchup-correction") ?? headerCatchupCorrection
       headerTvgShift = readHoursAttr(line, "tvg-shift") ?? headerTvgShift
       headerSiptvDays = readSiptvDays(line) || headerSiptvDays
-      continue
+      return
     }
 
     if (line.startsWith("#EXTINF")) {
       pending = parseExtinf(line)
-      continue
+      return
     }
 
     if (line.startsWith("#EXTGRP:")) {
       extgrpFallback = line.slice("#EXTGRP:".length).trim() || null
-      continue
+      return
     }
 
     if (line.startsWith("#EXTVLCOPT:")) {
-      if (!pending) continue
+      if (!pending) return
       const tail = line.slice("#EXTVLCOPT:".length)
       const eqIdx = tail.indexOf("=")
-      if (eqIdx <= 0) continue
+      if (eqIdx <= 0) return
       const key = tail.slice(0, eqIdx).trim().toLowerCase()
       const value = tail.slice(eqIdx + 1).trim()
-      if (!value) continue
+      if (!value) return
       if (key === "http-user-agent") pending.userAgent = value
       else if (key === "http-referrer" || key === "http-referer") pending.referer = value
-      continue
+      return
     }
 
     if (line.startsWith("#KODIPROP:")) {
-      if (!pending) continue
+      if (!pending) return
       const tail = line.slice("#KODIPROP:".length)
       const eqIdx = tail.indexOf("=")
-      if (eqIdx <= 0) continue
+      if (eqIdx <= 0) return
       const key = tail.slice(0, eqIdx).trim().toLowerCase()
       const value = tail.slice(eqIdx + 1).trim()
-      if (!value) continue
+      if (!value) return
       if (key === "inputstream.adaptive.manifest_type") pending.manifestType = value
       else if (key === "inputstream.adaptive.license_type") pending.drmScheme = value
       else if (key === "inputstream.adaptive.license_key") pending.licenseKey = value
-      continue
+      return
     }
-    if (isHlsTag(line)) continue
-    if (line.startsWith("#")) continue
+    if (isHlsTag(line)) return
+    if (line.startsWith("#")) return
 
     // A bare URL with no preceding #EXTINF is still valid (common in radio pointer .m3u files).
     if (!pending) {
       if (/^https?:\/\//i.test(line)) pending = bareUrlPending(line)
-      else continue
+      else return
     }
     const rawCategory = pending.category ?? extgrpFallback
     const categories = splitGroups(rawCategory)
@@ -413,7 +410,7 @@ export function parseM3U(text: string): M3UParseResult {
       catchup = "shift"
       if (catchupDays == null) catchupDays = effectiveSiptvDays
     }
-    entries.push({
+    onEntry({
       ...pendingEntry,
       category,
       categories,
@@ -428,5 +425,12 @@ export function parseM3U(text: string): M3UParseResult {
     extgrpFallback = null
   }
 
-  return { entries, epgUrl, epgUrls }
+  return { writeLine, finish: () => ({ epgUrl, epgUrls }) }
+}
+
+export function parseM3U(text: string): M3UParseResult {
+  const entries: M3UEntry[] = []
+  const parser = createM3UParser(entry => entries.push(entry))
+  for (const line of text.split(/\r?\n/)) parser.writeLine(line)
+  return { entries, ...parser.finish() }
 }
