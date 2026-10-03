@@ -1,0 +1,87 @@
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +478
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+   ╭──────────────────────────────────────────────╮
+   │                                              │
+   │     Update available! 10.31.0 → 12.8.1.      │
+   │     Changelog: https://pnpm.io/v/12.8.1      │
+   │   To update, run: corepack use pnpm@12.8.1   │
+   │                                              │
+   ╰──────────────────────────────────────────────╯
+
+Progress: resolved 478, reused 118, downloaded 87, added 12
+Progress: resolved 478, reused 118, downloaded 136, added 18
+Progress: resolved 478, reused 118, downloaded 201, added 24
+Progress: resolved 478, reused 118, downloaded 253, added 30
+Progress: resolved 478, reused 118, downloaded 338, added 40
+Packages are hard linked from the content-addressable store to the virtual store.
+  Content-addressable store is at: <user-home>\AppData\Local\pnpm\store\v10
+  Virtual store is at:             node_modules/.pnpm
+ WARN  The git-hosted package fetched from "https://codeload.github.com/xqq/webworkify-webpack/tar.gz/24d1e719b4a6cac37a518b2bb10fe124527ef4ef" has to be built but the build scripts were ignored.
+Progress: resolved 478, reused 118, downloaded 349, added 133
+Progress: resolved 478, reused 118, downloaded 354, added 228
+Progress: resolved 478, reused 118, downloaded 357, added 316
+Progress: resolved 478, reused 118, downloaded 358, added 382
+Progress: resolved 478, reused 118, downloaded 358, added 432
+Progress: resolved 478, reused 118, downloaded 358, added 470
+Progress: resolved 478, reused 118, downloaded 358, added 475
+Progress: resolved 478, reused 118, downloaded 358, added 476
+Progress: resolved 478, reused 118, downloaded 359, added 476
+Progress: resolved 478, reused 118, downloaded 359, added 477
+Progress: resolved 478, reused 118, downloaded 360, added 477
+Progress: resolved 478, reused 118, downloaded 360, added 478
+Progress: resolved 478, reused 118, downloaded 360, added 478, done
+
+dependencies:
++ @astrojs/svelte 9.0.1
++ @fontsource-variable/geist 5.3.0
++ @fontsource/instrument-serif 5.3.0
++ @tabler/icons-svelte 3.46.0
++ @tailwindcss/vite 4.3.3
++ @tauri-apps/api 2.11.1
++ @tauri-apps/plugin-clipboard-manager 2.3.2
++ @tauri-apps/plugin-dialog 2.7.2
++ @tauri-apps/plugin-fs 2.5.1
++ @tauri-apps/plugin-http 2.5.9
++ @tauri-apps/plugin-log 2.9.0
++ @tauri-apps/plugin-notification 2.3.3
++ @tauri-apps/plugin-opener 2.5.4
++ @tauri-apps/plugin-process 2.3.1
++ @tauri-apps/plugin-store 2.4.4
++ @tauri-apps/plugin-updater 2.10.1
++ @tauri-apps/plugin-window-state 2.4.1
++ artplayer 5.4.0
++ astro 7.2.9
++ dompurify 3.4.14
++ hls.js 1.7.1
++ marked 18.0.11
++ mp4box 2.4.1
++ mpegts.js 1.8.0
++ shaka-player 5.2.8
++ svelte 5.57.0
++ tailwindcss 4.3.3
++ tauri-plugin-android-fs-api 28.1.0
++ typescript 6.0.3
++ video.js 8.24.0
+
+devDependencies:
++ @eslint/js 10.0.1
++ @playwright/test 1.62.1
++ @tauri-apps/cli 2.11.4
++ @vitest/expect 4.1.11
++ eslint 10.9.1
++ eslint-plugin-astro 3.1.0
++ eslint-plugin-svelte 3.23.0
++ globals 17.11.0
++ jsdom 30.0.1
++ magic-string 1.2.3
++ playwright 1.62.1
++ svelte-eslint-parser 1.8.1
++ tiny-glob 0.2.9
++ typescript-eslint 8.68.0
++ vite 8.2.2
++ vitest 4.1.11
+
+Done in 30s using pnpm v10.31.0

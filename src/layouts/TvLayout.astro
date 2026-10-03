@@ -1,5 +1,6 @@
 ---
 import { ClientRouter } from "astro:transitions"
+import ReceiverDefaults from "@/components/ReceiverDefaults.astro"
 import {
   IconHome,
   IconDeviceTv,
@@ -43,6 +44,7 @@ const navItems = [
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{documentTitle}</title>
     <meta name="x-app-version" content={pkg.version} />
+    <ReceiverDefaults />
     <ClientRouter />
     <script is:inline define:vars={{ classicRouteTable: CLASSIC_ROUTE_TABLE }}>
       (function () {

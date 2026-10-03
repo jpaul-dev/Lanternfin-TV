@@ -1,0 +1,27 @@
+[
+  {
+    "tag": "insert",
+    "before": ");\"VANC\"===b?d.smpte2038_pids[f]=!0:\"AV01\"===b?d.common_pids.av1=f:\"Opus\"===b?d.common_pids.opus=f:\"KLVA\"===b&&(d.asynchronous_klv_pids[f]=!0)}else if(127===y){if(f===d.common_pids.opus){var A=null;if",
+    "after": ");\"VANC\"===b?d.smpte2038_pids[f]=!0:\"AV01\"===b?d.common_pids.av1=f:\"Opus\"===b?d.common_pids.opus=f:\"AC-3\"===b?g||(d.common_pids.ac3=f):\"EC-3\"===b?g||(d.common_pids.eac3=f):\"KLVA\"===b&&(d.asynchronous_klv_pids[f]=!0)}else if(127===y){if(f===d.common_pids.opus){var A=null;if"
+  },
+  {
+    "tag": "insert",
+    "before": ".detectAudioMetadataChange(T)&&(this.dispatchAudioMediaSegment(),this.dispatchAudioInitSegment(T))}}else 128===y&&f===d.common_pids.av1&&(this.video_metadata_.av1c=e.subarray(v+2,v+2+S));v+=2+S}var L=",
+    "after": ".detectAudioMetadataChange(T)&&(this.dispatchAudioMediaSegment(),this.dispatchAudioInitSegment(T))}}else if(106===y)g||(d.common_pids.ac3=f);else if(122===y)g||(d.common_pids.eac3=f);else 128===y&&f===d.common_pids.av1&&(this.video_metadata_.av1c=e.subarray(v+2,v+2+S));v+=2+S}var L="
+  },
+  {
+    "tag": "replace",
+    "before": "ming)return this._pendingSourceBufferInit.push(e),void this._pendingSegments[e.type].push(e);var i=e,n=\"\".concat(i.container);i.codec&&i.codec.length>0&&(\"opus\"===i.codec&&o.a.safari&&(i.codec=\"Opus\"),",
+    "after": "ming)return this._pendingSourceBufferInit.push(e),void this._pendingSegments[e.type].push(e);var i=e;if(this._audioSourceBufferDisabled&&\"audio\"===i.type)return;var n=\"\".concat(i.container);i.codec&&i.codec.length>0&&(\"opus\"===i.codec&&o.a.safari&&(i.codec=\"Opus\"),"
+  },
+  {
+    "tag": "insert",
+    "before": "this.e.onSourceBufferError),d.addEventListener(\"updateend\",this.e.onSourceBufferUpdateEnd)}catch(e){return r.a.e(this.TAG,e.message),void this._emitter.emit(s.a.ERROR,{code:e.code,msg:e.message})}}thi",
+    "after": "this.e.onSourceBufferError),d.addEventListener(\"updateend\",this.e.onSourceBufferUpdateEnd)}catch(e){if(\"audio\"===i.type&&this._sourceBuffers.video)return r.a.e(this.TAG,e.message),this._audioSourceBufferDisabled=!0,void(this._lastInitSegments.audio=null);return r.a.e(this.TAG,e.message),void this._emitter.emit(s.a.ERROR,{code:e.code,msg:e.message})}}thi"
+  },
+  {
+    "tag": "insert",
+    "before": "aDuration/1e3,this._updateMediaSourceDuration())},e.prototype.appendMediaSegment=function(e){var t=e;this._pendingSegments[t.type].push(t),this._config.autoCleanupSourceBuffer&&this._needCleanupSource",
+    "after": "aDuration/1e3,this._updateMediaSourceDuration())},e.prototype.appendMediaSegment=function(e){var t=e;if(this._audioSourceBufferDisabled&&\"audio\"===t.type)return;this._pendingSegments[t.type].push(t),this._config.autoCleanupSourceBuffer&&this._needCleanupSource"
+  }
+]

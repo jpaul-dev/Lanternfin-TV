@@ -990,6 +990,7 @@ export function getReceiverModeEnabled() {
 }
 
 export function setReceiverModeEnabled(enabled) {
+  try { localStorage.removeItem(KEY_RECEIVER_MODE + "_auto") } catch { /* Storage unavailable. */ }
   writeLS(KEY_RECEIVER_MODE, enabled ? "1" : "")
   document.dispatchEvent(
     new CustomEvent(RECEIVER_MODE_EVENT, { detail: { value: !!enabled } })
@@ -1004,6 +1005,7 @@ export function getReceiverBootEnabled() {
 }
 
 export function setReceiverBootEnabled(enabled) {
+  try { localStorage.removeItem(KEY_RECEIVER_BOOT + "_auto") } catch { /* Storage unavailable. */ }
   writeLS(KEY_RECEIVER_BOOT, enabled ? "1" : "")
   document.dispatchEvent(
     new CustomEvent(RECEIVER_BOOT_EVENT, { detail: { value: !!enabled } })

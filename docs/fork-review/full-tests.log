@@ -1,0 +1,13 @@
+
+> xtream@1.9.0 test <review-workspace>
+> vitest run
+
+
+ RUN  v4.1.11 <review-workspace>
+
+
+ Test Files  145 passed (145)
+      Tests  2979 passed (2979)
+   Start at  20:10:47
+   Duration  23.36s (transform 15.57s, setup 0ms, import 24.69s, tests 11.35s, environment 444.08s)
+

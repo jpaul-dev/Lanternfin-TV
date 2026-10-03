@@ -1,0 +1,24 @@
+---
+// Lanternfin fork: receiving casts is optional in the standalone application.
+const receiverBuild = import.meta.env.PUBLIC_APP_MODE === "receiver"
+---
+
+<script is:inline define:vars={{ receiverBuild }}>
+  (function () {
+    if (receiverBuild) return
+    try {
+      var keys = ["xt_receiver_mode", "xt_receiver_boot"]
+      for (var i = 0; i < keys.length; i++) {
+        var key = keys[i]
+        // Older TV installs enabled these without a user choice. Migrate those
+        // defaults before either layout redirects or starts the LAN server.
+        if (localStorage.getItem(key) === null || localStorage.getItem(key + "_auto") === "1") {
+          localStorage.setItem(key, "0")
+        }
+        localStorage.removeItem(key + "_auto")
+      }
+    } catch (_e) {
+      // Storage can be unavailable; the settings readers already default off.
+    }
+  })()
+</script>

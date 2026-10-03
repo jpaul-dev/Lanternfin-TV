@@ -1,0 +1,239 @@
+--- a/src/layouts/Layout.astro
++++ b/src/layouts/Layout.astro
+@@ -2,6 +2,7 @@
+ import Sidebar from "@/components/Sidebar.astro"
+ import TitleBar from "@/components/TitleBar.astro"
+ import WindowResizeEdges from "@/components/WindowResizeEdges.astro"
++import ReceiverDefaults from "@/components/ReceiverDefaults.astro"
+ import CatalogWarmingIndicator from "@/components/CatalogWarmingIndicator.svelte"
+ import pkg from "../../package.json"
+ import { TV_ROUTE_TABLE } from "@/scripts/lib/tv-routes"
+@@ -33,6 +34,7 @@
+     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+     <meta property="og:title" content="Extreme InfiniTV" />
+     <meta property="og:image" content="https://raw.githubusercontent.com/infinitel8p/Extreme-InfiniTV/refs/heads/main/src-tauri/icons/logos/icon-1024.png" />
++    <ReceiverDefaults />
+     {
+       appMode === "receiver" && (
+         <script is:inline>
+@@ -82,12 +84,11 @@
+         if (localStorage.getItem("xt_sidebar_collapsed") === "1") {
+           document.documentElement.setAttribute("data-sidebar-collapsed", "");
+         }
+-        // Auto-enable perf mode + receiver mode + receiver boot on TV / Leanback devices
++        // TV / Leanback devices use the standalone browse UI by default.
++        // Only performance mode is enabled automatically; receiving casts is opt-in.
+         var perfStored = localStorage.getItem("xt_perf_mode");
+-        var receiverStored = localStorage.getItem("xt_receiver_mode");
+-        var receiverBootStored = localStorage.getItem("xt_receiver_boot");
+         var isTvDevice = false;
+-        if (perfStored === null || receiverStored === null || receiverBootStored === null) {
++        {
+           try {
+             if (window.AndroidDeviceInfo && typeof window.AndroidDeviceInfo.isTv === "function") {
+               isTvDevice = !!window.AndroidDeviceInfo.isTv();
+@@ -127,15 +128,6 @@
+         if (perfStored === "1") {
+           document.documentElement.setAttribute("data-perf-mode", "on");
+         }
+-        if (receiverStored === null && isTvDevice) {
+-          localStorage.setItem("xt_receiver_mode", "1");
+-          localStorage.setItem("xt_receiver_mode_auto", "1");
+-        }
+-        if (receiverBootStored === null && isTvDevice) {
+-          localStorage.setItem("xt_receiver_boot", "1");
+-          localStorage.setItem("xt_receiver_boot_auto", "1");
+-        }
+-
+         // Boot straight into the receiver screen when enabled, unless the user exited it this session
+         try {
+           if (
+--- a/src/layouts/TvLayout.astro
++++ b/src/layouts/TvLayout.astro
+@@ -1,5 +1,6 @@
+ ---
+ import { ClientRouter } from "astro:transitions"
++import ReceiverDefaults from "@/components/ReceiverDefaults.astro"
+ import {
+   IconHome,
+   IconDeviceTv,
+@@ -43,6 +44,7 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+     <title>{documentTitle}</title>
+     <meta name="x-app-version" content={pkg.version} />
++    <ReceiverDefaults />
+     <ClientRouter />
+     <script is:inline define:vars={{ classicRouteTable: CLASSIC_ROUTE_TABLE }}>
+       (function () {
+--- a/src/scripts/lib/app-settings.js
++++ b/src/scripts/lib/app-settings.js
+@@ -990,6 +990,7 @@
+ }
+ 
+ export function setReceiverModeEnabled(enabled) {
++  try { localStorage.removeItem(KEY_RECEIVER_MODE + "_auto") } catch { /* Storage unavailable. */ }
+   writeLS(KEY_RECEIVER_MODE, enabled ? "1" : "")
+   document.dispatchEvent(
+     new CustomEvent(RECEIVER_MODE_EVENT, { detail: { value: !!enabled } })
+@@ -1004,6 +1005,7 @@
+ }
+ 
+ export function setReceiverBootEnabled(enabled) {
++  try { localStorage.removeItem(KEY_RECEIVER_BOOT + "_auto") } catch { /* Storage unavailable. */ }
+   writeLS(KEY_RECEIVER_BOOT, enabled ? "1" : "")
+   document.dispatchEvent(
+     new CustomEvent(RECEIVER_BOOT_EVENT, { detail: { value: !!enabled } })
+--- /dev/null
++++ b/src/components/ReceiverDefaults.astro
+@@ -0,0 +1,24 @@
++---
++// Lanternfin fork: receiving casts is optional in the standalone application.
++const receiverBuild = import.meta.env.PUBLIC_APP_MODE === "receiver"
++---
++
++<script is:inline define:vars={{ receiverBuild }}>
++  (function () {
++    if (receiverBuild) return
++    try {
++      var keys = ["xt_receiver_mode", "xt_receiver_boot"]
++      for (var i = 0; i < keys.length; i++) {
++        var key = keys[i]
++        // Older TV installs enabled these without a user choice. Migrate those
++        // defaults before either layout redirects or starts the LAN server.
++        if (localStorage.getItem(key) === null || localStorage.getItem(key + "_auto") === "1") {
++          localStorage.setItem(key, "0")
++        }
++        localStorage.removeItem(key + "_auto")
++      }
++    } catch (_e) {
++      // Storage can be unavailable; the settings readers already default off.
++    }
++  })()
++</script>
+--- /dev/null
++++ b/tests/standalone-tv-startup.test.ts
+@@ -0,0 +1,124 @@
++import { readFileSync } from "node:fs"
++import { runInNewContext } from "node:vm"
++import { describe, expect, it, vi } from "vitest"
++import { CLASSIC_ROUTE_TABLE, TV_ROUTE_TABLE } from "../src/scripts/lib/tv-routes"
++
++function inlineScripts(path: string): string[] {
++  return Array.from(
++    readFileSync(new URL(path, import.meta.url), "utf8").matchAll(/<script\b[^>]*is:inline[^>]*>([\s\S]*?)<\/script>/g),
++    (match) => match[1],
++  )
++}
++
++const defaultsScript = inlineScripts("../src/components/ReceiverDefaults.astro")[0]
++const classicScripts = inlineScripts("../src/layouts/Layout.astro")
++const classicBoot = classicScripts.find((script) => script.includes("var perfStored"))!
++const classicRoute = classicScripts.find((script) => script.includes("var tvRedirectPath"))!
++const tvBoot = inlineScripts("../src/layouts/TvLayout.astro")[0]
++
++function startup(initial: Record<string, string> = {}, path = "/", isTv = true) {
++  const values = new Map(Object.entries(initial))
++  const localStorage = {
++    getItem: (key: string) => values.get(key) ?? null,
++    setItem: (key: string, value: string) => values.set(key, value),
++    removeItem: (key: string) => values.delete(key),
++  }
++  const replace = vi.fn()
++  const context = {
++    receiverBuild: false,
++    appMode: "",
++    tvRouteTable: TV_ROUTE_TABLE,
++    classicRouteTable: CLASSIC_ROUTE_TABLE,
++    localStorage,
++    sessionStorage: { getItem: () => null },
++    navigator: { userAgent: isTv ? "Android SmartTV" : "Desktop" },
++    location: { pathname: path, search: "", replace },
++    window: {
++      AndroidDeviceInfo: { isTv: () => isTv },
++      matchMedia: () => ({ matches: false, addEventListener: vi.fn() }),
++    },
++    document: {
++      documentElement: {
++        dataset: {} as Record<string, string>,
++        style: { setProperty: vi.fn() },
++        setAttribute: vi.fn(),
++        removeAttribute: vi.fn(),
++      },
++    },
++    URLSearchParams,
++  }
++  const run = () => {
++    runInNewContext(defaultsScript, context)
++    if (path.startsWith("/tv")) runInNewContext(tvBoot, context)
++    else {
++      runInNewContext(classicBoot, context)
++      runInNewContext(classicRoute, context)
++    }
++  }
++  return { values, replace, context, run }
++}
++
++describe("standalone TV startup", () => {
++  it("opens TV browsing on a fresh install without enabling the receiver", () => {
++    const app = startup()
++    app.run()
++    expect(app.replace.mock.calls).toEqual([["/tv"]])
++    expect(app.values.get("xt_receiver_mode")).toBe("0")
++    expect(app.values.get("xt_receiver_boot")).toBe("0")
++    expect(app.values.get("xt_perf_mode")).toBe("1")
++  })
++
++  it("still detects the TV when performance and receiver preferences already exist", () => {
++    const app = startup({ xt_perf_mode: "0", xt_receiver_mode: "0", xt_receiver_boot: "0" })
++    app.run()
++    expect(app.replace).toHaveBeenCalledWith("/tv")
++    expect(app.values.get("xt_perf_mode")).toBe("0")
++  })
++
++  it.each(["/", "/tv"])("migrates the old automatic receiver defaults at %s", (path) => {
++    const app = startup({
++      xt_is_tv: "1",
++      xt_receiver_mode: "1", xt_receiver_mode_auto: "1",
++      xt_receiver_boot: "1", xt_receiver_boot_auto: "1",
++    }, path)
++    app.run()
++    expect(app.replace).not.toHaveBeenCalledWith("/receiver")
++    expect(app.values.get("xt_receiver_mode")).toBe("0")
++    expect(app.values.get("xt_receiver_boot")).toBe("0")
++    expect(app.values.has("xt_receiver_mode_auto")).toBe(false)
++    expect(app.values.has("xt_receiver_boot_auto")).toBe(false)
++  })
++
++  it.each(["/", "/tv"])("preserves an explicit receiver startup choice at %s", (path) => {
++    const app = startup({ xt_receiver_mode: "1", xt_receiver_boot: "1" }, path)
++    app.run()
++    expect(app.replace).toHaveBeenCalledWith("/receiver")
++    expect(app.values.get("xt_receiver_mode")).toBe("1")
++  })
++
++  it("allows receiving casts without forcing receiver startup", () => {
++    const app = startup({ xt_receiver_mode: "1", xt_receiver_boot: "0" })
++    app.run()
++    expect(app.replace.mock.calls).toEqual([["/tv"]])
++    expect(app.values.get("xt_receiver_mode")).toBe("1")
++  })
++
++  it("leaves desktop startup on the normal home page", () => {
++    const app = startup({}, "/", false)
++    app.run()
++    expect(app.replace).not.toHaveBeenCalled()
++  })
++
++  it("does not migrate an explicitly requested kiosk build", () => {
++    const app = startup({ xt_receiver_mode: "1", xt_receiver_mode_auto: "1" })
++    app.context.receiverBuild = true
++    runInNewContext(defaultsScript, app.context)
++    expect(app.values.get("xt_receiver_mode")).toBe("1")
++  })
++
++  it("tolerates unavailable browser storage", () => {
++    const app = startup()
++    app.context.localStorage.getItem = () => { throw new Error("Storage denied") }
++    expect(() => app.run()).not.toThrow()
++  })
++})

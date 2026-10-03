@@ -1,0 +1,914 @@
+{
+  "actions": [],
+  "advisories": {
+    "1193723": {
+      "findings": [
+        {
+          "version": "7.2.4",
+          "paths": [
+            ".>astro"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/strukturag/libheif/security/advisories/GHSA-g89c-p67h-r497\n- https://github.com/withastro/astro/security/advisories/GHSA-26w7-cxv4-gfx2\n- https://github.com/withastro/astro/commit/ecb4082131490b4fe9a56aa44fda84b54ef8967b\n- https://github.com/withastro/astro/releases/tag/astro@7.2.8\n- https://github.com/advisories/GHSA-26w7-cxv4-gfx2",
+      "created": "2026-09-08T21:26:16.000Z",
+      "id": 1193723,
+      "npm_advisory_id": null,
+      "overview": "A vulnerability in `libheif`, used by the default Sharp image service in Astro, can lead to remote code execution when a malicious AVIF image is optimized.\n\nProjects are affected when an attacker can cause Astro to process an untrusted AVIF image.\n\nThe fix was released in Astro 7.2.8, which requires Sharp 0.35.4.",
+      "reported_by": null,
+      "title": "Astro: Remote code execution through AVIF image optimization",
+      "metadata": null,
+      "cves": [],
+      "access": "public",
+      "severity": "critical",
+      "module_name": "astro",
+      "vulnerable_versions": "<7.2.8",
+      "github_advisory_id": "GHSA-26w7-cxv4-gfx2",
+      "recommendation": "Upgrade to version 7.2.8 or later",
+      "patched_versions": ">=7.2.8",
+      "updated": "2026-09-08T21:26:18.000Z",
+      "cvss": {
+        "score": 9.8,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "cwe": [
+        "CWE-125",
+        "CWE-787"
+      ],
+      "url": "https://github.com/advisories/GHSA-26w7-cxv4-gfx2"
+    },
+    "1193725": {
+      "findings": [
+        {
+          "version": "0.35.3",
+          "paths": [
+            ".>astro>sharp"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/lovell/sharp/security/advisories/GHSA-rgj7-g3m4-5g8c\n- https://github.com/strukturag/libheif/security/advisories/GHSA-2jg2-4ch7-h545\n- https://github.com/strukturag/libheif/security/advisories/GHSA-g89c-p67h-r497\n- https://github.com/lovell/sharp/releases/tag/v0.35.4\n- https://github.com/advisories/GHSA-rgj7-g3m4-5g8c",
+      "created": "2026-09-08T21:25:11.000Z",
+      "id": 1193725,
+      "npm_advisory_id": null,
+      "overview": "### Impact\nA number of vulnerabilities, two rated as \"Critical\" severity using CVSSv3, have been discovered and fixed in the upstream libheif dependency. These can lead to possible remote code execution (RCE) on glibc-based Linux when run under certain conditions.\n\nThe attack vector for these claims to be \"network\" however sharp does not provide any networking features so this vulnerability is down-rated to a \"High\" severity using CVSSv4 but please note its Subsequent System Impact.\n\nThose processing untrusted input with versions of sharp prior to 0.35.4 are affected.\n\n### Patches\n\n#### Using prebuilt binaries provided by sharp?\n\nMost people rely on the prebuilt binaries provided by sharp.\n\nPlease upgrade sharp to the latest version, currently 0.35.4, which provides libheif 1.23.2.\n\n#### Using a globally-installed libheif?\n\nPlease ensure you are using the latest libheif 1.23.2.\n\n### Workarounds\nAdd the following to your code to prevent sharp from decoding AVIF images.\n```js\nsharp.block({ operation: [\"VipsForeignLoadHeif\"] });\n```\n\nEnsure you are using a `node` executable binary compiled as a Position Independent Executable (PIE). Most Linux package managers already do this for protection against RCE however be warned that the \"official\" Node.js binaries do not.\n\n### References\n- [CVE-2026-84383](https://github.com/strukturag/libheif/security/advisories/GHSA-g89c-p67h-r497)\n- https://github.com/strukturag/libheif/security/advisories/GHSA-2jg2-4ch7-h545",
+      "reported_by": null,
+      "title": "sharp: Vulnerabilities in libheif: GHSA-g89c-p67h-r497 and GHSA-2jg2-4ch7-h545",
+      "metadata": null,
+      "cves": [],
+      "access": "public",
+      "severity": "high",
+      "module_name": "sharp",
+      "vulnerable_versions": "<0.35.4",
+      "github_advisory_id": "GHSA-rgj7-g3m4-5g8c",
+      "recommendation": "Upgrade to version 0.35.4 or later",
+      "patched_versions": ">=0.35.4",
+      "updated": "2026-09-08T21:25:12.000Z",
+      "cvss": {
+        "score": 0,
+        "vectorString": null
+      },
+      "cwe": [
+        "CWE-122"
+      ],
+      "url": "https://github.com/advisories/GHSA-rgj7-g3m4-5g8c"
+    },
+    "1193727": {
+      "findings": [
+        {
+          "version": "4.3.1",
+          "paths": [
+            ".>@astrojs/mdx>@astrojs/internal-helpers>js-yaml"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodeca/js-yaml/security/advisories/GHSA-2883-xcg3-v3hh\n- https://nvd.nist.gov/vuln/detail/CVE-2026-84375\n- https://github.com/nodeca/js-yaml/pull/797\n- https://github.com/nodeca/js-yaml/commit/3485bc06ff8a0251505f44a00414d90df2466639\n- https://github.com/nodeca/js-yaml/commit/6a8e05f9a485188ed730ac81e81ae221352ef480\n- https://github.com/nodeca/js-yaml/commit/d90b6612a5a84385bdcb556c44578eac76dc0f6b\n- https://github.com/nodeca/js-yaml/releases/tag/3.15.2\n- https://github.com/nodeca/js-yaml/releases/tag/4.3.2\n- https://github.com/advisories/GHSA-2883-xcg3-v3hh",
+      "created": "2026-09-08T21:24:51.000Z",
+      "id": 1193727,
+      "npm_advisory_id": null,
+      "overview": "## Summary\n\n`maxTotalMergeKeys` does not count empty mappings. An attacker can repeatedly merge a large sequence of them and consume significant CPU without reaching the configured limit.\n\n## Example\n\n```yaml\narr: &arr [{}, {}, {}, ...] # N empty mappings\ntargets:\n  - <<: *arr                # repeated K times\n```\n\nFor every target, the loader iterates all `N` elements of `arr`. This results in `O(N * K)` work while `totalMergeKeys` remains unchanged.\n\n## PoC\n\n```js\nimport { performance } from 'node:perf_hooks'\nimport { load, YAML11_SCHEMA } from 'js-yaml'\n\nconst n = 20000\n\nconst src =\n  'arr: &arr [' + '{},'.repeat(n).slice(0, -1) + ']\\n' +\n  'targets:\\n' +\n  '  - <<: *arr\\n'.repeat(n)\n\nconst started = performance.now()\n\nload(src, { schema: YAML11_SCHEMA })\n\nconsole.log(`${(performance.now() - started).toFixed(1)} ms`)\n```\n\nObserved results:\n\n| N | YAML size | Time |\n|---:|---:|---:|\n| 800 | ~13 KB | ~20 ms |\n| 3200 | ~50 KB | ~180 ms |\n| 20000 | ~500 KB | ~13 s |\n\n## Impact\n\nAn attacker can submit a relatively small YAML document that causes prolonged CPU consumption despite the default `maxTotalMergeKeys` limit.\n\n## Fix\n\nCount each merge-source mapping as one budget unit, in addition to counting its keys.\n\n## Difference with v5\n\nIn v3 & v4, merge is enabled by default. So, the severity score is higher.",
+      "reported_by": null,
+      "title": "js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-84375"
+      ],
+      "access": "public",
+      "severity": "high",
+      "module_name": "js-yaml",
+      "vulnerable_versions": ">=4.0.0 <4.3.2",
+      "github_advisory_id": "GHSA-2883-xcg3-v3hh",
+      "recommendation": "Upgrade to version 4.3.2 or later",
+      "patched_versions": ">=4.3.2",
+      "updated": "2026-09-08T21:24:52.000Z",
+      "cvss": {
+        "score": 7.5,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "cwe": [
+        "CWE-400",
+        "CWE-407"
+      ],
+      "url": "https://github.com/advisories/GHSA-2883-xcg3-v3hh"
+    },
+    "1193735": {
+      "findings": [
+        {
+          "version": "4.0.2",
+          "paths": [
+            ".>astro>svgo"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/svg/svgo/security/advisories/GHSA-w27v-7q3p-w38r\n- https://nvd.nist.gov/vuln/detail/CVE-2026-84370\n- https://github.com/svg/svgo/pull/2268\n- https://github.com/svg/svgo/pull/2269\n- https://github.com/svg/svgo/pull/2272\n- https://github.com/svg/svgo/commit/0557385564a5c6c11d76cd934a6cff94451e532c\n- https://github.com/svg/svgo/commit/3db3ef33e409a0bc0fdaf255e46c908b00e93bc2\n- https://github.com/svg/svgo/commit/994a9f00d79ddec68ce19a1ce9eb8ca08d747e4f\n- https://github.com/svg/svgo/releases/tag/v2.8.4\n- https://github.com/svg/svgo/releases/tag/v3.3.5\n- https://github.com/svg/svgo/releases/tag/v4.1.0\n- https://github.com/advisories/GHSA-w27v-7q3p-w38r",
+      "created": "2026-09-08T21:20:28.000Z",
+      "id": 1193735,
+      "npm_advisory_id": null,
+      "overview": "## Summary\n\nSVGO's opt-in `removeScripts` plugin failed to remove some executable links. Namespace-prefixed SVG anchors and URL schemes containing ASCII tabs or newlines could bypass its checks. Applications that used this plugin as their only protection for untrusted SVG input could expose users to cross-site scripting (XSS).\n\nSVGO is an optimizer rather than a comprehensive sanitization library, but `removeScripts` is maintained for consumers that already rely on it to remove common script execution paths.\n\n## Details\n\nTwo related bypasses were present:\n\n1. The plugin inspected unprefixed SVG `<a>` elements but did not recognize namespace-prefixed SVG anchors such as `<svg:a>` when the prefix was bound to the SVG namespace. Their executable `href` or namespaced `*:href` values remained intact.\n2. The URL check did not account for ASCII tab, line-feed, or carriage-return characters embedded in a scheme. Browsers remove these characters before parsing the scheme, so values such as `java&#9;script:` could remain executable after bypassing the plugin's `javascript:` check.\n\nAnchors in unrelated custom namespaces are not executable SVG anchors and remain untouched.\n\n## Impact\n\nIf an application optimized attacker-controlled SVGs with `removeScripts` and then served the result in an active browser context, a victim could follow a link that executes script in the SVG's origin. Depending on the embedding and origin configuration, this could expose cookies or local storage, modify content, or perform actions as the victim.\n\nThe plugin is opt-in, so consumers that do not enable it are not relying on the affected behavior. Typical local optimization of trusted SVG files is not affected.\n\n## Patches\n\nUpgrade to one of the following releases for the maintained release line in use:\n\n| Release line | Patched version | Plugin |\n| --- | --- | --- |\n| v2 | 2.8.4 | `removeScriptElement` |\n| v3 | 3.3.5 | `removeScriptElement` |\n| v4 | 4.1.0 | `removeScripts` |\n\nThe fix makes SVG anchor handling namespace-aware and strips ASCII tabs, line feeds, and carriage returns before checking executable URL schemes.\n\nSVGO v1 is no longer maintained. Users of v1 should upgrade to a supported release line.\n\n## Workarounds\n\nFor hostile input, use a dedicated SVG sanitization tool before passing the SVG to SVGO. Applications can also reject links from untrusted SVG input and avoid serving user-controlled SVGs in an active same-origin context.\n\n## References\n\n- v4 fix: https://github.com/svg/svgo/pull/2268\n- related executable URL hardening: https://github.com/svg/svgo/pull/2263\n- v3 backport: https://github.com/svg/svgo/pull/2269\n- v2 backport: https://github.com/svg/svgo/pull/2272\n- v4.1.0 release: https://github.com/svg/svgo/releases/tag/v4.1.0\n- v3.3.5 release: https://github.com/svg/svgo/releases/tag/v3.3.5\n- v2.8.4 release: https://github.com/svg/svgo/releases/tag/v2.8.4",
+      "reported_by": null,
+      "title": "SVGO: removeScripts allows executable links through namespace and control-character bypasses",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-84370"
+      ],
+      "access": "public",
+      "severity": "high",
+      "module_name": "svgo",
+      "vulnerable_versions": ">=4.0.0 <4.1.0",
+      "github_advisory_id": "GHSA-w27v-7q3p-w38r",
+      "recommendation": "Upgrade to version 4.1.0 or later",
+      "patched_versions": ">=4.1.0",
+      "updated": "2026-09-08T21:20:30.000Z",
+      "cvss": {
+        "score": 8.2,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:L/A:N"
+      },
+      "cwe": [
+        "CWE-79",
+        "CWE-184"
+      ],
+      "url": "https://github.com/advisories/GHSA-w27v-7q3p-w38r"
+    },
+    "1193738": {
+      "findings": [
+        {
+          "version": "4.0.2",
+          "paths": [
+            ".>astro>svgo"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/svg/svgo/security/advisories/GHSA-4vpr-x523-8j87\n- https://nvd.nist.gov/vuln/detail/CVE-2026-84369\n- https://github.com/svg/svgo/pull/2264\n- https://github.com/svg/svgo/pull/2269\n- https://github.com/svg/svgo/pull/2272\n- https://github.com/svg/svgo/commit/0557385564a5c6c11d76cd934a6cff94451e532c\n- https://github.com/svg/svgo/commit/994a9f00d79ddec68ce19a1ce9eb8ca08d747e4f\n- https://github.com/svg/svgo/commit/fd51e474a300417d9361d9302d596b1763146327\n- https://github.com/svg/svgo/releases/tag/v2.8.4\n- https://github.com/svg/svgo/releases/tag/v3.3.5\n- https://github.com/svg/svgo/releases/tag/v4.1.0\n- https://github.com/advisories/GHSA-4vpr-x523-8j87",
+      "created": "2026-09-08T21:20:05.000Z",
+      "id": 1193738,
+      "npm_advisory_id": null,
+      "overview": "## Summary\n\nSVGO's opt-in `removeScripts` plugin did not inspect executable HTML content inside SVG `<foreignObject>` elements. Applications that used this plugin as their only protection for untrusted SVG input could produce SVGs containing active HTML and expose users to cross-site scripting (XSS).\n\nSVGO is an optimizer rather than a comprehensive sanitization library, but `removeScripts` is maintained for consumers that already rely on it to remove common script execution paths.\n\n## Details\n\nAlthough the plugin removed SVG and XHTML `<script>` elements, it left other HTML execution paths inside `<foreignObject>` unchanged. These included:\n\n- event-handler attributes such as `onload` and `onbeforetoggle`;\n- `srcdoc` documents, including on `<iframe>` elements;\n- executable URLs in HTML attributes such as `action`, `data`, `formaction`, `href`, and `src`.\n\nAn attacker could place one of these payloads in an SVG. If an application optimized the untrusted SVG with `removeScripts` and then served the result in an active browser context, the payload could execute in the viewer's origin.\n\n## Impact\n\nSuccessful exploitation could allow script execution in the context where the optimized SVG is rendered. Depending on the embedding and origin configuration, this could expose cookies or local storage, modify content, or perform actions as the victim.\n\nThe plugin is opt-in, so consumers that do not enable `removeScripts` are not relying on the affected behavior. Typical local optimization of trusted SVG files is not affected.\n\n## Patches\n\nUpgrade to one of the following releases for the maintained release line in use:\n\n| Release line | Patched version | Plugin |\n| --- | --- | --- |\n| v2 | 2.8.4 | `removeScriptElement` |\n| v3 | 3.3.5 | `removeScriptElement` |\n| v4 | 4.1.0 | `removeScripts` |\n\nThe fix preserves visual HTML inside SVG `<foreignObject>` elements while removing event attributes, `srcdoc`, and executable URL values from active HTML URL attributes.\n\nSVGO v1 is no longer maintained. Users of v1 should upgrade to a supported release line.\n\n## Workarounds\n\nFor hostile input, use a dedicated SVG sanitization tool before passing the SVG to SVGO. As defense in depth, applications can reject or remove `<foreignObject>` content and avoid serving user-controlled SVGs in an active same-origin context.",
+      "reported_by": null,
+      "title": "SVGO: removeScripts incompletely sanitizes executable HTML in SVG foreignObject elements",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-84369"
+      ],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "svgo",
+      "vulnerable_versions": ">=4.0.0 <4.1.0",
+      "github_advisory_id": "GHSA-4vpr-x523-8j87",
+      "recommendation": "Upgrade to version 4.1.0 or later",
+      "patched_versions": ">=4.1.0",
+      "updated": "2026-09-08T21:20:09.000Z",
+      "cvss": {
+        "score": 6.1,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+      },
+      "cwe": [
+        "CWE-79"
+      ],
+      "url": "https://github.com/advisories/GHSA-4vpr-x523-8j87"
+    },
+    "1239932": {
+      "findings": [
+        {
+          "version": "8.10.0",
+          "paths": [
+            ".>astro>unifont>undici"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-3wwx-pv8p-q78v\n- https://nvd.nist.gov/vuln/detail/CVE-2026-85024\n- https://github.com/nodejs/undici/commit/07c60d9c7099a910451244afe42861bbdbdd974c\n- https://github.com/nodejs/undici/commit/4411a238a98e8791da5fff10cc9e3578a7668ed6\n- https://github.com/nodejs/undici/commit/63cf698b611fecc6ee0a17b185b930051e4b982f\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v6.28.1\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-3wwx-pv8p-q78v",
+      "created": "2026-09-28T21:42:37.000Z",
+      "id": 1239932,
+      "npm_advisory_id": null,
+      "overview": "## Impact\n\nundici's WebSocket client (including Node.js's bundled `globalThis.WebSocket`) crashes the entire Node.js process when a remote WebSocket peer sends a permessage-deflate compressed message that crosses the decompressed-payload size limit and then contains a malformed DEFLATE block. In `lib/web/websocket/permessage-deflate.js`, the size-limit cleanup calls `removeAllListeners()` on the internal zlib `InflateRaw`, removing its `error` listener, but leaves the stream running. The inflater then emits a `Z_DATA_ERROR` with no listener attached, which Node.js treats as a fatal unhandled `error` event and terminates the process. Application `error`/`close` handlers on the public WebSocket cannot observe or prevent this, because the failing object is the internal `InflateRaw`.\n\nA malicious or compromised WebSocket server can crash a client with a single connection, unauthenticated and without any application mistake. The attack is asymmetric (about 130 KB on the wire expands past the limit) and can be repeated on reconnect (crash loop).\n\nAffected applications are those using the undici WebSocket client (`new WebSocket(...)`) or Node.js's bundled `globalThis.WebSocket` that can be induced to connect to an attacker-controlled or compromised WebSocket endpoint.\n\n## Patches\n\nUpgrade to undici v6.28.1, v7.29.1 or v8.10.2.\n\n## Workarounds\n\nNo workaround is available.",
+      "reported_by": null,
+      "title": "undici vulnerable to Denial of Service via unhandled error in WebSocket permessage-deflate decompression",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-85024"
+      ],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.1.0 <8.10.2",
+      "github_advisory_id": "GHSA-3wwx-pv8p-q78v",
+      "recommendation": "Upgrade to version 8.10.2 or later",
+      "patched_versions": ">=8.10.2",
+      "updated": "2026-09-28T21:42:38.000Z",
+      "cvss": {
+        "score": 5.9,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "cwe": [
+        "CWE-248"
+      ],
+      "url": "https://github.com/advisories/GHSA-3wwx-pv8p-q78v"
+    },
+    "1240035": {
+      "findings": [
+        {
+          "version": "8.10.0",
+          "paths": [
+            ".>astro>unifont>undici"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-pmjh-fq2x-6v4x\n- https://nvd.nist.gov/vuln/detail/CVE-2026-18149\n- https://github.com/nodejs/undici/commit/3c6726599cea8646384dde846c97d630da472a74\n- https://github.com/nodejs/undici/commit/e905b5b87e6953bcc542af90557b2fee5b7b5974\n- https://hackerone.com/reports/3892751\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-pmjh-fq2x-6v4x",
+      "created": "2026-09-29T18:22:34.000Z",
+      "id": 1240035,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nundici's `RetryHandler` can leave a response body pending indefinitely. When a retried request receives a non-retryable response after a truncated one, the original `response.body` held by the application is never settled, so reads such as `response.body.text()` hang and `bodyTimeout` does not fire. A malicious server can repeat this to accumulate pending promises and streams, leading to denial of service.\n\n### Patches\n\nPatched in undici v7.29.1 and v8.10.2.\n\n### Workarounds\n\nImpose an independent request deadline and destroy the response body when it expires. `bodyTimeout` alone does not prevent this.",
+      "reported_by": null,
+      "title": "undici vulnerable to Denial of Service via orphaned RetryHandler response body",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-18149"
+      ],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.10.2",
+      "github_advisory_id": "GHSA-pmjh-fq2x-6v4x",
+      "recommendation": "Upgrade to version 8.10.2 or later",
+      "patched_versions": ">=8.10.2",
+      "updated": "2026-09-29T18:22:35.000Z",
+      "cvss": {
+        "score": 5.9,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "cwe": [
+        "CWE-772"
+      ],
+      "url": "https://github.com/advisories/GHSA-pmjh-fq2x-6v4x"
+    },
+    "1240037": {
+      "findings": [
+        {
+          "version": "8.10.0",
+          "paths": [
+            ".>astro>unifont>undici"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-r53p-7pc4-xj5r\n- https://nvd.nist.gov/vuln/detail/CVE-2026-18540\n- https://github.com/nodejs/undici/commit/0160a719063fb0a77f4fdf9500b9166b91e14329\n- https://github.com/nodejs/undici/commit/cd8af90b38ae33c2838d54a2d629774122effe95\n- https://github.com/nodejs/undici/commit/ce31bc824b578008faae5d3350da66c1b5f71548\n- https://hackerone.com/reports/3900104\n- https://hackerone.com/reports/3900615\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v6.28.1\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-r53p-7pc4-xj5r",
+      "created": "2026-09-29T18:22:07.000Z",
+      "id": 1240037,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nUndici's `interceptors.retry()` can resume a request after a partial response and append the resumed bytes to an already partially delivered body, while the application still receives the original response's status and headers. When that response carried a `Content-Length`, the application can receive a longer body. Applications that forward Undici's status, headers, and body downstream without recalculating framing, for example proxy or gateway applications, may emit a response whose body exceeds the forwarded `Content-Length`, and the excess bytes can be read as the start of a subsequent HTTP response (downstream response splitting or desynchronization).\n\nFor example, a `404 Not Found` with `Content-Length: 2` that sends one byte then closes can be resumed with an open-ended `Range` request, and the resumed `206 Partial Content` bytes are appended, so the application receives more than two body bytes while still seeing `Content-Length: 2`. The bug requires `interceptors.retry()` enabled, an attacker-controlled or faulty upstream, and a downstream forwarder that does not recalculate `Content-Length`.\n\n### Patches\n\nPatched in undici v6.28.1, v7.29.1, and v8.10.2. Upgrade to one of these or later.\n\n### Workarounds\n\n- Disable `interceptors.retry()` for untrusted upstreams, or set `maxRetries: 0`.\n- Remove or recalculate `Content-Length` before forwarding a response body assembled by Undici.",
+      "reported_by": null,
+      "title": "undici vulnerable to downstream response splitting via retry interceptor",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-18540"
+      ],
+      "access": "public",
+      "severity": "low",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.10.2",
+      "github_advisory_id": "GHSA-r53p-7pc4-xj5r",
+      "recommendation": "Upgrade to version 8.10.2 or later",
+      "patched_versions": ">=8.10.2",
+      "updated": "2026-09-29T18:22:08.000Z",
+      "cvss": {
+        "score": 3.7,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+      },
+      "cwe": [
+        "CWE-444"
+      ],
+      "url": "https://github.com/advisories/GHSA-r53p-7pc4-xj5r"
+    },
+    "1240040": {
+      "findings": [
+        {
+          "version": "8.10.0",
+          "paths": [
+            ".>astro>unifont>undici"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-rfgv-xxqx-mfg5\n- https://nvd.nist.gov/vuln/detail/CVE-2026-19534\n- https://github.com/nodejs/undici/commit/2af0faf88b906d3127a360c3ac75164c0f95e5a5\n- https://github.com/nodejs/undici/commit/6615e0175e9b635bcd2e3e87a47daa82f6f5b728\n- https://github.com/nodejs/undici/commit/66e12816064cf3068f63bd134748b7fc4e779bad\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v6.28.1\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-rfgv-xxqx-mfg5",
+      "created": "2026-09-29T18:21:33.000Z",
+      "id": 1240040,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nThe undici WebSocket client throws an uncaught `TypeError` during the opening handshake when a server's `101` response includes a `Sec-WebSocket-Protocol` header that the client never requested. The throw occurs in a `queueMicrotask` callback with no surrounding `try`/`catch`, so it propagates as an uncaught exception and terminates the Node.js process. This is a remote, unauthenticated denial of service against any application that opens a WebSocket to an attacker controlled or compromised server, or over a plaintext `ws://` connection subject to a machine-in-the-middle. It affects the default `new WebSocket(url)` usage, where no subprotocol is requested. Per RFC 6455 section 4.1, an unrequested subprotocol must fail the connection, not crash it.\n\nAll releases starting at undici 6.7.0 are affected.\n\n### Patches\n\nUpgrade to undici 6.28.1, 7.29.1, or 8.10.2.\n\n### Workarounds\n\nNo workaround is available. The fix must be applied through an upgrade.",
+      "reported_by": null,
+      "title": "undici vulnerable to Denial of Service via unrequested WebSocket subprotocol",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-19534"
+      ],
+      "access": "public",
+      "severity": "high",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.10.2",
+      "github_advisory_id": "GHSA-rfgv-xxqx-mfg5",
+      "recommendation": "Upgrade to version 8.10.2 or later",
+      "patched_versions": ">=8.10.2",
+      "updated": "2026-09-29T18:21:41.000Z",
+      "cvss": {
+        "score": 7.5,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "cwe": [
+        "CWE-248",
+        "CWE-252"
+      ],
+      "url": "https://github.com/advisories/GHSA-rfgv-xxqx-mfg5"
+    },
+    "1240043": {
+      "findings": [
+        {
+          "version": "8.10.0",
+          "paths": [
+            ".>astro>unifont>undici"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-3xpg-4rpp-hhhm\n- https://nvd.nist.gov/vuln/detail/CVE-2026-84890\n- https://github.com/nodejs/undici/commit/2c7d7e1227043c644c4c32cfd1e276f4fd4fcb11\n- https://github.com/nodejs/undici/commit/7aac7f12f757844763c8b8f1ab6e305e80d55838\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-3xpg-4rpp-hhhm",
+      "created": "2026-09-29T18:20:37.000Z",
+      "id": 1240043,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nThe `interceptors.decompress()` interceptor decompresses HTTP response bodies according to the untrusted `Content-Encoding` header. The number of decompression layers is capped at 5, but the total decompressed output size is not bounded and there is no option to limit it. A malicious or faulty upstream can return a small compressed payload (a compression bomb) that expands to hundreds of megabytes or gigabytes in client memory, exhausting memory and causing the Node.js process to crash or become unresponsive. Any application using the decompress interceptor to read responses from untrusted or compromised upstreams is affected.\n\n### Patches\n\nUpgrade to `7.29.1` or `8.10.2`. The interceptor now accepts a `maxSize` option (default 64 MiB) and rejects responses whose decompressed output exceeds it with a `ResponseExceededMaxSizeError`.\n\n### Workarounds\n\nOnce upgraded, set a conservative `maxSize` on the interceptor. Before upgrading, avoid using `interceptors.decompress()` with untrusted upstreams, or apply a custom interceptor that enforces a decompressed output size limit.",
+      "reported_by": null,
+      "title": "undici vulnerable to Denial of Service via unbounded decompression of compressed responses",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-84890"
+      ],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.10.2",
+      "github_advisory_id": "GHSA-3xpg-4rpp-hhhm",
+      "recommendation": "Upgrade to version 8.10.2 or later",
+      "patched_versions": ">=8.10.2",
+      "updated": "2026-09-29T18:20:38.000Z",
+      "cvss": {
+        "score": 5.9,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "cwe": [
+        "CWE-770"
+      ],
+      "url": "https://github.com/advisories/GHSA-3xpg-4rpp-hhhm"
+    },
+    "1240045": {
+      "findings": [
+        {
+          "version": "8.10.0",
+          "paths": [
+            ".>astro>unifont>undici"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-2jfj-6hjv-fm6j\n- https://nvd.nist.gov/vuln/detail/CVE-2026-84933\n- https://github.com/nodejs/undici/commit/b6c5a00252c37da9dd2db9bead053bb843e1f988\n- https://github.com/nodejs/undici/commit/cb75bbb34224a968b4ad80cab8b7aba5e0b3b28a\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-2jfj-6hjv-fm6j",
+      "created": "2026-09-29T18:19:58.000Z",
+      "id": 1240045,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nundici's `interceptors.cache()` does not handle `Set-Cookie` in the cache path. In shared-cache mode (`type: 'shared'`, the default), a cacheable response (for example `Cache-Control: public, max-age=...`) carrying a `Set-Cookie` header is stored, and the stored `Set-Cookie` is re-served to a later caller that hits the same cache key. This exposes one user's cookie to another caller and lets an untrusted upstream inject cookies into cached responses served to all subsequent callers, violating RFC 6265 section 7.2 (a shared cache must not store cookies). Applications using the shared cache interceptor against untrusted or multi-user upstreams are affected. Private caches (`type: 'private'`) are not affected.\n\n### Patches\n\nUpgrade to `7.29.1` or `8.10.2`. In shared-cache mode, undici no longer stores or re-serves responses containing `Set-Cookie`, including previously cached entries and revalidation paths.\n\n### Workarounds\n\nUse a private cache (`type: 'private'`) for per-user responses, or avoid caching responses that set cookies. Applications acting as shared caches should strip `Set-Cookie` from responses before caching.",
+      "reported_by": null,
+      "title": "undici vulnerable to cross-user cookie disclosure via Set-Cookie caching in shared caches",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-84933"
+      ],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.10.2",
+      "github_advisory_id": "GHSA-2jfj-6hjv-fm6j",
+      "recommendation": "Upgrade to version 8.10.2 or later",
+      "patched_versions": ">=8.10.2",
+      "updated": "2026-09-29T18:19:59.000Z",
+      "cvss": {
+        "score": 6.5,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:L/A:N"
+      },
+      "cwe": [
+        "CWE-200",
+        "CWE-524"
+      ],
+      "url": "https://github.com/advisories/GHSA-2jfj-6hjv-fm6j"
+    },
+    "1240047": {
+      "findings": [
+        {
+          "version": "8.10.0",
+          "paths": [
+            ".>astro>unifont>undici"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-2gqq-gqf2-x968\n- https://nvd.nist.gov/vuln/detail/CVE-2026-84947\n- https://github.com/nodejs/undici/commit/21693f406f0142f3504192e9f9b022dcf84782ae\n- https://github.com/nodejs/undici/commit/6d583124e7cf60b640097d64144ed633cc450584\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-2gqq-gqf2-x968",
+      "created": "2026-09-29T18:18:51.000Z",
+      "id": 1240047,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nundici's `interceptors.dump()` reads and discards response bodies up to a configurable `maxSize`. When a response declares a `Content-Length` that exceeds `maxSize`, the request is aborted cleanly. When a response is sent chunked (no `Content-Length`) and its body exceeds `maxSize`, it is not aborted: the interceptor ends the response early once the accumulated size reaches `maxSize`, and continued delivery from the parser triggers an internal assertion that is caught and turned into a request abort and connection tear-down. The application observes a misleading `200` with an empty or truncated body while the connection is disconnected. Any application using the dump interceptor against untrusted or misbehaving upstreams is affected.\n\n### Patches\n\nUpgrade to `7.29.1` or `8.10.2`. The dump interceptor now enforces `maxSize` on both the declared and the received body size, aborting the request with a `RequestAbortedError` instead of returning a truncated response.\n\n### Workarounds\n\nNone. Avoid using `interceptors.dump()` with untrusted upstreams until upgraded.",
+      "reported_by": null,
+      "title": "undici vulnerable to response truncation via oversized chunked responses in the dump interceptor",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-84947"
+      ],
+      "access": "public",
+      "severity": "low",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.10.2",
+      "github_advisory_id": "GHSA-2gqq-gqf2-x968",
+      "recommendation": "Upgrade to version 8.10.2 or later",
+      "patched_versions": ">=8.10.2",
+      "updated": "2026-09-29T18:18:52.000Z",
+      "cvss": {
+        "score": 3.7,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+      },
+      "cwe": [
+        "CWE-20",
+        "CWE-248"
+      ],
+      "url": "https://github.com/advisories/GHSA-2gqq-gqf2-x968"
+    },
+    "1240049": {
+      "findings": [
+        {
+          "version": "8.10.0",
+          "paths": [
+            ".>astro>unifont>undici"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-w293-vg96-wgc3\n- https://nvd.nist.gov/vuln/detail/CVE-2026-84961\n- https://github.com/nodejs/undici/commit/8f5868fbdbc8f1146dfc1bcd1f2d117790141390\n- https://github.com/nodejs/undici/commit/f690157d728508652fef14673630c71515123e96\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-w293-vg96-wgc3",
+      "created": "2026-09-29T18:17:15.000Z",
+      "id": 1240049,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nundici's `BalancedPool` passes its constructor options through a JSON-based deep clone (`JSON.parse(JSON.stringify(...))`) before forwarding them to each per-upstream `Pool`. JSON cannot represent functions, so a caller-supplied `connect` or `tls` option containing a `checkServerIdentity` callback (or a custom connector function) is silently dropped before it reaches the TLS layer. As a result, a TLS peer whose certificate a custom `checkServerIdentity` was written to reject, but which passes Node's default hostname and chain checks, is silently accepted when the request is made through `BalancedPool`. `Client`, `Pool`, `Agent`, and `RoundRobinPool` destructure `connect`/`tls` before the clone and are not affected. Only applications that use `BalancedPool` with a function-valued `connect`/`tls` option (such as a custom `checkServerIdentity` or connector) are affected.\n\n### Patches\n\nUpgrade to `7.29.1` or `8.10.2`. `BalancedPool` now preserves the `connect` and `tls` options outside the JSON clone, so custom TLS verification callbacks are forwarded to each upstream unchanged.\n\n### Workarounds\n\nUse `Client`, `Pool`, or `Agent` instead of `BalancedPool` for connections that rely on a custom `checkServerIdentity` or connector, until upgraded.",
+      "reported_by": null,
+      "title": "undici vulnerable to TLS certificate validation bypass via dropped connect options in BalancedPool",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-84961"
+      ],
+      "access": "public",
+      "severity": "high",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.10.2",
+      "github_advisory_id": "GHSA-w293-vg96-wgc3",
+      "recommendation": "Upgrade to version 8.10.2 or later",
+      "patched_versions": ">=8.10.2",
+      "updated": "2026-09-29T18:17:16.000Z",
+      "cvss": {
+        "score": 7.4,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+      },
+      "cwe": [
+        "CWE-295"
+      ],
+      "url": "https://github.com/advisories/GHSA-w293-vg96-wgc3"
+    },
+    "1240051": {
+      "findings": [
+        {
+          "version": "8.10.0",
+          "paths": [
+            ".>astro>unifont>undici"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-8436-99hf-9mmv\n- https://nvd.nist.gov/vuln/detail/CVE-2026-85008\n- https://github.com/nodejs/undici/commit/2be07bf97b3022e0324142d31f99f6e019d815e3\n- https://github.com/nodejs/undici/commit/b61d9432bac7caac51273ad209862e4c0bf935ae\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-8436-99hf-9mmv",
+      "created": "2026-09-29T18:16:28.000Z",
+      "id": 1240051,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nundici's `interceptors.cache()` documents that it caches only safe HTTP methods. However, its internal skip-list is built by subtracting the configured methods from the safe-methods set, so an unsafe method (`POST`, `PUT`, `PATCH`, `DELETE`) never lands in the skip-list and is looked up against the cache store. Combined with the storage gate (`canCacheResponse`) having no method check, a heuristically-cacheable response (for example a `404`) with an explicit `Cache-Control: max-age=...` to an unsafe method is stored and replayed on a subsequent identical request. The application's state-changing request never reaches the origin, and undici serves a fabricated response from the cache instead. This occurs with the default configuration (`methods: ['GET']`), which the public API does not allow widening to unsafe methods, so no application misuse is required; an untrusted origin can trigger it purely through its own response headers.\n\n### Patches\n\nUpgrade to `7.29.1` or `8.10.2`. The cache interceptor no longer reads from or writes to the cache for unsafe HTTP methods, while still invalidating existing cache entries on successful unsafe requests.\n\n### Workarounds\n\nNone.",
+      "reported_by": null,
+      "title": "undici vulnerable to caching and replay of unsafe HTTP method responses",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-85008"
+      ],
+      "access": "public",
+      "severity": "low",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.10.2",
+      "github_advisory_id": "GHSA-8436-99hf-9mmv",
+      "recommendation": "Upgrade to version 8.10.2 or later",
+      "patched_versions": ">=8.10.2",
+      "updated": "2026-09-29T18:16:29.000Z",
+      "cvss": {
+        "score": 3.7,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+      },
+      "cwe": [
+        "CWE-345"
+      ],
+      "url": "https://github.com/advisories/GHSA-8436-99hf-9mmv"
+    },
+    "1240053": {
+      "findings": [
+        {
+          "version": "8.10.0",
+          "paths": [
+            ".>astro>unifont>undici"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-vp8m-p9jh-q5pm\n- https://nvd.nist.gov/vuln/detail/CVE-2026-85152\n- https://github.com/nodejs/undici/commit/caf6194d3dae989b731ed87ab85f182befe5eb80\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-vp8m-p9jh-q5pm",
+      "created": "2026-09-29T18:15:13.000Z",
+      "id": 1240053,
+      "npm_advisory_id": null,
+      "overview": "## Impact\n\nWhen `interceptors.cache()` or `interceptors.deduplicate()` is used with a dispatcher that does not carry a single authoritative origin, or when a request supplies its own `origin`, undici builds the cache and deduplication keys without the actual destination origin. If a cache store or interceptor instance is shared across more than one origin, otherwise-identical requests to different origins are keyed together.\n\nAn attacker who controls the response from one origin can then have that response returned for a request to a different, trusted origin when the method, path, and relevant headers match. This allows cross-origin information disclosure and persistent cache poisoning, including chains such as JWKS cache poisoning where a token signed with an attacker-held key is accepted as belonging to a trusted issuer.\n\nApplications that share `interceptors.cache()` or `interceptors.deduplicate()` state across origins are affected. An `Agent` is not affected, because its dispatch options include the request origin.\n\nThis was introduced in undici 8.10.0 and affects 8.10.0 and 8.10.1.\n\n## Patches\n\nUpgrade to undici v8.10.2.\n\n## Workarounds\n\nUse a separate cache store and a separate interceptor instance for each origin, and do not share them across origins.",
+      "reported_by": null,
+      "title": "undici vulnerable to cross-origin cache poisoning via missing origin isolation in interceptors",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-85152"
+      ],
+      "access": "public",
+      "severity": "high",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.10.0 <8.10.2",
+      "github_advisory_id": "GHSA-vp8m-p9jh-q5pm",
+      "recommendation": "Upgrade to version 8.10.2 or later",
+      "patched_versions": ">=8.10.2",
+      "updated": "2026-09-29T18:15:14.000Z",
+      "cvss": {
+        "score": 7.4,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+      },
+      "cwe": [
+        "CWE-346"
+      ],
+      "url": "https://github.com/advisories/GHSA-vp8m-p9jh-q5pm"
+    },
+    "1240054": {
+      "findings": [
+        {
+          "version": "8.10.0",
+          "paths": [
+            ".>astro>unifont>undici"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-rx4f-c7p8-82vq\n- https://nvd.nist.gov/vuln/detail/CVE-2026-85014\n- https://github.com/nodejs/undici/commit/1858656ebb1e919311c1f31613dfd581b7214349\n- https://github.com/nodejs/undici/commit/662d0ea671fe64139e79533c913fce412765e1d7\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-rx4f-c7p8-82vq",
+      "created": "2026-09-29T18:10:32.000Z",
+      "id": 1240054,
+      "npm_advisory_id": null,
+      "overview": "## Impact\n\nundici's `WebSocketStream` crashes the client process when a WebSocket connection is closed abruptly without a close handshake. On such an unclean close, the internal socket-close handler calls `abort()` on the writable stream even when the application holds a writer lock. Per the WHATWG Streams standard, aborting a locked stream returns a promise that rejects with a `TypeError`, and the handler discards that promise. The unobserved rejection surfaces as an `unhandledRejection` and, under Node.js's default behavior, terminates the process.\n\nA malicious or compromised WebSocket server can crash a client with a single connection teardown (a TCP reset, a proxy teardown, or a protocol-violating frame). Affected applications are those using the `WebSocketStream` API and writing through a writer, which is the standard way to write.\n\nAll releases from undici 7.0.0 are affected. WebSocketStream was introduced in 7.0.0.\n\n## Patches\n\nUpgrade to undici v7.29.1 or v8.10.2.\n\n## Workarounds\n\nNo workaround is available.",
+      "reported_by": null,
+      "title": "undici vulnerable to Denial of Service via WebSocketStream unclean close",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-85014"
+      ],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "undici",
+      "vulnerable_versions": ">=8.0.0 <8.10.2",
+      "github_advisory_id": "GHSA-rx4f-c7p8-82vq",
+      "recommendation": "Upgrade to version 8.10.2 or later",
+      "patched_versions": ">=8.10.2",
+      "updated": "2026-09-29T18:10:33.000Z",
+      "cvss": {
+        "score": 5.9,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "cwe": [
+        "CWE-248",
+        "CWE-754"
+      ],
+      "url": "https://github.com/advisories/GHSA-rx4f-c7p8-82vq"
+    },
+    "1240870": {
+      "findings": [
+        {
+          "version": "5.9.1",
+          "paths": [
+            ".>astro>devalue"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/sveltejs/devalue/security/advisories/GHSA-j22f-vq7h-c4qm\n- https://nvd.nist.gov/vuln/detail/CVE-2026-92708\n- https://github.com/sveltejs/devalue/commit/46dc877b3570dafb1cd3291b9bb48cecef8f7266\n- https://github.com/sveltejs/devalue/releases/tag/v5.9.3\n- https://github.com/advisories/GHSA-j22f-vq7h-c4qm",
+      "created": "2026-10-01T15:18:06.000Z",
+      "id": 1240870,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\n`stringify` and `uneval` serialize a typed array by emitting its backing `ArrayBuffer`, not just the view. In the case of a Node `Buffer` object, the backing buffer is a process-wide shared pool, meaning unrelated memory can be serialized into a response that is then sent to the client. For a Node `Buffer` the backing store is Node's **process-wide shared pool**, so serializing a small `Buffer` copies up to 64 KB of unrelated process memory — including bytes from other in-flight requests — into the output. In an SSR framework (SvelteKit, Nuxt) a public page whose `load()` returns a 2-byte `Buffer`, or a small file read with `readFileSync`, ships another user's request body / `Authorization` header in its HTML. Unauthenticated, silent, ~43,000× amplification.\n\nThis is serialization-side, so the `parse`/`unflatten` prototype-pollution and DoS guards do not apply — it fires on every SSR render, not only when parsing untrusted input.\n\n### Workarounds\n\nConvert Node `Buffer` objects to `Uint8Array`:\n\n```diff\npayload = {\n- buffer\n+ buffer: new Uint8Array(buffer)\n}\n```",
+      "reported_by": null,
+      "title": "devalue: `stringify`/`uneval` serialize shared memory",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-92708"
+      ],
+      "access": "public",
+      "severity": "high",
+      "module_name": "devalue",
+      "vulnerable_versions": ">=5.1.0 <=5.9.2",
+      "github_advisory_id": "GHSA-j22f-vq7h-c4qm",
+      "recommendation": "Upgrade to version 5.9.3 or later",
+      "patched_versions": ">=5.9.3",
+      "updated": "2026-10-01T15:18:07.000Z",
+      "cvss": {
+        "score": 7.5,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      },
+      "cwe": [
+        "CWE-200",
+        "CWE-226"
+      ],
+      "url": "https://github.com/advisories/GHSA-j22f-vq7h-c4qm"
+    },
+    "1240871": {
+      "findings": [
+        {
+          "version": "5.9.1",
+          "paths": [
+            ".>astro>devalue"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/sveltejs/devalue/security/advisories/GHSA-hx4r-w6wj-j8fg\n- https://github.com/sveltejs/devalue/commit/6861dbbb7e548849e48bce718e88747a298f7250\n- https://github.com/sveltejs/devalue/releases/tag/v5.9.3\n- https://github.com/advisories/GHSA-hx4r-w6wj-j8fg",
+      "created": "2026-10-01T15:17:42.000Z",
+      "id": 1240871,
+      "npm_advisory_id": null,
+      "overview": "`uneval` performs synchronous work proportional to a sparse array's declared length. An application that passes attacker-influenced sparse values to `uneval` can suffer event-loop blocking. Since attacker-controlled creation of sparse arrays is so difficult, this vulnerability is very difficult to exploit.",
+      "reported_by": null,
+      "title": "devalue: Residual sparse-array CPU amplification in uneval",
+      "metadata": null,
+      "cves": [],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "devalue",
+      "vulnerable_versions": "<=5.9.2",
+      "github_advisory_id": "GHSA-hx4r-w6wj-j8fg",
+      "recommendation": "Upgrade to version 5.9.3 or later",
+      "patched_versions": ">=5.9.3",
+      "updated": "2026-10-01T15:17:43.000Z",
+      "cvss": {
+        "score": 0,
+        "vectorString": null
+      },
+      "cwe": [
+        "CWE-400",
+        "CWE-407"
+      ],
+      "url": "https://github.com/advisories/GHSA-hx4r-w6wj-j8fg"
+    },
+    "1240872": {
+      "findings": [
+        {
+          "version": "5.9.1",
+          "paths": [
+            ".>astro>devalue"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/sveltejs/devalue/security/advisories/GHSA-mcm9-63f2-9j32\n- https://github.com/sveltejs/devalue/commit/84f6f67999104e36940f744bec0443536de1b463\n- https://github.com/sveltejs/devalue/releases/tag/v5.9.3\n- https://github.com/advisories/GHSA-mcm9-63f2-9j32",
+      "created": "2026-10-01T15:17:29.000Z",
+      "id": 1240872,
+      "npm_advisory_id": null,
+      "overview": "Under very constrained circumstances, data that was `parse`d and then passed to `uneval` could turn a small payload into a very large serialized string.",
+      "reported_by": null,
+      "title": "devalue: Repeated primitive strings cause quadratic expansion in uneval",
+      "metadata": null,
+      "cves": [],
+      "access": "public",
+      "severity": "high",
+      "module_name": "devalue",
+      "vulnerable_versions": "<=5.9.2",
+      "github_advisory_id": "GHSA-mcm9-63f2-9j32",
+      "recommendation": "Upgrade to version 5.9.3 or later",
+      "patched_versions": ">=5.9.3",
+      "updated": "2026-10-01T15:17:30.000Z",
+      "cvss": {
+        "score": 0,
+        "vectorString": null
+      },
+      "cwe": [
+        "CWE-400",
+        "CWE-409"
+      ],
+      "url": "https://github.com/advisories/GHSA-mcm9-63f2-9j32"
+    },
+    "1240873": {
+      "findings": [
+        {
+          "version": "5.9.1",
+          "paths": [
+            ".>astro>devalue"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/sveltejs/devalue/security/advisories/GHSA-wf3x-273g-mvxv\n- https://github.com/sveltejs/devalue/commit/6861dbbb7e548849e48bce718e88747a298f7250\n- https://github.com/sveltejs/devalue/releases/tag/v5.9.3\n- https://github.com/advisories/GHSA-wf3x-273g-mvxv",
+      "created": "2026-10-01T15:17:13.000Z",
+      "id": 1240873,
+      "npm_advisory_id": null,
+      "overview": "Evaluating legitimate `uneval` output for a sparse array can allocate memory proportional to its declared length. A tiny serialized value can therefore cause large memory allocation in a consuming browser/runtime. This occurs during evaluation of generated code, not in default `parse` sparse-array construction.\n\nYou would only be affected by this if you were serializing very large sparse arrays and then evaluating the results. In the general use case for `uneval` of sending data to the client, the worst that could happen is the browser tab running out of memory.",
+      "reported_by": null,
+      "title": "devalue: Sparse arrays emitted by uneval cause eager allocation when evaluated",
+      "metadata": null,
+      "cves": [],
+      "access": "public",
+      "severity": "low",
+      "module_name": "devalue",
+      "vulnerable_versions": ">=1.0.0 <=5.9.2",
+      "github_advisory_id": "GHSA-wf3x-273g-mvxv",
+      "recommendation": "Upgrade to version 5.9.3 or later",
+      "patched_versions": ">=5.9.3",
+      "updated": "2026-10-01T15:17:16.000Z",
+      "cvss": {
+        "score": 0,
+        "vectorString": null
+      },
+      "cwe": [
+        "CWE-400",
+        "CWE-789"
+      ],
+      "url": "https://github.com/advisories/GHSA-wf3x-273g-mvxv"
+    },
+    "1240874": {
+      "findings": [
+        {
+          "version": "5.9.1",
+          "paths": [
+            ".>astro>devalue"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/sveltejs/devalue/security/advisories/GHSA-x5rw-q4pp-hg5g\n- https://github.com/sveltejs/devalue/commit/dae8153e9d7541b975cc4018138d6cebec6c1199\n- https://github.com/sveltejs/devalue/releases/tag/v5.9.3\n- https://github.com/advisories/GHSA-x5rw-q4pp-hg5g",
+      "created": "2026-10-01T15:15:13.000Z",
+      "id": 1240874,
+      "npm_advisory_id": null,
+      "overview": "When serializing multiple promises, a later promise can reject before an earlier one settles. An internal rejected promise remains unhandled even if the caller catches the returned `stringifyAsync` promise. Under Node's default unhandled-rejection behavior this can terminate the process. Applications whose asynchronous failures/timing can be influenced by requests are potentially exposed.\n\nThis is essentially impossible to exploit, and is much more likely to surface as a developer-introduced bug.",
+      "reported_by": null,
+      "title": "devalue: stringifyAsync can cause an unhandled rejection despite a caught returned promise",
+      "metadata": null,
+      "cves": [],
+      "access": "public",
+      "severity": "high",
+      "module_name": "devalue",
+      "vulnerable_versions": ">=5.8.0 <=5.9.2",
+      "github_advisory_id": "GHSA-x5rw-q4pp-hg5g",
+      "recommendation": "Upgrade to version 5.9.3 or later",
+      "patched_versions": ">=5.9.3",
+      "updated": "2026-10-01T15:15:15.000Z",
+      "cvss": {
+        "score": 0,
+        "vectorString": null
+      },
+      "cwe": [
+        "CWE-248",
+        "CWE-755"
+      ],
+      "url": "https://github.com/advisories/GHSA-x5rw-q4pp-hg5g"
+    },
+    "1240875": {
+      "findings": [
+        {
+          "version": "5.9.1",
+          "paths": [
+            ".>astro>devalue"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/sveltejs/devalue/security/advisories/GHSA-4q55-j62x-fr9h\n- https://github.com/sveltejs/devalue/commit/9ec513072e31f45e60d44dad6f0dba9c92bb8675\n- https://github.com/sveltejs/devalue/releases/tag/v5.9.3\n- https://github.com/advisories/GHSA-4q55-j62x-fr9h",
+      "created": "2026-10-01T15:13:23.000Z",
+      "id": 1240875,
+      "npm_advisory_id": null,
+      "overview": "This is another instance of https://github.com/sveltejs/devalue/security/advisories/GHSA-mwv9-gp5h-frr4, where some payloads could cause `parse` to create objects with a `__proto__` own property. This on its own is not enough to cause prototype pollution, and indeed this is actually how `JSON.parse` works, but we decided to be a little more defensive here and not allow the creation of objects with `__proto__` own-properties. It is very unlikely for this to cause any issues.",
+      "reported_by": null,
+      "title": "devalue: Malformed null-prototype object keys bypass __proto__ rejection via property-key coercion",
+      "metadata": null,
+      "cves": [],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "devalue",
+      "vulnerable_versions": "<=5.9.2",
+      "github_advisory_id": "GHSA-4q55-j62x-fr9h",
+      "recommendation": "Upgrade to version 5.9.3 or later",
+      "patched_versions": ">=5.9.3",
+      "updated": "2026-10-01T15:13:25.000Z",
+      "cvss": {
+        "score": 0,
+        "vectorString": null
+      },
+      "cwe": [
+        "CWE-1321"
+      ],
+      "url": "https://github.com/advisories/GHSA-4q55-j62x-fr9h"
+    },
+    "1240991": {
+      "findings": [
+        {
+          "version": "4.2.0",
+          "paths": [
+            ".>astro>http-cache-semantics"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://nvd.nist.gov/vuln/detail/CVE-2026-93748\n- https://github.com/kornelski/http-cache-semantics/issues/56\n- https://github.com/kornelski/http-cache-semantics/blob/f01112e954b83cfa8765b633ba880e5e980aa54c/index.js#L425-L441\n- https://github.com/kornelski/http-cache-semantics/blob/f01112e954b83cfa8765b633ba880e5e980aa54c/index.js#L603-L623\n- https://www.vulncheck.com/advisories/http-cache-semantics-through-4.2.0-cross-user-cache-disclosure-via-max-stale\n- https://github.com/advisories/GHSA-ch52-4w7c-c8xp",
+      "created": "2026-09-18T18:31:44.000Z",
+      "id": 1240991,
+      "npm_advisory_id": null,
+      "overview": "http-cache-semantics through 4.2.0 fails to properly validate security-zeroed cache entries when processing client max-stale directives, allowing unauthenticated attackers to retrieve cached responses belonging to other users. Attackers can request the same URL with a large max-stale value to obtain another user's Set-Cookie session credentials from shared-cache entries that were deliberately zeroed for security reasons.",
+      "reported_by": null,
+      "title": "http-cache-semantics max-stale handling can disclose cross-user cached responses",
+      "metadata": null,
+      "cves": [
+        "CVE-2026-93748"
+      ],
+      "access": "public",
+      "severity": "high",
+      "module_name": "http-cache-semantics",
+      "vulnerable_versions": "<=4.2.0",
+      "github_advisory_id": "GHSA-ch52-4w7c-c8xp",
+      "recommendation": "None",
+      "patched_versions": "<0.0.0",
+      "updated": "2026-10-02T22:36:44.000Z",
+      "cvss": {
+        "score": 7.5,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      },
+      "cwe": [
+        "CWE-524"
+      ],
+      "url": "https://github.com/advisories/GHSA-ch52-4w7c-c8xp"
+    }
+  },
+  "muted": [],
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 4,
+      "moderate": 8,
+      "high": 10,
+      "critical": 1
+    },
+    "dependencies": 461,
+    "devDependencies": 0,
+    "optionalDependencies": 0,
+    "totalDependencies": 461
+  }
+}

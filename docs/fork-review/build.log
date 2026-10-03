@@ -1,0 +1,70 @@
+
+> xtream@1.9.0 build <review-workspace>
+> astro build
+
+▶ Astro collects anonymous usage data.
+  This information helps us improve Astro.
+  Run "astro telemetry disable" to opt-out.
+  https://astro.build/telemetry
+
+20:10:01 [vite] [optimizer] bundling dependencies...
+20:10:01 [types] Generated 1.11s
+20:10:01 [build] output: "static"
+20:10:01 [build] mode: "static"
+20:10:01 [build] directory: <review-workspace>\dist\
+20:10:01 [build] Collecting build info...
+20:10:01 [build] ✓ Completed in 2.04s.
+20:10:01 [build] Building static entrypoints...
+20:10:03 [vite] ✓ built in 1.17s
+20:10:04 [WARN] [vite] [plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 800 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+20:10:04 [vite] ✓ built in 1.17s
+20:10:04 [build] Rearranging server assets...
+
+ generating static routes 
+[xt:settings] tmdb-enabled migration failed: ReferenceError: localStorage is not defined
+    at migrateTmdbEnabledLegacy (file:///C:/Users/jayco/Desktop/Codex%20Projects/Extreme-InfiniTV-main/Extreme-InfiniTV-main/dist/.prerender/chunks/app-settings_CrSW-_y3.mjs:523:3)
+    at file:///C:/Users/jayco/Desktop/Codex%20Projects/Extreme-InfiniTV-main/Extreme-InfiniTV-main/dist/.prerender/chunks/app-settings_CrSW-_y3.mjs:533:3
+    at ModuleJob.run (node:internal/modules/esm/module_job:377:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:671:26)
+    at async getModuleForRoute$1 (file:///C:/Users/jayco/Desktop/Codex%20Projects/Extreme-InfiniTV-main/Extreme-InfiniTV-main/dist/.prerender/prerender-entry.BeILnSOy.mjs:1759:10)
+    at async Object.getComponentByRoute$1 [as getComponentByRoute] (file:///C:/Users/jayco/Desktop/Codex%20Projects/Extreme-InfiniTV-main/Extreme-InfiniTV-main/dist/.prerender/prerender-entry.BeILnSOy.mjs:1764:10)
+    at async FetchState.getProps (file:///C:/Users/jayco/Desktop/Codex%20Projects/Extreme-InfiniTV-main/Extreme-InfiniTV-main/dist/.prerender/prerender-entry.BeILnSOy.mjs:5573:15)
+    at async handleMiddleware (file:///C:/Users/jayco/Desktop/Codex%20Projects/Extreme-InfiniTV-main/Extreme-InfiniTV-main/dist/.prerender/prerender-entry.BeILnSOy.mjs:4799:2)
+    at async render$1 (file:///C:/Users/jayco/Desktop/Codex%20Projects/Extreme-InfiniTV-main/Extreme-InfiniTV-main/dist/.prerender/prerender-entry.BeILnSOy.mjs:6264:15)
+    at async BuildApp.render (file:///C:/Users/jayco/Desktop/Codex%20Projects/Extreme-InfiniTV-main/Extreme-InfiniTV-main/dist/.prerender/prerender-entry.BeILnSOy.mjs:6569:69)
+20:10:04   ├─ /docs/index.html (+44ms) 
+20:10:04   ├─ /downloads/index.html (+7ms) 
+20:10:04   ├─ /epg/index.html (+9ms) 
+20:10:04   ├─ /favorites/index.html (+7ms) 
+20:10:04   ├─ /livetv/index.html (+8ms) 
+20:10:04   ├─ /login/index.html (+4ms) 
+20:10:04   ├─ /movies/detail/index.html (+8ms) 
+20:10:04   ├─ /movies/index.html (+5ms) 
+20:10:04   ├─ /playlist-editor/index.html (+6ms) 
+20:10:04   ├─ /receiver/index.html (+3ms) 
+20:10:04   ├─ /recently-added/index.html (+6ms) 
+20:10:04   ├─ /search/index.html (+8ms) 
+20:10:04   ├─ /series/detail/index.html (+4ms) 
+20:10:04   ├─ /series/index.html (+4ms) 
+20:10:04   ├─ /settings/index.html (+25ms) 
+20:10:04   ├─ /tv/downloads/index.html (+4ms) 
+20:10:04   ├─ /tv/live/index.html (+3ms) 
+20:10:04   ├─ /tv/login/index.html (+3ms) 
+20:10:04   ├─ /tv/movies/detail/index.html (+8ms) 
+20:10:04   ├─ /tv/movies/index.html (+2ms) 
+20:10:04   ├─ /tv/search/index.html (+3ms) 
+20:10:04   ├─ /tv/series/detail/index.html (+3ms) 
+20:10:04   ├─ /tv/series/index.html (+3ms) 
+20:10:04   ├─ /tv/settings/index.html (+3ms) 
+20:10:04   ├─ /tv/index.html (+2ms) 
+20:10:04   ├─ /watchlist/index.html (+5ms) 
+20:10:04   ├─ /index.html (+7ms) 
+20:10:04 ✓ Completed in 348ms.
+
+20:10:04 [build] ✓ Completed in 2.91s.
+20:10:04 [build] 27 page(s) built in 4.95s
+20:10:04 [build] Complete!

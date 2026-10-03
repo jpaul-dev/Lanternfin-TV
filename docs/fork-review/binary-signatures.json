@@ -1,0 +1,16 @@
+[
+  {
+    "file": "Microsoft.HEVCVideoExtension_2.0.61931.0_neutral_~_8wekyb3d8bbwe.AppxBundle",
+    "bytes": 8502689,
+    "sha256": "FBCFBC9ED5C1777946B0DAD7A5813377960A134E9907D3E0669804D273DEFE90",
+    "signatureStatus": "Valid",
+    "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+  },
+  {
+    "file": "Microsoft.HEVCVideoExtensions_2.4.87.0_neutral_~_8wekyb3d8bbwe.AppxBundle",
+    "bytes": 8302955,
+    "sha256": "57725A8B4F8E7AA1461D463CFA40456AC1082E488F46F1630F627D5C0BD1BA28",
+    "signatureStatus": "Valid",
+    "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+  }
+]

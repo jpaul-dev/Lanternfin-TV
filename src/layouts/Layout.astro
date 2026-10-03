@@ -2,6 +2,7 @@
 import Sidebar from "@/components/Sidebar.astro"
 import TitleBar from "@/components/TitleBar.astro"
 import WindowResizeEdges from "@/components/WindowResizeEdges.astro"
+import ReceiverDefaults from "@/components/ReceiverDefaults.astro"
 import CatalogWarmingIndicator from "@/components/CatalogWarmingIndicator.svelte"
 import pkg from "../../package.json"
 import { TV_ROUTE_TABLE } from "@/scripts/lib/tv-routes"
@@ -33,6 +34,7 @@ const appMode = import.meta.env.PUBLIC_APP_MODE || ""
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta property="og:title" content="Extreme InfiniTV" />
     <meta property="og:image" content="https://raw.githubusercontent.com/infinitel8p/Extreme-InfiniTV/refs/heads/main/src-tauri/icons/logos/icon-1024.png" />
+    <ReceiverDefaults />
     {
       appMode === "receiver" && (
         <script is:inline>
@@ -82,12 +84,11 @@ const appMode = import.meta.env.PUBLIC_APP_MODE || ""
         if (localStorage.getItem("xt_sidebar_collapsed") === "1") {
           document.documentElement.setAttribute("data-sidebar-collapsed", "");
         }
-        // Auto-enable perf mode + receiver mode + receiver boot on TV / Leanback devices
+        // TV / Leanback devices use the standalone browse UI by default.
+        // Only performance mode is enabled automatically; receiving casts is opt-in.
         var perfStored = localStorage.getItem("xt_perf_mode");
-        var receiverStored = localStorage.getItem("xt_receiver_mode");
-        var receiverBootStored = localStorage.getItem("xt_receiver_boot");
         var isTvDevice = false;
-        if (perfStored === null || receiverStored === null || receiverBootStored === null) {
+        {
           try {
             if (window.AndroidDeviceInfo && typeof window.AndroidDeviceInfo.isTv === "function") {
               isTvDevice = !!window.AndroidDeviceInfo.isTv();
@@ -127,15 +128,6 @@ const appMode = import.meta.env.PUBLIC_APP_MODE || ""
         if (perfStored === "1") {
           document.documentElement.setAttribute("data-perf-mode", "on");
         }
-        if (receiverStored === null && isTvDevice) {
-          localStorage.setItem("xt_receiver_mode", "1");
-          localStorage.setItem("xt_receiver_mode_auto", "1");
-        }
-        if (receiverBootStored === null && isTvDevice) {
-          localStorage.setItem("xt_receiver_boot", "1");
-          localStorage.setItem("xt_receiver_boot_auto", "1");
-        }
-
         // Boot straight into the receiver screen when enabled, unless the user exited it this session
         try {
           if (

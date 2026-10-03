@@ -1,0 +1,4542 @@
+{
+  "createdAtUtc": "2026-10-03T02:06:54.802462+00:00",
+  "provenance": "Local source archive; no .git directory or verified upstream commit",
+  "fileCount": 907,
+  "files": [
+    {
+      "path": ".env.screenshots.example",
+      "bytes": 553,
+      "sha256": "86ef9eeca4fa6071b58f2efbf1c93c276255eda9f2f69ae4ac0d3afddfd33473"
+    },
+    {
+      "path": ".gitattributes",
+      "bytes": 925,
+      "sha256": "1af6389c88055a97e8f429b20d170582277acef3c66aa81d1aeaaeabff8c6c6a"
+    },
+    {
+      "path": ".github/FUNDING.yml",
+      "bytes": 99,
+      "sha256": "eba2d5f272c73bfdd469d73df6768d702cde9bd9b2f43276687209d90bfa2fca"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "bytes": 4436,
+      "sha256": "761df534d470ff331e3ae91f124f49b639b91d991a9c36aede8222e6dc62d98a"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "bytes": 447,
+      "sha256": "e9b42e98cc66c59f4508cd087cd36afa39a2de034bf89647dd8562567e0ff8bf"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.yml",
+      "bytes": 1689,
+      "sha256": "e4848dba15896eeea05616e9eed7f4eb93bc8d3df10a90a5dc7219d46029636d"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/playback_issue.yml",
+      "bytes": 4712,
+      "sha256": "35ba2d78376e4e82ff439c4c486e191ffe9a3543af8d7b85e8840120a37af167"
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE/translation.md",
+      "bytes": 921,
+      "sha256": "e888ca18bd75b0f1ccb6be89fa1f4e52a4fcdc51420face36e6a04a06e1c62c6"
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "bytes": 777,
+      "sha256": "512bade2cc716def4bcd2ee7d9e71047e4e5786a9d75d9f1e0a4f853546195ca"
+    },
+    {
+      "path": ".github/workflows/beta.yml",
+      "bytes": 24053,
+      "sha256": "eee636cc4440586326dffa6c8c91967b17f36f059811fb6fd855cf6ff9b1d645"
+    },
+    {
+      "path": ".github/workflows/cleanup-betas.yml",
+      "bytes": 4355,
+      "sha256": "c54ab7e436100f3bff9b8584152d99abafb8f073f800c701c88f90062d47791c"
+    },
+    {
+      "path": ".github/workflows/codeql.yml",
+      "bytes": 3463,
+      "sha256": "ee22ef1598351f8fb9cb01b2b6db253d1bb019310b88711c4d58c597d6e41c3c"
+    },
+    {
+      "path": ".github/workflows/docs.yml",
+      "bytes": 1101,
+      "sha256": "579a76b0e4ad717332ab3433ffbdb48ffa950aff768f94863bd54059e2b49e43"
+    },
+    {
+      "path": ".github/workflows/ffmpeg-sidecar.yml",
+      "bytes": 35590,
+      "sha256": "edd62689d47a20d2b5ae789c34d942b4026bd76e070ff71fa56de9ec08a17dcb"
+    },
+    {
+      "path": ".github/workflows/flatpak-test.yml",
+      "bytes": 2584,
+      "sha256": "6ecb86ce6ce998e7d0637f81262acb292f1ebd99616f48a02d491af6f26e8245"
+    },
+    {
+      "path": ".github/workflows/greetings.yml",
+      "bytes": 1258,
+      "sha256": "0deb86ec15af447613c2481acc04a9a6242a403e6fe5998460af2c202b496b92"
+    },
+    {
+      "path": ".github/workflows/i18n-keys-check.yml",
+      "bytes": 4126,
+      "sha256": "bef1e62b024234dd3e09e72e77eca2d18e3ee25bc10709204a8be9d4975e77be"
+    },
+    {
+      "path": ".github/workflows/msstore-publish.yml",
+      "bytes": 2284,
+      "sha256": "80d7b5f2093da29831ce47593fcbe7c110164465e5ce6b2e470d2bcb8f643209"
+    },
+    {
+      "path": ".github/workflows/osv-scanner.yml",
+      "bytes": 1614,
+      "sha256": "2fc043a5627fad698d959abdae555545553dc917f68ea2b02abe15f7fac9e353"
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "bytes": 44724,
+      "sha256": "bdb897a44465f3c7e0aecfe2fbba40f69d2b4ef9cdb20b10efaba90d7ae7be24"
+    },
+    {
+      "path": ".github/workflows/snap-test.yml",
+      "bytes": 3152,
+      "sha256": "c653e0d68cf76dd7ff39518ca5e1c59b6a408893e11f0c98666ab589fd164a49"
+    },
+    {
+      "path": ".github/workflows/stale.yml",
+      "bytes": 1611,
+      "sha256": "6277f1922632be7cad7519ef41c1e59e6d59cb7cebdea6ff063fef832b34778d"
+    },
+    {
+      "path": ".github/workflows/summary.yml",
+      "bytes": 1149,
+      "sha256": "c61585cf246a5226912bea962f7e2d4b0ce92b04a1bf46f36cc762f08ce3119a"
+    },
+    {
+      "path": ".github/workflows/test.yml",
+      "bytes": 1101,
+      "sha256": "776d4b16122a0c11d52c98bac04e57caebddfcc6cf347989526d27c1d57fcc20"
+    },
+    {
+      "path": ".github/workflows/tvdb-proxy.yml",
+      "bytes": 2314,
+      "sha256": "d9377d0d950b7a09c8fad3707b88840107a0ca56044c56e5e7235f00d59a3034"
+    },
+    {
+      "path": ".github/workflows/visual-regression.yml",
+      "bytes": 3250,
+      "sha256": "3b0e5e5fc669787b15648cd7ffb7496af8aa207aa462626279f3309d827c3c88"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 1120,
+      "sha256": "b0a0e1ae83e9a7a7ebec16a1bd32f097ba6657eafeceb2447cb2d0ce4f6caca7"
+    },
+    {
+      "path": ".vscode/extensions.json",
+      "bytes": 87,
+      "sha256": "cc8f4bcdc3c31be539aa67fbdacaaac4c9fcccb55b02048acf02f56e623ef682"
+    },
+    {
+      "path": ".vscode/launch.json",
+      "bytes": 207,
+      "sha256": "461accad2f8d7604a8470fb4705b84768bcf24791b0974d49cba0d96c3fea857"
+    },
+    {
+      "path": ".wakatime-project",
+      "bytes": 17,
+      "sha256": "662df6d8f621d37f8de468e3f3ce14b96603f3f522a3364fcc99a22b9e355609"
+    },
+    {
+      "path": "astro.config.mjs",
+      "bytes": 1331,
+      "sha256": "a4b030e8f9c7b38aeb08add14fa510a14377bae8edc285876f86f7f75b652723"
+    },
+    {
+      "path": "bin/Microsoft.HEVCVideoExtension_2.0.61931.0_neutral_~_8wekyb3d8bbwe.AppxBundle",
+      "bytes": 8502689,
+      "sha256": "fbcfbc9ed5c1777946b0dad7a5813377960a134e9907d3e0669804d273defe90"
+    },
+    {
+      "path": "bin/Microsoft.HEVCVideoExtensions_2.4.87.0_neutral_~_8wekyb3d8bbwe.AppxBundle",
+      "bytes": 8302955,
+      "sha256": "57725a8b4f8e7aa1461d463cfa40456ac1082e488f46f1630f627d5c0bd1ba28"
+    },
+    {
+      "path": "buildfiles/make-msix-ci.mjs",
+      "bytes": 6278,
+      "sha256": "ce2fb35114db02283eb537f700cd4231220ae49a71ccdfbce7b19f40751a5848"
+    },
+    {
+      "path": "buildfiles/msix/AppxManifest.template.xml",
+      "bytes": 1751,
+      "sha256": "e54e281d19968e2d22e9d983035757047a02928d7c3cb64063f60367d9a60c26"
+    },
+    {
+      "path": "buildfiles/sync-version.mjs",
+      "bytes": 4830,
+      "sha256": "dbf6da42169fef95153157e65a5a60cd35cb27fb5e33234068a10c938a7fe494"
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "bytes": 1044,
+      "sha256": "6e62d027678587a4a14119675fb98f276fc2bbebfdbfaa5334375c2c71780f5e"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 1180,
+      "sha256": "76f2afae23730071689fdaca7f308ae03389ef076f263910a535c0bc5795cbc9"
+    },
+    {
+      "path": "docs/api.md",
+      "bytes": 4492,
+      "sha256": "c7db9be37980cb1247592b0e9ed093d604e3219b3f1af3fed76a790e0e555acc"
+    },
+    {
+      "path": "docs/astro.config.mjs",
+      "bytes": 499,
+      "sha256": "0ac836098d8bab567790e4ccbec8d7ab75903a7042f560deb3347e70d64d452e"
+    },
+    {
+      "path": "docs/package.json",
+      "bytes": 659,
+      "sha256": "182e43ed966892c6f4751315cf3919607c6c5ce02416d429e5f180a5001a35c9"
+    },
+    {
+      "path": "docs/pnpm-lock.yaml",
+      "bytes": 142132,
+      "sha256": "19d3b2d2d4eef6a9e6b812ffdceb739c2b38dc66d65b65cbffa88e31f7449f87"
+    },
+    {
+      "path": "docs/pnpm-workspace.yaml",
+      "bytes": 18,
+      "sha256": "226909e7726c235c6b854540949bc8144625420ccdd6298fca1f7885d8bfe524"
+    },
+    {
+      "path": "docs/screenshots/Android-TV/tv-downloads.png",
+      "bytes": 105382,
+      "sha256": "589ee767bea160373d7e40aa8ea884844f8067b28347e3b86bf85e579f6b5273"
+    },
+    {
+      "path": "docs/screenshots/Android-TV/tv-live.png",
+      "bytes": 213729,
+      "sha256": "6f63eccdfd8f2368673828a02b4dfc27dbed79791aa03da1b23842d550790b80"
+    },
+    {
+      "path": "docs/screenshots/Android-TV/tv-movies.png",
+      "bytes": 1557187,
+      "sha256": "08fb4c9278ef2b2bb32eec64b4ddcbe2996febcaa0205cf9c43ba5d98665acb6"
+    },
+    {
+      "path": "docs/screenshots/Android-TV/tv-search.png",
+      "bytes": 1400290,
+      "sha256": "8a313637ecab57d90eadf6909fca7fae55acaa143481bb4541c55944d60abbed"
+    },
+    {
+      "path": "docs/screenshots/Android-TV/tv-series.png",
+      "bytes": 1533677,
+      "sha256": "d30cc9859dcfbe151c9c2c680f9a53cbb4610bfb9053f2da96e81e138aa80b57"
+    },
+    {
+      "path": "docs/screenshots/Android-TV/tv-settings.png",
+      "bytes": 88034,
+      "sha256": "46874491eb4fc910c7531b7f95b21d0891ca72affdd7812d797aac03efaace01"
+    },
+    {
+      "path": "docs/screenshots/Android-TV/tv.png",
+      "bytes": 1778499,
+      "sha256": "4d5baae2344323943feff69997d84509567e1389a49b8a5ee002e021315244e7"
+    },
+    {
+      "path": "docs/screenshots/Android-XR/downloads.png",
+      "bytes": 543691,
+      "sha256": "a759e6e23f975b405a10242af9e96c99cf14b2d5533211fc0eb70c00cbb8321d"
+    },
+    {
+      "path": "docs/screenshots/Android-XR/epg.png",
+      "bytes": 1119560,
+      "sha256": "f3a8606bd748293d2058f3536baf13928d6b2b6987554390c4090493fd09c21c"
+    },
+    {
+      "path": "docs/screenshots/Android-XR/favorites.png",
+      "bytes": 603349,
+      "sha256": "1ea0799347578b262496ca1b83c3812c16587e21487ce082eaddedcb0169359b"
+    },
+    {
+      "path": "docs/screenshots/Android-XR/home-welcome.png",
+      "bytes": 207704,
+      "sha256": "d9e3debfc7d1ed8da9382c9cdb8798e16ef744ccde5a248a0ecbcdccc276da7b"
+    },
+    {
+      "path": "docs/screenshots/Android-XR/home.png",
+      "bytes": 2871954,
+      "sha256": "5c38fd82c20cd963322d469963bb48efcddbd7739df56c7d67ff9263cf5af793"
+    },
+    {
+      "path": "docs/screenshots/Android-XR/livetv.png",
+      "bytes": 624072,
+      "sha256": "8e8feb76214b56d94f14fdef2308589f15acccd18773b48d9a9f01cbb9626e09"
+    },
+    {
+      "path": "docs/screenshots/Android-XR/movies.png",
+      "bytes": 6077374,
+      "sha256": "db99710c3d1f12426d982e9f5f54a5e9ee1700e6c19cacca1149a0122c0ae5e3"
+    },
+    {
+      "path": "docs/screenshots/Android-XR/recently-added.png",
+      "bytes": 6790199,
+      "sha256": "4fc833cdfd8b48537b5b4d9d5834b41c160e2b76fa571df71be2ef6dbf92136e"
+    },
+    {
+      "path": "docs/screenshots/Android-XR/search.png",
+      "bytes": 598406,
+      "sha256": "83bef278ba6bcef6df35f7bbbb29d50368899340644ec800fb2d30a0a0747eb2"
+    },
+    {
+      "path": "docs/screenshots/Android-XR/series.png",
+      "bytes": 6331658,
+      "sha256": "ebac57b97576727b14006178d53eff77d0d4eacfae2978ec6e2c1f2985b65340"
+    },
+    {
+      "path": "docs/screenshots/Android-XR/settings.png",
+      "bytes": 694391,
+      "sha256": "c616f1f01f440e19cbda85c7f1288c2e10d3c81e2f81f8d256dc4bd150754175"
+    },
+    {
+      "path": "docs/screenshots/Chromebook/downloads.png",
+      "bytes": 151724,
+      "sha256": "62f17ba06d40625da6fe7ee6d41fba5d8d1be9ea06c97c65ea2427cc59e08c73"
+    },
+    {
+      "path": "docs/screenshots/Chromebook/epg.png",
+      "bytes": 245043,
+      "sha256": "4cf4ce5b6ebf5a340c251b4c0fb17d62be2617c21523c586a1035900f8ed2074"
+    },
+    {
+      "path": "docs/screenshots/Chromebook/favorites.png",
+      "bytes": 170980,
+      "sha256": "5e3f1c91428521f757465fe244afe0ec8e6fc0755b7d03990bd92726ee303efd"
+    },
+    {
+      "path": "docs/screenshots/Chromebook/home-welcome.png",
+      "bytes": 79871,
+      "sha256": "1c5e483a76cd94a306015ebba76a2d011c2373296d9585080ebd37add46fd3f3"
+    },
+    {
+      "path": "docs/screenshots/Chromebook/home.png",
+      "bytes": 568649,
+      "sha256": "d3b2cdea902fed95332e0aa0833a39195faa9c36463e3104e3b7caf964e35545"
+    },
+    {
+      "path": "docs/screenshots/Chromebook/livetv.png",
+      "bytes": 157417,
+      "sha256": "1f28d912c249ef606928761e75584ffbabeaf571385432a6a3dc2cbc6ef2eeb3"
+    },
+    {
+      "path": "docs/screenshots/Chromebook/movies.png",
+      "bytes": 889840,
+      "sha256": "6db799f5b25b177cd65678df94400763f06ec067c7bc89cc69c3b17a6665e049"
+    },
+    {
+      "path": "docs/screenshots/Chromebook/recently-added.png",
+      "bytes": 932540,
+      "sha256": "a9a2e53b6cefe135295f17b84361817eeb851500729cb9b3c164abb8ef373cd4"
+    },
+    {
+      "path": "docs/screenshots/Chromebook/search.png",
+      "bytes": 169917,
+      "sha256": "8b2ce21838848510f9d2834d4af7eb3d0158823869d0340182c3f291e78b80a1"
+    },
+    {
+      "path": "docs/screenshots/Chromebook/series.png",
+      "bytes": 911585,
+      "sha256": "dee39fe3f23bd76ec2c5c8b5fad5435a13cebcbe28fb4a7f6d971ec55ed7a364"
+    },
+    {
+      "path": "docs/screenshots/Chromebook/settings.png",
+      "bytes": 183382,
+      "sha256": "d4de6e9c8f12a7d27cae59993324d09436464fd758a68b085e350b7e63fa2072"
+    },
+    {
+      "path": "docs/screenshots/Desktop/downloads.png",
+      "bytes": 148424,
+      "sha256": "b835419000073f132d79693e572c6888bc172e936241484a85944093e48a36f3"
+    },
+    {
+      "path": "docs/screenshots/Desktop/epg.png",
+      "bytes": 265189,
+      "sha256": "1f8ca19b487ae1bcff653c9d980f10e13f771b64df582ea3349acfd870eb4140"
+    },
+    {
+      "path": "docs/screenshots/Desktop/favorites.png",
+      "bytes": 166647,
+      "sha256": "2ee9c165f7bd1edf58e4f67663bffd7785862d2f81a94f9d6071676cb5297c03"
+    },
+    {
+      "path": "docs/screenshots/Desktop/home-welcome.png",
+      "bytes": 78711,
+      "sha256": "a28cfb30fe08b9ed729f1fb5b7fd13d6a855aecc358909da33ecda2e40912720"
+    },
+    {
+      "path": "docs/screenshots/Desktop/home.png",
+      "bytes": 512201,
+      "sha256": "569a25c23068e3a1b28e502a5c1744410db22db89391b0b87f084c1971f4555d"
+    },
+    {
+      "path": "docs/screenshots/Desktop/livetv.png",
+      "bytes": 159872,
+      "sha256": "3baf9f2640b6bd3f68fec766cc493ec909ce99268c839df3c29c6c4de60dde6c"
+    },
+    {
+      "path": "docs/screenshots/Desktop/movies.png",
+      "bytes": 954924,
+      "sha256": "6353bba68b5560344542e576ea50c3746f20c727fd8c13b9393a7b3b28b4d22a"
+    },
+    {
+      "path": "docs/screenshots/Desktop/recently-added.png",
+      "bytes": 1021780,
+      "sha256": "ef7975dad87f540f0eeca30432975ed09596b80428dc8cc6bd1622c8d0c9fd35"
+    },
+    {
+      "path": "docs/screenshots/Desktop/search.png",
+      "bytes": 166225,
+      "sha256": "66248d920aa88a9e6433ab3b15734c25683528fa76faae54b5838d5c3fd26197"
+    },
+    {
+      "path": "docs/screenshots/Desktop/series.png",
+      "bytes": 1004093,
+      "sha256": "0d09217cae7f06d3a0e7d3dfa6b5498dea814abb84e43708e859457c73f9b57a"
+    },
+    {
+      "path": "docs/screenshots/Desktop/settings.png",
+      "bytes": 185620,
+      "sha256": "a2bc12314903008faa26c580cacb72564e4008923e5f7c2227944498dc6a481b"
+    },
+    {
+      "path": "docs/screenshots/Desktop-1080p/downloads.png",
+      "bytes": 192274,
+      "sha256": "c06d98f98bc62d971c2b272962233985ece90f107a1a29a56d543c4078b5f133"
+    },
+    {
+      "path": "docs/screenshots/Desktop-1080p/epg.png",
+      "bytes": 398050,
+      "sha256": "6fdf6177a691662959294197928dfd6ea773dc17dc78136a4df2961d9b4af687"
+    },
+    {
+      "path": "docs/screenshots/Desktop-1080p/favorites.png",
+      "bytes": 211139,
+      "sha256": "2baebb3e53492cbddc90f225c5b6ede76766e2b6f790007f8690f35fe4d5ad02"
+    },
+    {
+      "path": "docs/screenshots/Desktop-1080p/home-welcome.png",
+      "bytes": 95033,
+      "sha256": "43b6d781fac2742902e32ad8924d75017ea5cbc8eb5202b6768b9806b22fff2c"
+    },
+    {
+      "path": "docs/screenshots/Desktop-1080p/home.png",
+      "bytes": 864931,
+      "sha256": "3294ec9967f2699a4056e078672d231409aae4fa2a162eff06b5b0d7db188c7c"
+    },
+    {
+      "path": "docs/screenshots/Desktop-1080p/livetv.png",
+      "bytes": 233626,
+      "sha256": "920083396afbe94be6eb54f42bdf6dc4cc7013871e6b5b709273428855950f85"
+    },
+    {
+      "path": "docs/screenshots/Desktop-1080p/movies.png",
+      "bytes": 1774508,
+      "sha256": "acfc3247550301eee376903828073843b7a556f501e0ea134ef641af50594791"
+    },
+    {
+      "path": "docs/screenshots/Desktop-1080p/recently-added.png",
+      "bytes": 2028882,
+      "sha256": "b1e128726e0b7d6ff60abf2ebc51f32858ef8b3c8f3dac4df5b3869920cafe89"
+    },
+    {
+      "path": "docs/screenshots/Desktop-1080p/search.png",
+      "bytes": 212036,
+      "sha256": "2fb9b7486af51d41f66f4f1370211aa0e0b193f8128c9ca9f0d9fce044e3187d"
+    },
+    {
+      "path": "docs/screenshots/Desktop-1080p/series.png",
+      "bytes": 1883327,
+      "sha256": "7b357b9cf6e033fd06b78fcc970f9fa6ce21d7ff9b418bea8ada65d39247eed0"
+    },
+    {
+      "path": "docs/screenshots/Desktop-1080p/settings.png",
+      "bytes": 254180,
+      "sha256": "611f72e59828d172d40de0c0f62a98732e05b7174b0b0555498a3c1542831fde"
+    },
+    {
+      "path": "docs/screenshots/Galaxy-S20-Ultra/downloads.png",
+      "bytes": 288927,
+      "sha256": "71d32048af86e4ea80e912803173a8bf28079bdc4d9bec1909fa0161cb710f0b"
+    },
+    {
+      "path": "docs/screenshots/Galaxy-S20-Ultra/epg.png",
+      "bytes": 428049,
+      "sha256": "6a5fce646fc61e5d22fdc27f3910575612c781e42e542a33b61e158a8df743b4"
+    },
+    {
+      "path": "docs/screenshots/Galaxy-S20-Ultra/favorites.png",
+      "bytes": 370498,
+      "sha256": "b5967e06547e06be165ba468c1f248c05f14b7f4a7d73a5d68bfe62f94704ed0"
+    },
+    {
+      "path": "docs/screenshots/Galaxy-S20-Ultra/home-welcome.png",
+      "bytes": 175187,
+      "sha256": "7ca0c1b763ab7e018f71e70e24d9390db3cb477cbdfd253bff210f7a82f68f70"
+    },
+    {
+      "path": "docs/screenshots/Galaxy-S20-Ultra/home.png",
+      "bytes": 1226347,
+      "sha256": "d8def51e6ef48d0539b566d7263033b42e8f8a5872d305a17a122f2cd712c56e"
+    },
+    {
+      "path": "docs/screenshots/Galaxy-S20-Ultra/livetv.png",
+      "bytes": 385939,
+      "sha256": "fbfad9ec78e125f65dc28131190c465ca6d0c14f57807825b37500bb0c160907"
+    },
+    {
+      "path": "docs/screenshots/Galaxy-S20-Ultra/movies.png",
+      "bytes": 2923860,
+      "sha256": "a690f2e787f4602f5cb6eb6d677db160bf3e01c1603064f94a7901daffa445f8"
+    },
+    {
+      "path": "docs/screenshots/Galaxy-S20-Ultra/recently-added.png",
+      "bytes": 2690014,
+      "sha256": "03d0a29a3140cc7a466db097b53d6dc985b9a066be987aad29716c54ea81a16b"
+    },
+    {
+      "path": "docs/screenshots/Galaxy-S20-Ultra/search.png",
+      "bytes": 369234,
+      "sha256": "a39ed800bdc81125f76651f2fe981756092cd201d5a94d9b106e6d6b93670ce0"
+    },
+    {
+      "path": "docs/screenshots/Galaxy-S20-Ultra/series.png",
+      "bytes": 2753119,
+      "sha256": "0527c1666c1cf0af48dc66982afd8df459f0e94c9812e5895fa6921a0fa6f2e4"
+    },
+    {
+      "path": "docs/screenshots/Galaxy-S20-Ultra/settings.png",
+      "bytes": 394767,
+      "sha256": "4e3bf449a3ef2b31fa65f90db637292a779f577288e78e97f5b8a505288b0e4b"
+    },
+    {
+      "path": "docs/screenshots/iPad-Air/downloads.png",
+      "bytes": 399834,
+      "sha256": "e13985bbfd58534a6df47a5907495d34b9ee323b71323162c203907b04be453c"
+    },
+    {
+      "path": "docs/screenshots/iPad-Air/epg.png",
+      "bytes": 662413,
+      "sha256": "812d76658736945a6afcd7223139400896f9d1199f2f78066eaa90045d2b0703"
+    },
+    {
+      "path": "docs/screenshots/iPad-Air/favorites.png",
+      "bytes": 459411,
+      "sha256": "98a27640c65ae91a013441cd9204102af3f17dd6335a08eddd795717006af47f"
+    },
+    {
+      "path": "docs/screenshots/iPad-Air/home-welcome.png",
+      "bytes": 170494,
+      "sha256": "72f514592d836a428248f2b47e1caeb9ffcda407a666346a2ac8ef8f7c4e1a49"
+    },
+    {
+      "path": "docs/screenshots/iPad-Air/home.png",
+      "bytes": 1464013,
+      "sha256": "92fe483babef110bb763b870cd26149e3dd216cc7b92b9af1b51b2b019a12900"
+    },
+    {
+      "path": "docs/screenshots/iPad-Air/livetv.png",
+      "bytes": 370707,
+      "sha256": "27f36c60af75532d8a53ffa85b0c5d4fdf5905a2dda2f5374a99451c3cd8cb73"
+    },
+    {
+      "path": "docs/screenshots/iPad-Air/movies.png",
+      "bytes": 2981483,
+      "sha256": "6ba10abfecdeec5950bee49d3ef60f64f5e323e4dd92cafa5211e5a27e6cfa44"
+    },
+    {
+      "path": "docs/screenshots/iPad-Air/recently-added.png",
+      "bytes": 2779921,
+      "sha256": "fd31d7ea32ed8ddb5abf486a3317fa4ff678569906a2609e110e197092ecc873"
+    },
+    {
+      "path": "docs/screenshots/iPad-Air/search.png",
+      "bytes": 446600,
+      "sha256": "5d1fe1fcbaacaafec6e5bc2d803ad822ce4fd322634ef8f96a4dbb13663bbe17"
+    },
+    {
+      "path": "docs/screenshots/iPad-Air/series.png",
+      "bytes": 2849656,
+      "sha256": "e2eaac2e55402332870a0fb22c6de9b37c42b0e7e910593e8ccf89a71352ec93"
+    },
+    {
+      "path": "docs/screenshots/iPad-Air/settings.png",
+      "bytes": 475777,
+      "sha256": "fa043b438d3e863ffa9a3879d50a360f17c8b511b160d4574a4da60f40195b05"
+    },
+    {
+      "path": "docs/screenshots/iPad-Pro/downloads.png",
+      "bytes": 442956,
+      "sha256": "41fe4ee5116da332100481dda6de9827a57bc9726817703744e5cd4ea61184f8"
+    },
+    {
+      "path": "docs/screenshots/iPad-Pro/epg.png",
+      "bytes": 829454,
+      "sha256": "c68d3403cf743a418cd86643884cec229b6bb04b94ba14295f9dda281e98c8dc"
+    },
+    {
+      "path": "docs/screenshots/iPad-Pro/favorites.png",
+      "bytes": 500042,
+      "sha256": "38c35ea98ddaed25a30fc4c421ab2383b47a04982a5a04aa8f6f3d01d4a2d9fc"
+    },
+    {
+      "path": "docs/screenshots/iPad-Pro/home-welcome.png",
+      "bytes": 185984,
+      "sha256": "796b3000bcc7451b0cc07c5ea58061e713b4c3dbef3353a5dbf42e185b00e204"
+    },
+    {
+      "path": "docs/screenshots/iPad-Pro/home.png",
+      "bytes": 1789989,
+      "sha256": "e3b7c8ab376051f0ae248b8a82081dbcbf727da3464c6b5de17c821d890325c0"
+    },
+    {
+      "path": "docs/screenshots/iPad-Pro/livetv.png",
+      "bytes": 472160,
+      "sha256": "6a8ce10c5edfdf3e5f7222cab6e34570a53fead26984fe3299060598b1f5de68"
+    },
+    {
+      "path": "docs/screenshots/iPad-Pro/movies.png",
+      "bytes": 3948927,
+      "sha256": "1183bc01f9dc9c7a5b893786e67628400aee87a8c69a27a1958e968b293029c6"
+    },
+    {
+      "path": "docs/screenshots/iPad-Pro/recently-added.png",
+      "bytes": 4256445,
+      "sha256": "4ae4f046a0bdc49f7d9a2e4485b09fadbfcbf9332f39ad854fbc66e33e503c09"
+    },
+    {
+      "path": "docs/screenshots/iPad-Pro/search.png",
+      "bytes": 496955,
+      "sha256": "4090242538c3f140fc001a7e40ef524c7fc85d6f583e44738ef5a0c237e3d6ba"
+    },
+    {
+      "path": "docs/screenshots/iPad-Pro/series.png",
+      "bytes": 4059862,
+      "sha256": "78fa066151e2d5d15ca5ceee0f7c8c65d434d04b882c9ef7b796f88f9bc7036f"
+    },
+    {
+      "path": "docs/screenshots/iPad-Pro/settings.png",
+      "bytes": 587413,
+      "sha256": "ff883ca164446af654ddb27cde5be1cd0ff785694cdc7bfea2ac246bc67e691b"
+    },
+    {
+      "path": "docs/src/components/Callout.astro",
+      "bytes": 1716,
+      "sha256": "83774d85f7152bed88732aaf13f76b3558c0580ef52d72293e188f95b20bdef3"
+    },
+    {
+      "path": "docs/src/components/CommandPalette.astro",
+      "bytes": 4470,
+      "sha256": "9e18ebe32b50b91ac66723a7d10ccd68d953aeb9fe97daf02c12ee373496bba1"
+    },
+    {
+      "path": "docs/src/components/HubCard.astro",
+      "bytes": 1564,
+      "sha256": "855d6e11f900bd57422b470ecd40780e689711d71809e3e0a0db69e65f972d4b"
+    },
+    {
+      "path": "docs/src/components/Icon.astro",
+      "bytes": 2651,
+      "sha256": "f30c7108df7679ef324e5f03fc83e39770506393e148e71e181ec1be850942a9"
+    },
+    {
+      "path": "docs/src/components/Sidebar.astro",
+      "bytes": 4435,
+      "sha256": "3d90c42c334e169c8f40f0a457e1eaa9a9d7e9833be64d1ed7f3635354d43993"
+    },
+    {
+      "path": "docs/src/components/SiteNav.astro",
+      "bytes": 4305,
+      "sha256": "f0e31cba9aed5554ac579860c63e8fe7c2123e7773f8b59ec28d113421a88e12"
+    },
+    {
+      "path": "docs/src/layouts/DocsLayout.astro",
+      "bytes": 29949,
+      "sha256": "693d03ae4dd91f0b73b037920e7f52ca0aad41a612e08fe2abb42e80cc03950d"
+    },
+    {
+      "path": "docs/src/pages/add-from-website.mdx",
+      "bytes": 2617,
+      "sha256": "96c13e8281873e52929d899a25d3dab29c961f9f25e473b29517d5ca3951fc62"
+    },
+    {
+      "path": "docs/src/pages/audio-formats.mdx",
+      "bytes": 3714,
+      "sha256": "1f20882562370d1f720eac3c13bb44bde97767b763c898db5f8597c254383dba"
+    },
+    {
+      "path": "docs/src/pages/catch-up.mdx",
+      "bytes": 3396,
+      "sha256": "4dead57231d2481d27e7ad68c151ceb6106412175ad0bc00c4b97eac75a8764a"
+    },
+    {
+      "path": "docs/src/pages/custom-playlists.mdx",
+      "bytes": 4286,
+      "sha256": "a4fd8fca489230ebbee54ba275d1a85420a7e8a7e266be15b8ef549affff4366"
+    },
+    {
+      "path": "docs/src/pages/external-players.mdx",
+      "bytes": 5681,
+      "sha256": "2f3c2af32441039660b93ad01261374ff3b67a9ec8fcb9af3a362be55a88ea57"
+    },
+    {
+      "path": "docs/src/pages/getting-started.mdx",
+      "bytes": 6537,
+      "sha256": "ac08c5d8bae9e54665e5623e7dc028f213598680f9f7fe379cd4d07fe1903dc3"
+    },
+    {
+      "path": "docs/src/pages/index.astro",
+      "bytes": 3838,
+      "sha256": "61971dad32023bbbe13f73ab8862ff8fcb43505bb2a765956ea2621026d1ee3c"
+    },
+    {
+      "path": "docs/src/pages/keyboard-and-d-pad.mdx",
+      "bytes": 4188,
+      "sha256": "711707d79b8f5464fdcb778ef85b41d857dbcc48b244fe2b795052d02d2aca8e"
+    },
+    {
+      "path": "docs/src/pages/metadata-sources.mdx",
+      "bytes": 3211,
+      "sha256": "f790666166c8089bae5ac1e726498d65abd1a02b4ef34f9c58d6182b62abf6ba"
+    },
+    {
+      "path": "docs/src/pages/playlists.mdx",
+      "bytes": 6171,
+      "sha256": "ae94b4c95e61973feb69de4a57fdb716b9949f6fab2759c5466bccabc899e546"
+    },
+    {
+      "path": "docs/src/pages/subtitles.mdx",
+      "bytes": 2974,
+      "sha256": "6db034793ddf4be7fcef17ec51ddea2a176000518d5ebad2a2d24229f842f5e0"
+    },
+    {
+      "path": "docs/src/pages/tmdb-metadata.mdx",
+      "bytes": 2243,
+      "sha256": "7a4a561e8b03341e9559a359e4fca7fdd39c28ccbc83fe3d761c8c66ef531959"
+    },
+    {
+      "path": "docs/src/pages/translations.md",
+      "bytes": 3425,
+      "sha256": "ed9fa953218bea817b0bba84834c25e085b1194496679bff5f9ef8e75062113e"
+    },
+    {
+      "path": "docs/src/pages/troubleshooting.mdx",
+      "bytes": 10094,
+      "sha256": "968ab1a200076e9d025fb87284b56d48052be2174ae26a697e105dc94570c125"
+    },
+    {
+      "path": "docs/src/pages/tv-and-receiver-mode.mdx",
+      "bytes": 5816,
+      "sha256": "2fb43da01410aeed80807afd217f44cbde57fe3040175aa06b1ab9e36984e5e1"
+    },
+    {
+      "path": "docs/src/styles/global.css",
+      "bytes": 12170,
+      "sha256": "c2111c7b868ad9e63cd59a9a364e01b82da5d317a2f184e663a5bed3996cc30f"
+    },
+    {
+      "path": "docs/tsconfig.json",
+      "bytes": 109,
+      "sha256": "b5b0a5b04a14cddd7713c5e1c82e86c79c17c2f86b170e26e9b170b3d5e01cd9"
+    },
+    {
+      "path": "eslint.config.js",
+      "bytes": 2365,
+      "sha256": "e724511db5c6f016e6368d300849db6bdc703e2d156b4ca71ec2b5195962d969"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "mise.toml",
+      "bytes": 68,
+      "sha256": "71089f7ca113ebb179c83b16c834dca27cb09b414f8a0b6ab4dd432d82ae8e47"
+    },
+    {
+      "path": "package.json",
+      "bytes": 2530,
+      "sha256": "1a23756a3373208d5ca42f961810bde043dfd5a9cafaec816112b63693b401c5"
+    },
+    {
+      "path": "packaging/flatpak/flathub.json",
+      "bytes": 34,
+      "sha256": "524d80a4802c1ffab5df0a4aa750050809ae18654f4ed12d4f66d9e24bb39836"
+    },
+    {
+      "path": "packaging/flatpak/io.github.infinitel8p.Extreme-InfiniTV.metainfo.xml",
+      "bytes": 4907,
+      "sha256": "c294ca42290b0f2d841121236572719f73ca214aeced231c020cd1e226228431"
+    },
+    {
+      "path": "packaging/flatpak/io.github.infinitel8p.Extreme-InfiniTV.yml",
+      "bytes": 3008,
+      "sha256": "7014c78690fb214c8fda8da13c8f0640eb7fa84bd3915ae7cc7a7e9577a0094d"
+    },
+    {
+      "path": "packaging/snap/snapcraft.yaml",
+      "bytes": 2781,
+      "sha256": "b41e491341284c57b56a9f763f7ff9d5688cf3efe21953a2344b9ee96fdfb581"
+    },
+    {
+      "path": "patches/mpegts.js.patch",
+      "bytes": 447703,
+      "sha256": "2ea2f6966ba08084f38602edaf3dd8b7735c3bdd68a02e8674b737077463c026"
+    },
+    {
+      "path": "playwright.config.ts",
+      "bytes": 1802,
+      "sha256": "9ae3057a88f40c23356fda34276b9b02b1c12076a9af065131c86771b543553e"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "bytes": 191477,
+      "sha256": "10d2ee1df186af10b51d91a0eaf0134ae08298f57872645a7c76db8f354729b6"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "bytes": 112,
+      "sha256": "414db121639d8806a4ed1411a9dd6d82df6920e32e032ba2d1868444eec92ef5"
+    },
+    {
+      "path": "privacy_policy.md",
+      "bytes": 6259,
+      "sha256": "019ade13a4d761c3a3af37e03af00e4710c0371b3da6fc791b8f84be034f44c6"
+    },
+    {
+      "path": "proxy/package.json",
+      "bytes": 282,
+      "sha256": "5730a88d2056b2a1d701714a71b4c9784e1a011558bb30f4bd6d9ed6b17d167f"
+    },
+    {
+      "path": "proxy/src/index.ts",
+      "bytes": 12035,
+      "sha256": "35197a856c3dc25516242577b1292cd4ce50dc41e08d39550da39dc79b56468c"
+    },
+    {
+      "path": "proxy/src/tvdb-trending.ts",
+      "bytes": 2411,
+      "sha256": "7341df89b8f7eb2494b81f36f7b3c16ecc427230babff9e7d666f5c6b8651b12"
+    },
+    {
+      "path": "proxy/src/tvdb.ts",
+      "bytes": 7924,
+      "sha256": "494f98e97710c8e133338fffc62a5030445b3c030c973862a108295d44fe841b"
+    },
+    {
+      "path": "proxy/tsconfig.json",
+      "bytes": 583,
+      "sha256": "4b2d878060b32f33ff94c0ab37eba0fef2795369b21eb5b5157e445e0bf095d2"
+    },
+    {
+      "path": "proxy/wrangler.toml",
+      "bytes": 753,
+      "sha256": "d18f9e2b943632ac3143bed5734b07caa4e290ec7cd06e82bf6d937e71595c3f"
+    },
+    {
+      "path": "public/favicon.svg",
+      "bytes": 850,
+      "sha256": "9747856fb66872dac689bdb126089d154019dc472aa8e7aedf9dcba38192616b"
+    },
+    {
+      "path": "public/players/mpv.png",
+      "bytes": 22984,
+      "sha256": "c21fa20771ce7c25caa91cad89799088e0802d6a0f2261f6fa252fde75696f66"
+    },
+    {
+      "path": "public/players/vlc.png",
+      "bytes": 54221,
+      "sha256": "a1ccd4a5006713dc65ad84f41281ce732c23533555debc4e71f6457bb26b8fa1"
+    },
+    {
+      "path": "public/sounds/README.md",
+      "bytes": 375,
+      "sha256": "68d36e756266424924a31a6c7f8f5840589d58d08b0c3a6ad8938e2d73ef12fd"
+    },
+    {
+      "path": "public/sounds/ui-confirm.wav",
+      "bytes": 25004,
+      "sha256": "ae59d9d3b95acd4b8df37103de390306c0933d37b9b4cd1e743e80889826e593"
+    },
+    {
+      "path": "public/sounds/ui-launch.wav",
+      "bytes": 564524,
+      "sha256": "54f9a79a5d207d7d0aaeb7e0eb00d39c18c320d69e1b29946bf597c9eea20ccc"
+    },
+    {
+      "path": "public/sounds/ui-nav.wav",
+      "bytes": 5804,
+      "sha256": "447a133e46c2581ea498127268755ea2573c4d5af388de4fb828762ccfc84adc"
+    },
+    {
+      "path": "public/sounds/ui-select.wav",
+      "bytes": 13484,
+      "sha256": "dbdcf4fe6a1ae0c5d9fcbfa1b6768bed0ee41d0b84318760a34cd371d4fdc8bd"
+    },
+    {
+      "path": "readme.md",
+      "bytes": 15599,
+      "sha256": "a99612cc5fd6a920bd9b2ffac0059ff0164a6e480bfa131d8c0d56d572fa2c24"
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 2708,
+      "sha256": "db9c63b5fa2a0aae2617abfda597f8879d5b61ae9b56425093b41c930b548ff8"
+    },
+    {
+      "path": "src/components/AllFavoritesView.svelte",
+      "bytes": 14518,
+      "sha256": "bcc5ffeed0e976b95360f2b4cfa6fd840dbe42890c0120819e06c20049f1f568"
+    },
+    {
+      "path": "src/components/AllWatchlistView.svelte",
+      "bytes": 11130,
+      "sha256": "731305575286710ebbd64bb33bf8473507735f51a071f923792225220c43eded"
+    },
+    {
+      "path": "src/components/AndroidNativePlayerCard.svelte",
+      "bytes": 3068,
+      "sha256": "e55b4e16386f23d3099eb62c4f03759ad51ad09ed3c7a04b48dac12301768d81"
+    },
+    {
+      "path": "src/components/BecauseWatchedStrip.svelte",
+      "bytes": 13684,
+      "sha256": "9359543cc939f9fe82b40171aa4ba5fb88c562ed2f3e0617abd5e6608af8d415"
+    },
+    {
+      "path": "src/components/CatalogWarmingIndicator.svelte",
+      "bytes": 16651,
+      "sha256": "c4dbbcdb666c770326c5910380f34e0e85b250e1ca58738dbfa08ff6ba679232"
+    },
+    {
+      "path": "src/components/CategoryPickerDialog.astro",
+      "bytes": 6309,
+      "sha256": "2a92be6964d3558526a0b9234f87fbb9c0a36bd934c8fb1f369b74d48f1c0f83"
+    },
+    {
+      "path": "src/components/ChannelOverridesEditor.svelte",
+      "bytes": 13388,
+      "sha256": "f5c9b73d513ee1ccfcb98f67ce6dd3de3bdb71097522f3aa30eb55a92899ae87"
+    },
+    {
+      "path": "src/components/CloseToTrayCard.svelte",
+      "bytes": 2448,
+      "sha256": "6d5a3f70d6e5c6b5c981915160b1b19420c42e8b6363d58905914dd47f22875e"
+    },
+    {
+      "path": "src/components/ConnectionLimitBanner.svelte",
+      "bytes": 2700,
+      "sha256": "6395ff525cdf52c621b74712aa98a34c3cb147fe3337ecc7d35855d840717083"
+    },
+    {
+      "path": "src/components/ContinueWatching.svelte",
+      "bytes": 13434,
+      "sha256": "236262b5a8b2bf6bda053c0e211e7f01ff4166a9c33b785c4ef680e40b36b5d6"
+    },
+    {
+      "path": "src/components/FavoritesReorder.svelte",
+      "bytes": 11693,
+      "sha256": "e5677e31bd7937c465e69b08bc970dd6fc6aeb3cca296f68d2e3736af8a5413c"
+    },
+    {
+      "path": "src/components/FavoritesStrip.svelte",
+      "bytes": 11995,
+      "sha256": "0fd373d29b8b9c4ce91488ff5617ad1ba712261d8165270ad424e83ecf173741"
+    },
+    {
+      "path": "src/components/HiddenCategoriesEditor.svelte",
+      "bytes": 4485,
+      "sha256": "20865f46e4b3e2b1ff2be51687a567d846c43833735f4d594b18884c75697d0b"
+    },
+    {
+      "path": "src/components/HubStrips.svelte",
+      "bytes": 1352,
+      "sha256": "028f4d1126c39c96cead6545dad62588f76838b78fd1d95d22fd2a388e63360f"
+    },
+    {
+      "path": "src/components/HubStripsEditor.svelte",
+      "bytes": 10353,
+      "sha256": "4d2eaf95c313bd5aa495b849a017b8009ecc987ed18aa282696df435b2b04d40"
+    },
+    {
+      "path": "src/components/LocalePicker.svelte",
+      "bytes": 1471,
+      "sha256": "58b8e30db1d755aa21aa49a007482f67d4cf32b525d2edba8768f64b3c793d58"
+    },
+    {
+      "path": "src/components/PlayerPicker.svelte",
+      "bytes": 26067,
+      "sha256": "84248c4f52f4a75db524d170e88ed4c52c1a0b76d3e176cd4674d998da667897"
+    },
+    {
+      "path": "src/components/PlaylistSwitcher.svelte",
+      "bytes": 9606,
+      "sha256": "5f00f62c9712edf086b68fb0241ddef73e4e812ea14ee4d1e50307c25796b297"
+    },
+    {
+      "path": "src/components/RecentlyAddedStrip.svelte",
+      "bytes": 9581,
+      "sha256": "0df8efacede2a092b38da6c01a75fdf0ec90b98dd2c22215be0de7b87a6192f3"
+    },
+    {
+      "path": "src/components/RecentlyAddedView.svelte",
+      "bytes": 9555,
+      "sha256": "5637196372940306083c4ad4d42b03b139f2918ee15b98983e9916db9c522cae"
+    },
+    {
+      "path": "src/components/RememberedAndroidPlayerCard.svelte",
+      "bytes": 3069,
+      "sha256": "cb504c6718e6da068beb24994e28ba7e82717c23a934739e077feacea3429f3d"
+    },
+    {
+      "path": "src/components/SearchInput.astro",
+      "bytes": 1303,
+      "sha256": "d2f987a956d78056d8eeb8a17d23b933860cb6997c6844f3514189af7c13aa01"
+    },
+    {
+      "path": "src/components/SearchView.svelte",
+      "bytes": 35181,
+      "sha256": "14d72fac8a0b91a0eca5b818fd5d49a55e9e442e50b016a625ee956b5855e8da"
+    },
+    {
+      "path": "src/components/Sidebar.astro",
+      "bytes": 34982,
+      "sha256": "06b3e2c9afc3f9e076c057dbd6416a81991df04e8ed1fb0b376cf5a061dcdd9d"
+    },
+    {
+      "path": "src/components/SortMenu.astro",
+      "bytes": 8427,
+      "sha256": "a4d02789f482e0e741fac635faa5c4c2f5a62101dea9ed5b5e43acd13838816b"
+    },
+    {
+      "path": "src/components/TitleBar.astro",
+      "bytes": 6322,
+      "sha256": "fee51cc26ad4ce3be33c4c86c88890e197d074a49ba94ee450fc8c1f251f07cc"
+    },
+    {
+      "path": "src/components/TvOverscanCard.svelte",
+      "bytes": 1664,
+      "sha256": "415fd8da08890782cc4d85f2627ffca756bc13a9bc202e1d829cf3c73e6a8924"
+    },
+    {
+      "path": "src/components/WatchlistStrip.svelte",
+      "bytes": 10439,
+      "sha256": "5c4f71ed433b9279f8b718447973600d8fe4970ab852e385344f4309cdf882e1"
+    },
+    {
+      "path": "src/components/WelcomeCard.astro",
+      "bytes": 3031,
+      "sha256": "98b7a1de63f5bfa0716c9e479197825ad75410ee2496dad33109b0e65d264dcf"
+    },
+    {
+      "path": "src/components/WindowResizeEdges.astro",
+      "bytes": 3836,
+      "sha256": "1f9b833cd8aa1f562250aaba342077eef138038b7e57a3844de3062cc817be72"
+    },
+    {
+      "path": "src/i18n/ar.json",
+      "bytes": 144035,
+      "sha256": "12db0ac3afd39e912d91318d765635cd295f5a4b37437661edf2517e7a98578e"
+    },
+    {
+      "path": "src/i18n/de.json",
+      "bytes": 123050,
+      "sha256": "1beee46f7919fc246f182c4ee710e11bdbfa429cb9448120fe1e7542e8baa57a"
+    },
+    {
+      "path": "src/i18n/en.json",
+      "bytes": 110454,
+      "sha256": "3fa5f6175d51f26391302410434133815c5b99acd611db2b6b14dcc8abcb7abc"
+    },
+    {
+      "path": "src/i18n/es.json",
+      "bytes": 121605,
+      "sha256": "6f94002e5f6f8c92aaa0bd3872cdd407446f4b6e22f66d3c3541c259a8c54302"
+    },
+    {
+      "path": "src/i18n/fr.json",
+      "bytes": 125249,
+      "sha256": "aedced352a4b45fcf1c1d2ae506d0b2392fb5d14b028b88e397df3fac4b78521"
+    },
+    {
+      "path": "src/i18n/hi.json",
+      "bytes": 193030,
+      "sha256": "cde7f85a5d489a51f562062b2fc3d8271cffc8d2824a775d2299a8c7587062db"
+    },
+    {
+      "path": "src/i18n/id.json",
+      "bytes": 116373,
+      "sha256": "4df2ce4841d8e51ed20888301354226ed9165a049f09c5833e9c282e06eb3f4f"
+    },
+    {
+      "path": "src/i18n/it.json",
+      "bytes": 119769,
+      "sha256": "d56b807c0b45d383a2861c73abdc31a4ee0c67ca190fb8184852364fdd27c036"
+    },
+    {
+      "path": "src/i18n/ja.json",
+      "bytes": 141138,
+      "sha256": "a16bf18d3217112eb0b6dd3c7864a1ae37c3ea73a81da0e7275a590961e9dbd9"
+    },
+    {
+      "path": "src/i18n/nl.json",
+      "bytes": 118707,
+      "sha256": "5e9c416e6bc5b1361b28e5019b765dd04dfe3bd89675f0b323964b1cdab7fdb0"
+    },
+    {
+      "path": "src/i18n/pl.json",
+      "bytes": 121763,
+      "sha256": "37041699bfd1d36eb7cff1691ece32f46ed519cad377a16e35fd18e1329b7e4c"
+    },
+    {
+      "path": "src/i18n/pt-BR.json",
+      "bytes": 120252,
+      "sha256": "c347554b867c8642b4e854bd8296c20582f18e7087828f8a36a89f11f17188e5"
+    },
+    {
+      "path": "src/i18n/ru.json",
+      "bytes": 162355,
+      "sha256": "72464e5a33110ad8f68b56db119f6aae07421947797a3c71c6ca01c476c2ebae"
+    },
+    {
+      "path": "src/i18n/tr.json",
+      "bytes": 121267,
+      "sha256": "b4264a1bffed016252c81aaa7aa60f9208987696698045a7dcd5f6da4affc0dd"
+    },
+    {
+      "path": "src/i18n/ur.json",
+      "bytes": 152573,
+      "sha256": "35f0df7470e6fbcec5487cb10bcddd89a0673475b5efbee646153fa549ed6f61"
+    },
+    {
+      "path": "src/i18n/zh.json",
+      "bytes": 110861,
+      "sha256": "1c88a5ec8f523914f91296db7b60b802710e9062bb2d127f32cc76cb6f84e02e"
+    },
+    {
+      "path": "src/layouts/Layout.astro",
+      "bytes": 62633,
+      "sha256": "254237ec0d74531a287f0019d409169a9f975de30b3cf3b84bb2a50fe97f98bb"
+    },
+    {
+      "path": "src/layouts/ReceiverLayout.astro",
+      "bytes": 7853,
+      "sha256": "54c74fc91b1c48c507aa8b8b368b687fa272d323638bf6c19d9b1266f05865f3"
+    },
+    {
+      "path": "src/layouts/TvLayout.astro",
+      "bytes": 15172,
+      "sha256": "b114c300865ed92299587575d6dee319dee294380d40ebc3a0d3b4785a0ad950"
+    },
+    {
+      "path": "src/pages/docs.astro",
+      "bytes": 4235,
+      "sha256": "7c671eb7b66bc9631821cb122593854d343c814ad23791f5d08e032df841931f"
+    },
+    {
+      "path": "src/pages/downloads.astro",
+      "bytes": 41349,
+      "sha256": "6c2e820fc34877f88c15392f9da6e492dbfc881fe60f3351465a29a43aea36d5"
+    },
+    {
+      "path": "src/pages/epg.astro",
+      "bytes": 11584,
+      "sha256": "2fa3e549e547e136f5bd828fb739f9d72223d1e71c952e5e4f9ba76f9c3c3e87"
+    },
+    {
+      "path": "src/pages/favorites.astro",
+      "bytes": 820,
+      "sha256": "bd32f574a3b752b5c9d419fb54bf6524d3cd32815ee90065da1c24d654b17218"
+    },
+    {
+      "path": "src/pages/index.astro",
+      "bytes": 14418,
+      "sha256": "6564f69c915187ee39bcdd0b50e05350bfa7323cfc564c94c04844c1b2147843"
+    },
+    {
+      "path": "src/pages/livetv.astro",
+      "bytes": 20224,
+      "sha256": "f93abdc0ddc263041bf6a7e386e47d83d634fd7e926970279e6ca33f85922c6b"
+    },
+    {
+      "path": "src/pages/login.astro",
+      "bytes": 69741,
+      "sha256": "7128a26c770ccd7a119781288df35e0b5807ed6ba9ccd410d07001d30dfa7674"
+    },
+    {
+      "path": "src/pages/movies/detail.astro",
+      "bytes": 12818,
+      "sha256": "0b2db33d18acd012a58c90dbfc118dba2d6913819b552e774d5d38d1cba2b5f5"
+    },
+    {
+      "path": "src/pages/movies/index.astro",
+      "bytes": 5278,
+      "sha256": "305b2a3058e75985717beddeaf6a9ecc0117c5fce85d0df5596f9cd6b6e84d40"
+    },
+    {
+      "path": "src/pages/playlist-editor.astro",
+      "bytes": 18688,
+      "sha256": "6330f64dc7fe31690401aa3f06e1d2b744d541ce5863225e48ca91df0a3aa7d0"
+    },
+    {
+      "path": "src/pages/receiver.astro",
+      "bytes": 15768,
+      "sha256": "b36621c4ba60b9ca787608abbffe89643375d09ebafeb18fef0b11c5d272e571"
+    },
+    {
+      "path": "src/pages/recently-added.astro",
+      "bytes": 738,
+      "sha256": "f0810b15b4da64f325499e67603642806c16311f06c0196cd5a3be42f82a4d36"
+    },
+    {
+      "path": "src/pages/search.astro",
+      "bytes": 908,
+      "sha256": "32543969caa5a813d37e4be4de98bd7050f1dbdd2207145c539dcc7263c1d98e"
+    },
+    {
+      "path": "src/pages/series/detail.astro",
+      "bytes": 11602,
+      "sha256": "1793ce07a1ecdcbd6473c0719892b2f9cd92b00fa3a703ba138879e1e7a39e3e"
+    },
+    {
+      "path": "src/pages/series/index.astro",
+      "bytes": 5213,
+      "sha256": "0be00f6ef6075de617610493be5d149113590a6fc8d65f269191365fe2c4c216"
+    },
+    {
+      "path": "src/pages/settings.astro",
+      "bytes": 274283,
+      "sha256": "847753f427539bab513c277ea99de6fb9372e46cd390a9c95cb4708b7665616a"
+    },
+    {
+      "path": "src/pages/tv/downloads.astro",
+      "bytes": 194,
+      "sha256": "982544af7a835c0b75a76423f57e8a910d12971c2a244c700ba6a85774eaaaba"
+    },
+    {
+      "path": "src/pages/tv/index.astro",
+      "bytes": 184,
+      "sha256": "87cea6b4612472398292c4f02763cbd80edb8b13c1353eaa6ec69ab5cac16f29"
+    },
+    {
+      "path": "src/pages/tv/live.astro",
+      "bytes": 187,
+      "sha256": "cff7f207d90456561607df33522b93a22d21789f7769f54d8dfb08cf7c23bb15"
+    },
+    {
+      "path": "src/pages/tv/login.astro",
+      "bytes": 188,
+      "sha256": "a5de00bd0e4d37d0205c8caefe3dd4adb832de84ddda9c63cddf9703359b2dcc"
+    },
+    {
+      "path": "src/pages/tv/movies/detail.astro",
+      "bytes": 194,
+      "sha256": "28e5af7d832ba60d15668729bd8b92ad2e223628988b7ace4235f2db42c61a70"
+    },
+    {
+      "path": "src/pages/tv/movies/index.astro",
+      "bytes": 188,
+      "sha256": "f98b1ba3da62cb1103dd44f5bf8a9cdd4b33721b01a8a3bae5d4b207df6a7c53"
+    },
+    {
+      "path": "src/pages/tv/search.astro",
+      "bytes": 188,
+      "sha256": "23e028f8823da37fcc288f9d199765bf43a867f2257de7590d7cf8b3c57a92ac"
+    },
+    {
+      "path": "src/pages/tv/series/detail.astro",
+      "bytes": 193,
+      "sha256": "8f26520b03efe386197bcadd58e1786e111c25015feccc05c7f6e6e38c480970"
+    },
+    {
+      "path": "src/pages/tv/series/index.astro",
+      "bytes": 188,
+      "sha256": "db0be29fcff91f7c792558b51bc946ffcefac12f4bca8ccfd5bc350d63168eed"
+    },
+    {
+      "path": "src/pages/tv/settings.astro",
+      "bytes": 192,
+      "sha256": "c95b666c12ba0c09f98fc64c7a4db417ac98779bc7e37c8a0157c8813fc306ee"
+    },
+    {
+      "path": "src/pages/watchlist.astro",
+      "bytes": 752,
+      "sha256": "7de27cf8903c2a5c4ab4ea8c7419eb643781b8ca4352f1a402f4fba529a1c5ce"
+    },
+    {
+      "path": "src/plugins/vite-plugin-optimize-tabler-icons.ts",
+      "bytes": 1542,
+      "sha256": "e9b3e1e15911e73b1de0b16c3e8b0288cc03c07c9764095e67cb20e564baa10f"
+    },
+    {
+      "path": "src/scripts/capture-screenshots.mjs",
+      "bytes": 22893,
+      "sha256": "c0bef0fd06dd245db2022c7e44dda11838379a02bb42bdc3a140b68aba4130f9"
+    },
+    {
+      "path": "src/scripts/editor/editor.ts",
+      "bytes": 45736,
+      "sha256": "3f2e75499cbacd34c9b4ebbfeb299c074d24ebd06d57e35d11ac04c0bedcdb56"
+    },
+    {
+      "path": "src/scripts/ensure-ffmpeg-sidecar.mjs",
+      "bytes": 15427,
+      "sha256": "8797a5f2cab57bddf1ddbc06046672f469e0304ce01c7690712ea7389e61b2c6"
+    },
+    {
+      "path": "src/scripts/epg/epg.ts",
+      "bytes": 35566,
+      "sha256": "469cec1048fbd637cf5cb4b27bd7b835ad0970127a64c589fd1d2ab48c7eacdf"
+    },
+    {
+      "path": "src/scripts/epg/mapping.ts",
+      "bytes": 19376,
+      "sha256": "acfb25b0b411dd66a1dbfe158c534e0f709af579bcb55703caaa7cedc195ea54"
+    },
+    {
+      "path": "src/scripts/expiration.ts",
+      "bytes": 3803,
+      "sha256": "848ac2d98cf826b7dec4c218da64d9543d8cdcca4a36010d39bc6752c698d060"
+    },
+    {
+      "path": "src/scripts/ffmpeg-sidecar-checksums.json",
+      "bytes": 1570,
+      "sha256": "8e485efc318a62a0eb0b7d896f2eb2123479aa66407816e4eae89b9c6aaf5378"
+    },
+    {
+      "path": "src/scripts/lib/account-info.js",
+      "bytes": 4264,
+      "sha256": "af5ccc5e94b76af47569ee1a659c8112dca99e5a5d75758e67a11dacf0f2df46"
+    },
+    {
+      "path": "src/scripts/lib/add-from-website-dialog.ts",
+      "bytes": 30737,
+      "sha256": "5b3601802a115f871cb6fb35c6b21e2dfa3b049d2fef9d2593894f84b5c32f53"
+    },
+    {
+      "path": "src/scripts/lib/add-to-custom-dialog.ts",
+      "bytes": 10067,
+      "sha256": "681671f06210ac9d89c386196f235024b746860de38131c36710f0f48e46b8a4"
+    },
+    {
+      "path": "src/scripts/lib/ambient-handoff.ts",
+      "bytes": 3126,
+      "sha256": "07e5722a5769c861f1e65e2c530df35322d790dc7743aa14ab9a219935363b53"
+    },
+    {
+      "path": "src/scripts/lib/ambient-manifest.ts",
+      "bytes": 16420,
+      "sha256": "c764cd4cfa30ab0e726bf95bec4fe6724cf148e0e6ab31bb0411324d0d4b177f"
+    },
+    {
+      "path": "src/scripts/lib/ambient-math.ts",
+      "bytes": 5300,
+      "sha256": "15bc47fe8d57ef326a08c60f80075c4d0e5aa3faffb1afd290f667b7c51bc38d"
+    },
+    {
+      "path": "src/scripts/lib/ambient-trending.ts",
+      "bytes": 2005,
+      "sha256": "e4c33f1243c4de0137edcb934b16eff29859c3b6d68059d660c21f37fffcebb3"
+    },
+    {
+      "path": "src/scripts/lib/android-fs.js",
+      "bytes": 11591,
+      "sha256": "2e78e90c0ff9c23549fb599e01f4572d776d3955a9173e2c0db360c6819aba43"
+    },
+    {
+      "path": "src/scripts/lib/android-video-launcher.ts",
+      "bytes": 8226,
+      "sha256": "a935e68562d583014bb25b3ae857354570c54843122945182832c6bd7e91fb14"
+    },
+    {
+      "path": "src/scripts/lib/app-settings.js",
+      "bytes": 40693,
+      "sha256": "f6a34351f46b6ddf093b61776aba2b0c20efd44e999b00a0f19012a7aedef534"
+    },
+    {
+      "path": "src/scripts/lib/audio-context.ts",
+      "bytes": 428,
+      "sha256": "765451ff23b4e3cfeba27500053b8bbbe2eca9d2976bfed35861cc3ace7143eb"
+    },
+    {
+      "path": "src/scripts/lib/audio-effects.ts",
+      "bytes": 4887,
+      "sha256": "c6f2819f5513d8c283d87bd55e2578dabf6c748ab203cb3353e5b2c309019412"
+    },
+    {
+      "path": "src/scripts/lib/audio-proxy.ts",
+      "bytes": 7466,
+      "sha256": "2d73387647ead364249246eac87bba8e996f444c73dce2e5aad37aa1c9f70b45"
+    },
+    {
+      "path": "src/scripts/lib/audio-tracks.ts",
+      "bytes": 12083,
+      "sha256": "e1ae05a236f25b64d154d8d83f7b8b6c9fd5b8b4dc01b2b51d01df9e8cc6789b"
+    },
+    {
+      "path": "src/scripts/lib/auto-pip.ts",
+      "bytes": 5947,
+      "sha256": "cb5c5fcd7f884da6ffda0079b2404df5d60970504c7bdaa3577e38fad4907c39"
+    },
+    {
+      "path": "src/scripts/lib/b64-utf8.ts",
+      "bytes": 1263,
+      "sha256": "a5a9af222b05cf7a54f9d96212b75c03f655d4393727f343da893180997ff3ac"
+    },
+    {
+      "path": "src/scripts/lib/back-handler.ts",
+      "bytes": 1245,
+      "sha256": "41877258283f3bf16b5059834dd31132398a3bd6ac278c3381a5c1a91e30459c"
+    },
+    {
+      "path": "src/scripts/lib/backdrop.ts",
+      "bytes": 482,
+      "sha256": "eb1974af0993d2b988bd7225d90de6e4d3524d08476610647b9be3101b055fcc"
+    },
+    {
+      "path": "src/scripts/lib/backup-snapshot.ts",
+      "bytes": 1546,
+      "sha256": "6ca80bec3b1506e34465e166268e6e37bec86ef5a9ac047c425863a8deb54ebc"
+    },
+    {
+      "path": "src/scripts/lib/backup.js",
+      "bytes": 21102,
+      "sha256": "8078a1e2e8d5c587d9e0f406ae99d12a90b695c379ec3a22f289bed94049ec22"
+    },
+    {
+      "path": "src/scripts/lib/because-watched.ts",
+      "bytes": 3837,
+      "sha256": "0a431f2fe7c1216a89b8f9df98485bf8b8b93b813404c2aad39f7736d59c8a6a"
+    },
+    {
+      "path": "src/scripts/lib/cache.js",
+      "bytes": 20375,
+      "sha256": "3e59501c6d655d075bf1480aa65a719d70daf8e5532475ef1780eabfe7c9d25c"
+    },
+    {
+      "path": "src/scripts/lib/cast-media-notification.ts",
+      "bytes": 2915,
+      "sha256": "a07cce5ba9060f84c82eb2bc04de3cf8b6e6f9930538ff8f5d8e78813c812c1f"
+    },
+    {
+      "path": "src/scripts/lib/catalog-mappers.js",
+      "bytes": 4907,
+      "sha256": "265ef1d37cad7c45cff9c964c8e0201551e9219f51d155c084ea953136808bc8"
+    },
+    {
+      "path": "src/scripts/lib/catalog.js",
+      "bytes": 18040,
+      "sha256": "c9ea96ded4c4183680badf6aa4dd59ab563b1cd8ebeac1590653490f3efd08e0"
+    },
+    {
+      "path": "src/scripts/lib/catchup-resolve.ts",
+      "bytes": 7628,
+      "sha256": "e07642163fc1e5a3933cf26baeab94a790d28eddacf9f8b6f6d4d06232ba83cb"
+    },
+    {
+      "path": "src/scripts/lib/catchup.ts",
+      "bytes": 16944,
+      "sha256": "2fd18f7ad484befdf6f672feda9210102e3499ad1c65a4f7e2f70644e0c0d1d8"
+    },
+    {
+      "path": "src/scripts/lib/category-picker.ts",
+      "bytes": 33846,
+      "sha256": "1438cf626f79ed6685efb1f01551bba4060db206a2dce1e3a2ba90dbb5c2fbad"
+    },
+    {
+      "path": "src/scripts/lib/changelog.ts",
+      "bytes": 6778,
+      "sha256": "eff6dfd694d879848b416908d06ecb4ab31927fb24953a8fe65fed87d8ca97f0"
+    },
+    {
+      "path": "src/scripts/lib/channel-edit-dialog.ts",
+      "bytes": 12228,
+      "sha256": "2666ed7c301a57e4afee8ab517cba728bab9a1fe804352b1ac8e04eafefcdaac"
+    },
+    {
+      "path": "src/scripts/lib/channel-lite.ts",
+      "bytes": 3786,
+      "sha256": "0a82381f40c754c91860094be0331af4314c484b3637bdf5bfcb61773b531bab"
+    },
+    {
+      "path": "src/scripts/lib/channel-overrides.ts",
+      "bytes": 9830,
+      "sha256": "3db6b6b128004d81ee7979867b03096a7a7285c1a72e293d5f3176dfe8781658"
+    },
+    {
+      "path": "src/scripts/lib/channel-sort.ts",
+      "bytes": 2921,
+      "sha256": "498edc76fc0723eec5ec331571ff1334208423f92cd5a9f2fcf708bbffaf998b"
+    },
+    {
+      "path": "src/scripts/lib/channel-step.ts",
+      "bytes": 994,
+      "sha256": "2afaa5b739091375a4e23342e53156d817c620c722807c04fd7869301f5c1bfd"
+    },
+    {
+      "path": "src/scripts/lib/clipboard.ts",
+      "bytes": 1353,
+      "sha256": "32214e821079c63e5439f8d5660e1ef2ece58eab036524039184699d2b9e01a7"
+    },
+    {
+      "path": "src/scripts/lib/codec-hints.ts",
+      "bytes": 11750,
+      "sha256": "109d28a3088614d87de0cae615761967a36d2856321b3797a7eb9f1b3c6abd71"
+    },
+    {
+      "path": "src/scripts/lib/compositing.ts",
+      "bytes": 5640,
+      "sha256": "50036891f8d2bfcf45bfffb7f6d8501429ec6456d0c2c136a916fb1948548dcc"
+    },
+    {
+      "path": "src/scripts/lib/confirm-dialog.ts",
+      "bytes": 5353,
+      "sha256": "53848966fddd74839fddca850639c22fc34034b5a8cdda643cd6568366a36906"
+    },
+    {
+      "path": "src/scripts/lib/connectivity.ts",
+      "bytes": 1951,
+      "sha256": "d85c8e45869ed904b8338aefdb089e8d42e4fce5338b1de02ef9f4b666f60c03"
+    },
+    {
+      "path": "src/scripts/lib/creds.js",
+      "bytes": 35144,
+      "sha256": "da08795b9a6bf9c9774e51c45909afe8fea702fe8f574b4b5f9ccf7fd625c869"
+    },
+    {
+      "path": "src/scripts/lib/custom-playlist.ts",
+      "bytes": 16696,
+      "sha256": "a60e1d58151cbb192b1b1cf8338f52d0bfe8bdbae49a2696ed1dd8f1f15d7be5"
+    },
+    {
+      "path": "src/scripts/lib/debounce.ts",
+      "bytes": 335,
+      "sha256": "5e853ae359dd2fb33dcdffff1373ed608402ca7e3435acc90d06f47c34783c90"
+    },
+    {
+      "path": "src/scripts/lib/detail-chrome.ts",
+      "bytes": 16352,
+      "sha256": "68494d886d6117e8913e2ab23c69dca1d0dce155a39996420da188d6f9f7e2bd"
+    },
+    {
+      "path": "src/scripts/lib/diagnostic-bundle.ts",
+      "bytes": 21652,
+      "sha256": "e4e2330dea878516b38d026e74cf80eae0ebb1454f27c07ab3661c4d10825923"
+    },
+    {
+      "path": "src/scripts/lib/diagnostic-snapshot.ts",
+      "bytes": 10470,
+      "sha256": "8536f6af948f5da9c7a44adb5b3a910f064f7ffe1858a056b177222f08a9c46d"
+    },
+    {
+      "path": "src/scripts/lib/diagnostic-targets.ts",
+      "bytes": 4275,
+      "sha256": "3d0e63baa5d7912a0e1ae52da1e332caabe213fadddd802c8576b476516e7f19"
+    },
+    {
+      "path": "src/scripts/lib/diagnostic.ts",
+      "bytes": 28415,
+      "sha256": "e90b7fb212b506e39ba344d565e97ff629ca845dcd032c7d4b6cfb5ee7090342"
+    },
+    {
+      "path": "src/scripts/lib/dialog-spatial-nav.ts",
+      "bytes": 5258,
+      "sha256": "b716dbaec5bdd9d6d64eff26797dbe22299b65f0588d3cfdd7f5d9fc1ffabe10"
+    },
+    {
+      "path": "src/scripts/lib/discord-rpc.js",
+      "bytes": 6527,
+      "sha256": "87c2f2a293541fe025ba261bcd2eb42e2b81941b1b06dfbac51c9df10bb4cbdb"
+    },
+    {
+      "path": "src/scripts/lib/downloads.js",
+      "bytes": 36781,
+      "sha256": "b760ab6ed914e2b2b496a6ca71750c36ab358cb03d1b43cef709d720313cd48c"
+    },
+    {
+      "path": "src/scripts/lib/drag-scroll.ts",
+      "bytes": 2916,
+      "sha256": "0a3fb4d900df02aada031dccb303846b2673288d163c1f8a6030286400fa328a"
+    },
+    {
+      "path": "src/scripts/lib/enrichment.ts",
+      "bytes": 9792,
+      "sha256": "7001d2f9c8d6136932da7ee19fa9a887d0631940fb5932f0f2a4865a35940374"
+    },
+    {
+      "path": "src/scripts/lib/entry-card.ts",
+      "bytes": 13828,
+      "sha256": "53d694599f7ce935f47c33622ade01ddfdf16a02506dd3e20860e67b8840c977"
+    },
+    {
+      "path": "src/scripts/lib/epg-constants.ts",
+      "bytes": 194,
+      "sha256": "debc9f36b2d52e09bb3806cf95c059e53bf4e5730b368f257bc9ce205ce4173a"
+    },
+    {
+      "path": "src/scripts/lib/epg-data.js",
+      "bytes": 64873,
+      "sha256": "85b946fa297af8b7741820bfa66aaf5882d68f43bff0ff5472303f96659e9261"
+    },
+    {
+      "path": "src/scripts/lib/epg-worker.ts",
+      "bytes": 33461,
+      "sha256": "67e8fd35573df17aa552ba37632079ed87a9013e4fd0a21d46b8409c27fc1e18"
+    },
+    {
+      "path": "src/scripts/lib/episode-title.ts",
+      "bytes": 2020,
+      "sha256": "c7dc5f3a5bcc23df480b059e5f7a593c00984a8a12eeba609d43fe9b19aff9a0"
+    },
+    {
+      "path": "src/scripts/lib/export-m3u.ts",
+      "bytes": 4562,
+      "sha256": "b47d16fb3c60482a92399aa26bd11d83bee406e74b0fb69b9ff00e338ea622ae"
+    },
+    {
+      "path": "src/scripts/lib/external-link.ts",
+      "bytes": 1636,
+      "sha256": "29684c7f4437d1485ec2c780c102f27873a5684b4a41156b3d8b9776d00df897"
+    },
+    {
+      "path": "src/scripts/lib/external-player-button.ts",
+      "bytes": 14319,
+      "sha256": "6cbd0c352a914c48650c78b3f97e492deafde06cd87d7eacc457796700fd6ac7"
+    },
+    {
+      "path": "src/scripts/lib/external-player-choice-dialog.ts",
+      "bytes": 5772,
+      "sha256": "c9b0aad975215a2e73f66b07fc74b10598709bd0eae380e11415892f1e732a33"
+    },
+    {
+      "path": "src/scripts/lib/focus-glide.ts",
+      "bytes": 6839,
+      "sha256": "96830adb2a42416cbedfd3746eae7c9870511cf32e7700ebc3ecbcc9d6a4e7a5"
+    },
+    {
+      "path": "src/scripts/lib/format.ts",
+      "bytes": 4429,
+      "sha256": "4ed53e8ec64c9c811c559ca0f08618413b81eeb62b87671add6aca0ced96aacd"
+    },
+    {
+      "path": "src/scripts/lib/genre-index.ts",
+      "bytes": 13752,
+      "sha256": "8c02fb50ffa16b685371f1765690f4d9d11dfe45f47379c4b875f6fcf7838685"
+    },
+    {
+      "path": "src/scripts/lib/genres.ts",
+      "bytes": 8355,
+      "sha256": "8ff9108365c6bf79f12cce342026be448aed27cb6f5704d4e42067efa60caa0e"
+    },
+    {
+      "path": "src/scripts/lib/grid-state.ts",
+      "bytes": 3709,
+      "sha256": "17ecbde993a6bf006dd31b0a17b826182ad83e25b63c9038b07a8bcb5c706947"
+    },
+    {
+      "path": "src/scripts/lib/grid-view.ts",
+      "bytes": 17811,
+      "sha256": "c0852890d38b1b360bd72ccf583cc541763541edecce185d819a52ff1754bf89"
+    },
+    {
+      "path": "src/scripts/lib/haptics.ts",
+      "bytes": 2260,
+      "sha256": "ae7aa5c1dce96c7e27be9f3452baac66ae23600466c7f08a5c41780576cb9cc3"
+    },
+    {
+      "path": "src/scripts/lib/hevc-extension.ts",
+      "bytes": 5985,
+      "sha256": "91cd1bd7742e6f492f75e17969823467c24f3f4007b6c9815bcfb6e023fd5969"
+    },
+    {
+      "path": "src/scripts/lib/hub-card-menu.ts",
+      "bytes": 9975,
+      "sha256": "0d9621c401375f0a71d92bd4df0c585443d647236c52bd234253850e2187d04b"
+    },
+    {
+      "path": "src/scripts/lib/i18n.ts",
+      "bytes": 12454,
+      "sha256": "a2ca0a0fc6846fe15501a0c5bd7380fec27a01889670179e1de57878c94478d0"
+    },
+    {
+      "path": "src/scripts/lib/icons.ts",
+      "bytes": 9970,
+      "sha256": "0e8567935c704f58188926a6ff5f52620502fb4752a04567fce7290de13f3e2d"
+    },
+    {
+      "path": "src/scripts/lib/idb-open.ts",
+      "bytes": 4082,
+      "sha256": "32efe9a8958338c2f2f728580772ad61eab56c51097a67075e9ccb8e3c177d9e"
+    },
+    {
+      "path": "src/scripts/lib/img-cache.ts",
+      "bytes": 13870,
+      "sha256": "27a574180cfd9b5aeea5462111a274aebd7e38aebcae8a34fe32128fbe6caaec"
+    },
+    {
+      "path": "src/scripts/lib/img-scale.ts",
+      "bytes": 1318,
+      "sha256": "5fb9391585723e0d34f97ec44fc151e7ab5e09d1145c4ab2be22d6bd964cbf9b"
+    },
+    {
+      "path": "src/scripts/lib/keep-screen-on.ts",
+      "bytes": 220,
+      "sha256": "4d0817d9c5e39bb9c7d54ea0edaa62f984eefd4c04302132cae2169134ea9e84"
+    },
+    {
+      "path": "src/scripts/lib/keyboard-help.ts",
+      "bytes": 7203,
+      "sha256": "7d518c6f31a00736432ddbbfd64799bd062c6908da75b57f5f167be4cd2e7f3e"
+    },
+    {
+      "path": "src/scripts/lib/kinds.ts",
+      "bytes": 3044,
+      "sha256": "9bf655cf4da2e4d497b0977a7a4eec4695247d845b4ead330b6121f8e2fcb110"
+    },
+    {
+      "path": "src/scripts/lib/language-groups.ts",
+      "bytes": 10278,
+      "sha256": "5185bd87f3ffe8bae43b1dcb833f06f28f9c8755b544709e45d79e94063dc52a"
+    },
+    {
+      "path": "src/scripts/lib/language-tags.ts",
+      "bytes": 6644,
+      "sha256": "e9d62c3ba4cbcaa30cb65dd512113f7e6107a325bd27e946b6be7da32fbddba8"
+    },
+    {
+      "path": "src/scripts/lib/live-catalog.ts",
+      "bytes": 2965,
+      "sha256": "602078fa3953616664d9a0c3984d7ece646f64756f7dc60f8afd35fe54898a0e"
+    },
+    {
+      "path": "src/scripts/lib/local-content.js",
+      "bytes": 4347,
+      "sha256": "c344ef7a0874b59269b52826caabe7a8b7e9170427893c130f707ef4d2f0d6cb"
+    },
+    {
+      "path": "src/scripts/lib/log.ts",
+      "bytes": 6141,
+      "sha256": "a7fc56a3b633cd8975d445b1dbd7d537ad380454f7b57fc00e6eb0c130ee0436"
+    },
+    {
+      "path": "src/scripts/lib/logo-fallback-match.ts",
+      "bytes": 7167,
+      "sha256": "593d73bd0c658ad241bcc4b19582937cd5af85335d546dad79fa5d7ab2753915"
+    },
+    {
+      "path": "src/scripts/lib/logo-fallback.ts",
+      "bytes": 6134,
+      "sha256": "4060099f13f263f1959596d0557708cf460aec62eab5ab8763aeb5210cdc28f0"
+    },
+    {
+      "path": "src/scripts/lib/m3u-parser.ts",
+      "bytes": 15216,
+      "sha256": "07e5c10c1b86598948209d23ce40e67ff52f80a2eda34e22ed83a6304996b3a8"
+    },
+    {
+      "path": "src/scripts/lib/m3u-serializer.ts",
+      "bytes": 3855,
+      "sha256": "809e4808f6fd587d16cb1bc314b56ca4d53dc5599a48aa5e61a834a3e08d1ddf"
+    },
+    {
+      "path": "src/scripts/lib/manifest-probe.ts",
+      "bytes": 3512,
+      "sha256": "c60661163e9c835a0b6bac2bc73272b23c2f5f302552a0b8ba841e1a0dd1ec7d"
+    },
+    {
+      "path": "src/scripts/lib/morph-detail.ts",
+      "bytes": 5540,
+      "sha256": "6c244b644e5c372a6411c03eb5804e4b7a55695dbdab1e5cd8db30c98cb1cd3d"
+    },
+    {
+      "path": "src/scripts/lib/mp4-subtitles.ts",
+      "bytes": 18366,
+      "sha256": "a1275b29ba133235819e6d22dfb18c36aaa1436736bbcba37de40f18663691a1"
+    },
+    {
+      "path": "src/scripts/lib/net-log.ts",
+      "bytes": 6948,
+      "sha256": "4143a5f4cf6d7800f316d536036ce2e0dc3495ff4c1f95fe5016b9654eec0b09"
+    },
+    {
+      "path": "src/scripts/lib/nfo.ts",
+      "bytes": 3871,
+      "sha256": "d2b06fa66b8ce2375067a81076d7a4d568f5f0a00032dbaa87f550713ebf3120"
+    },
+    {
+      "path": "src/scripts/lib/notify.ts",
+      "bytes": 3279,
+      "sha256": "da03531936a0af86afda9e38c85fe540f659674000e55e11e5e8a921b67832da"
+    },
+    {
+      "path": "src/scripts/lib/now-next.ts",
+      "bytes": 2216,
+      "sha256": "a89672ff77e82395462e89841fc0f89d94981e4106f0569ee425d754c5445af1"
+    },
+    {
+      "path": "src/scripts/lib/person-filter.ts",
+      "bytes": 3363,
+      "sha256": "5ade51ba9a10a3ab2a47ab12baefa929b14c51e91c64eff97108d42acf93acbc"
+    },
+    {
+      "path": "src/scripts/lib/person-search.ts",
+      "bytes": 4592,
+      "sha256": "6ce3886cfb2ca8d70883d73f71fb490acb2a6d7ee9d7ed926d176fe3b211cb46"
+    },
+    {
+      "path": "src/scripts/lib/person-suggest.ts",
+      "bytes": 3674,
+      "sha256": "e3f023ce8e2a73c5f557dc25528353828785fa468e4f05beaa6988ab0476896d"
+    },
+    {
+      "path": "src/scripts/lib/pip-toggle.ts",
+      "bytes": 1464,
+      "sha256": "4c0500dc76aeb01d2945576537eb1da32b24e0346a1ff3274d04afbe58f2eb8c"
+    },
+    {
+      "path": "src/scripts/lib/play-on-tv-button.ts",
+      "bytes": 2702,
+      "sha256": "50f20475ab7a8dd149a83229a1bd19ac6182141cc45d4f622ba67da37ec82d47"
+    },
+    {
+      "path": "src/scripts/lib/player-focus-keeper.ts",
+      "bytes": 3802,
+      "sha256": "d22189ffc7614b68a1d779e7a576362413e1ac595354ecff8e84aca8d68a3f43"
+    },
+    {
+      "path": "src/scripts/lib/player-picker-dialog.ts",
+      "bytes": 9597,
+      "sha256": "e9c0308fc4cc556db47ab4314a1788ace13e0545be9c7e089f6da87bcb03fbcf"
+    },
+    {
+      "path": "src/scripts/lib/player-runtime.ts",
+      "bytes": 107362,
+      "sha256": "5ee8801c2b03e4ce70d0a093f5057a821ce8e845a93a370c4334e2a329743976"
+    },
+    {
+      "path": "src/scripts/lib/player-stats.ts",
+      "bytes": 16261,
+      "sha256": "eb7bc91490bb2e41f2c460600c007f66efa32f798a8e134dddf90b1a190959af"
+    },
+    {
+      "path": "src/scripts/lib/player-telemetry.ts",
+      "bytes": 10131,
+      "sha256": "32fd2d7c32b19b14cbfbdfdf35439fe2c4fa306bc9df148161f04fea53ff884a"
+    },
+    {
+      "path": "src/scripts/lib/playlist-accent.ts",
+      "bytes": 2083,
+      "sha256": "35eced2c121fdd389e4c2a2987da69debf3e4a8a9db41cc40780380cb1eafd78"
+    },
+    {
+      "path": "src/scripts/lib/playlist-health.ts",
+      "bytes": 6993,
+      "sha256": "062b47422b51671ac572cceaa688240ab8fa945899b87e5c433b20a385fbec87"
+    },
+    {
+      "path": "src/scripts/lib/playlist-link.ts",
+      "bytes": 2586,
+      "sha256": "39419a6276b426feaa43ef5431eaf42e0774e3372401871683e8582f07510fe7"
+    },
+    {
+      "path": "src/scripts/lib/playlist-rows.js",
+      "bytes": 22442,
+      "sha256": "bf4a82e98f65561eeb71a882a71f73462eee73d6f87a072e01970b2610753fa8"
+    },
+    {
+      "path": "src/scripts/lib/poster-menu.ts",
+      "bytes": 10515,
+      "sha256": "84a739acde44b9c0905b7070d2d2f1c472e20273379d94c2f6683a51989727d1"
+    },
+    {
+      "path": "src/scripts/lib/preferences.js",
+      "bytes": 62842,
+      "sha256": "722402af0fe205634e51e09967ccfdb115e5da26195b0d9d1a31ba1643a607f5"
+    },
+    {
+      "path": "src/scripts/lib/premature-ended.ts",
+      "bytes": 667,
+      "sha256": "0008c904d3ca9c205f0bc020433b98e81216c7ae14d295cd0f65c04849ea83e4"
+    },
+    {
+      "path": "src/scripts/lib/private-host.ts",
+      "bytes": 6084,
+      "sha256": "7e536943ee000cfd87674c1214067b40a1db7215d27d2fe46e0e3f95dcad9589"
+    },
+    {
+      "path": "src/scripts/lib/programme-dialog.js",
+      "bytes": 8409,
+      "sha256": "e1aa60c1af6e7e28af2754a43599e0c1789f9ca568f52f7a98b6fce4a2f3d6fa"
+    },
+    {
+      "path": "src/scripts/lib/provider-error.js",
+      "bytes": 8286,
+      "sha256": "78d23f5632a63315572de081a1779e401c7749671c00f3f24c37a149e150f0cc"
+    },
+    {
+      "path": "src/scripts/lib/provider-fetch.js",
+      "bytes": 9277,
+      "sha256": "a4add86b6a2521318f6c1afedfd11ff1176cad956cdcd68dc3e21a8ddbf8deac"
+    },
+    {
+      "path": "src/scripts/lib/quality-badge.ts",
+      "bytes": 5126,
+      "sha256": "2acf2b61cb4d4297693be8c75256b501c1b7a29c8c3957d5130c3c674a2fc467"
+    },
+    {
+      "path": "src/scripts/lib/receiver-discovery.ts",
+      "bytes": 7577,
+      "sha256": "84ed8e9097020255fc4cd1525450ec5290da1539cd4285fcd54b096ef5a1ea11"
+    },
+    {
+      "path": "src/scripts/lib/receiver-keep-alive.ts",
+      "bytes": 718,
+      "sha256": "7edde912f92b6461193442d1a717d25c7071fe32881f2e96d0f924fa4c5daa97"
+    },
+    {
+      "path": "src/scripts/lib/receiver-log-stream.ts",
+      "bytes": 2380,
+      "sha256": "23e64225eeb0ec1568f116975d98ad4c3156350d2b1b602b0042bd820fb83e55"
+    },
+    {
+      "path": "src/scripts/lib/receiver-shared.ts",
+      "bytes": 1544,
+      "sha256": "3aac3898cfac55bd997e59d0026998355a52870b582a6a85d755aa68dfdb0a8b"
+    },
+    {
+      "path": "src/scripts/lib/receiver-wake.ts",
+      "bytes": 1070,
+      "sha256": "267b2e5a40ef9cdd42529278c805ff22d44978a8a4caecf3e6d5e1342090780f"
+    },
+    {
+      "path": "src/scripts/lib/restore-backup.ts",
+      "bytes": 4671,
+      "sha256": "c7df799b17b03fae4b2aa25e22a44e478f33bdfdf6edf6547c142023b9209b62"
+    },
+    {
+      "path": "src/scripts/lib/retry.ts",
+      "bytes": 2596,
+      "sha256": "2c49ab3959b4e4bc620ace06d99a2c6f7588884994096e17c91e42bf4b6ab4a6"
+    },
+    {
+      "path": "src/scripts/lib/sandbox.ts",
+      "bytes": 911,
+      "sha256": "fb20d58f6e07f8bf3d7331f5b908e294e79469a0512077027bac8c21ea85766c"
+    },
+    {
+      "path": "src/scripts/lib/series-seasons.ts",
+      "bytes": 10708,
+      "sha256": "376e416e3eaf04f23bf11f7508edf013727ccfd715411599b873236948224b6c"
+    },
+    {
+      "path": "src/scripts/lib/short-epg.ts",
+      "bytes": 10017,
+      "sha256": "ce728a0a0a3492228c6bc7650adfe2eef539e8ef349ffe8b453a4655410798fc"
+    },
+    {
+      "path": "src/scripts/lib/similar-local.ts",
+      "bytes": 4750,
+      "sha256": "01585bd84dda5970bd5fa80011c808f8cae275cfa9582cb163aedfe23c4616d6"
+    },
+    {
+      "path": "src/scripts/lib/sniff-classify.ts",
+      "bytes": 6215,
+      "sha256": "d0e2759bf55b683706a412a8170c65875ba59d1dc6dd5aace0e3a995bcbaafb0"
+    },
+    {
+      "path": "src/scripts/lib/sort-menu.ts",
+      "bytes": 14193,
+      "sha256": "7e57c7025b76a031e5ae80041ed63fd37f63f3b3299c1758141e08b00e45d896"
+    },
+    {
+      "path": "src/scripts/lib/stall-watchdog.ts",
+      "bytes": 5579,
+      "sha256": "ed974b53ed4c1951832aedce10c48b1a2913401d8b1ba9b4f2c2479e60ac46db"
+    },
+    {
+      "path": "src/scripts/lib/stream-diagnostic-dialog.js",
+      "bytes": 13155,
+      "sha256": "d5d76616b378f628aea7dc04716fff39185f93a5ffdbc6edfab32343a2ac0d45"
+    },
+    {
+      "path": "src/scripts/lib/stream-diagnostic.js",
+      "bytes": 17570,
+      "sha256": "c71fa34c3248f68b3e9e3b5507e44bd4af7abdeaca070b3b58c8112320d8b530"
+    },
+    {
+      "path": "src/scripts/lib/stream-headers.ts",
+      "bytes": 1746,
+      "sha256": "baa2fd4b29daa0b3a9c5eee2b20c2edfad1af693ca6151e408dc4fdfcdaa2b68"
+    },
+    {
+      "path": "src/scripts/lib/stream-health-dialog.ts",
+      "bytes": 10908,
+      "sha256": "7386cc0583d4dfc14c5b4a0d3632759333b76186bfc90eb41ff638e924393acb"
+    },
+    {
+      "path": "src/scripts/lib/stream-health.ts",
+      "bytes": 5716,
+      "sha256": "82cbd0a896a8d25727c907ce7aa91c77bf5d91fbda370a2412f61ec1fd396047"
+    },
+    {
+      "path": "src/scripts/lib/stream-sniffer.ts",
+      "bytes": 8782,
+      "sha256": "dc6503e43f11dd409b9e4a8e5e813c27ce71e2afe42bd17468b11366b2446f7a"
+    },
+    {
+      "path": "src/scripts/lib/stream-urls.ts",
+      "bytes": 2664,
+      "sha256": "89c1434c3f05fb1c3683ec6d890f56ee323c9d3b3ebceb94259b57afe037c560"
+    },
+    {
+      "path": "src/scripts/lib/subtitle-delay-dialog.ts",
+      "bytes": 9245,
+      "sha256": "9d1425d34156f32699eab56fdeed1bd60a20502b48a290816fcc52b8bc536167"
+    },
+    {
+      "path": "src/scripts/lib/subtitle-tracks.ts",
+      "bytes": 22692,
+      "sha256": "8b29e0b1e8069c3c37b0a8c1b9037932ff803420122a82a8b6cff3bfe803e8de"
+    },
+    {
+      "path": "src/scripts/lib/surprise-picker.ts",
+      "bytes": 15314,
+      "sha256": "ca2df2d21e8a97c4cd98b6b91aeee121d3fe02fe74170dc017f9b19333bc3e3a"
+    },
+    {
+      "path": "src/scripts/lib/text.ts",
+      "bytes": 955,
+      "sha256": "a3ff8379b5de133cbf897deef8a0984f6b8a2fa1f9b82b87bd9bde38591d0cdf"
+    },
+    {
+      "path": "src/scripts/lib/timeshift-math.ts",
+      "bytes": 6273,
+      "sha256": "7308185c3b850c78d8581d8f8987be1694aa02597cfe22602024767b113a5f78"
+    },
+    {
+      "path": "src/scripts/lib/tmdb-backfill.ts",
+      "bytes": 905,
+      "sha256": "e1db77d352dd71f4b6193c92ea9ab57e3d8693679cb19a659212e87f332d0715"
+    },
+    {
+      "path": "src/scripts/lib/tmdb-enrich.ts",
+      "bytes": 23835,
+      "sha256": "d53fc5235dd685d404e640714a1dbad3383c1fd4ae701c070e9a2c614ac91b35"
+    },
+    {
+      "path": "src/scripts/lib/tmdb-match.ts",
+      "bytes": 11859,
+      "sha256": "de3240013c6a898b2126340034490fd3ecb4659390a56e9c0cd29133fa321c26"
+    },
+    {
+      "path": "src/scripts/lib/tmdb-season-map.ts",
+      "bytes": 3511,
+      "sha256": "8c0536d1b0e5566d0f40abda823b1317176e8843a638bef5233a535e6f3d8bee"
+    },
+    {
+      "path": "src/scripts/lib/tmdb.ts",
+      "bytes": 13359,
+      "sha256": "9584b0de8fc04a2727095ebcab27f079ef14bb76cc59187d175bb8b58572f2cf"
+    },
+    {
+      "path": "src/scripts/lib/toast.ts",
+      "bytes": 13253,
+      "sha256": "bb0bbcbb43c9067d1993855b0257999999fecd105fc5c0c51e24a2db3d646ee3"
+    },
+    {
+      "path": "src/scripts/lib/trailer-inline.ts",
+      "bytes": 4332,
+      "sha256": "eb266283eb6e4d39d632a5fe09b3472a950e354bf6554ce57a2534156fb7ea46"
+    },
+    {
+      "path": "src/scripts/lib/tray-handler.ts",
+      "bytes": 2552,
+      "sha256": "6b7e187d0e0343eccf76ef86516c90da917e0fd90bfb00b2ab218c8207c08cb3"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast-catchup.ts",
+      "bytes": 5091,
+      "sha256": "f3f330d022b843039627a3d338882a02bd8cbd2eb617ef445cebb95350d476ac"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast-channel-list.ts",
+      "bytes": 5028,
+      "sha256": "b4f29a673da989992e83c227f0e7e2914434343b330415cb5228b0379ba9062f"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast-descriptor.ts",
+      "bytes": 7044,
+      "sha256": "c0c5221e5670770f96a714a0dabeac35d6630607de69c00579ca895e9cb56f25"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast-episode.ts",
+      "bytes": 3057,
+      "sha256": "23cd885e2904658136f6e8f1d587a609190588ce1f17a663fedca4f9f6eed0b4"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast-live.ts",
+      "bytes": 5222,
+      "sha256": "24d887613544cbaccd023dae658b51b31adb0bf9100a7f8459e52dbc1a078bf7"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast-next.ts",
+      "bytes": 9799,
+      "sha256": "a53ee8c8eea458b1ea714fda5a7ee67e500e18ab4abb1bd79b17edb9a8c4d254"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast-picker-panel.ts",
+      "bytes": 13665,
+      "sha256": "2f936bd02e10e40b671acee46cc414878481fdbefcf40be41cb9b2cccae3851f"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast-picker-sources.ts",
+      "bytes": 7465,
+      "sha256": "c73d6c41c8ea19a8320c4e0ea64e8216267a634bfb3eace584c3036eb649983f"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast-pill.ts",
+      "bytes": 41559,
+      "sha256": "72e353bb15e8227cf3b6d18e1c6d578def63a35a54516baf0a782dec471ccd55"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast-progress.ts",
+      "bytes": 7398,
+      "sha256": "9a879eb989a930acab36e71f2492e7b5691cfa02e66d847fc81eab6daddf6c8c"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast-remote.ts",
+      "bytes": 50829,
+      "sha256": "56816c1c0ef7bde9cea466a4c079b40e1e01e94e237d7245db6a8181270657f4"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast-state-feed.ts",
+      "bytes": 12843,
+      "sha256": "94a0959820ddb00661213240c33171463d28469504921de171dd570b9c51f40c"
+    },
+    {
+      "path": "src/scripts/lib/tv-cast.ts",
+      "bytes": 51146,
+      "sha256": "dd1930720043b159292dada6e853bb912e64c02456e9f750384f39f30bc9eaa2"
+    },
+    {
+      "path": "src/scripts/lib/tv-detect.ts",
+      "bytes": 325,
+      "sha256": "1adb3e5a7b71e7471cc0562b7f973a6fe8ac845cafbf92300a6d767cb44863a9"
+    },
+    {
+      "path": "src/scripts/lib/tv-device-dialog.ts",
+      "bytes": 26255,
+      "sha256": "4d0ff6f202c0e61aff462a5b1b25c97dd007d1a048cd5f6ff3e3c432467a04af"
+    },
+    {
+      "path": "src/scripts/lib/tv-grid-filter.ts",
+      "bytes": 4765,
+      "sha256": "dc78d17949c5d811d35e80625c1b7c70a0f66d6176a53a1d88d5f50080b96d4f"
+    },
+    {
+      "path": "src/scripts/lib/tv-input-guard.ts",
+      "bytes": 4335,
+      "sha256": "a523a2522b3a845a25f4bbaf2054e13b455acbe6cff2476085738da2ab4129e1"
+    },
+    {
+      "path": "src/scripts/lib/tv-routes.ts",
+      "bytes": 3037,
+      "sha256": "b6240b72fc0d1b9f98439027b89c47dd744779358717c970a71285dfbeb0556a"
+    },
+    {
+      "path": "src/scripts/lib/tvdb-contract.ts",
+      "bytes": 2106,
+      "sha256": "007dbb9ab01efd129882f1047ba3a03b49ec29a5b64c6b50d8dcec41b73181a7"
+    },
+    {
+      "path": "src/scripts/lib/tvdb-normalize.ts",
+      "bytes": 10653,
+      "sha256": "f27e20822b886fff080e83c4522668f67e90064ab927ccbd17f7b9773a2a3da0"
+    },
+    {
+      "path": "src/scripts/lib/tvdb-params.ts",
+      "bytes": 6148,
+      "sha256": "fd109870355a2447119561455d578ead1a2fa44d3dee1071d5706a703186d789"
+    },
+    {
+      "path": "src/scripts/lib/tvdb-proxy.ts",
+      "bytes": 11545,
+      "sha256": "1cf3287ae8c84a2c276a6b2525b47eed079fdff6a9c8310b03968cceceb8d67e"
+    },
+    {
+      "path": "src/scripts/lib/tvdb-rate-limit.ts",
+      "bytes": 1290,
+      "sha256": "5fd518f3983ec37ad2b54811d8145ec6389178e5178823c97526b530e8b4824f"
+    },
+    {
+      "path": "src/scripts/lib/ui-sounds.ts",
+      "bytes": 6747,
+      "sha256": "1b08a46f3b7068c097c71055db9c7b8c2e2d00619db89870b88a10e789d83a7c"
+    },
+    {
+      "path": "src/scripts/lib/update-check.ts",
+      "bytes": 7078,
+      "sha256": "4f7c1f239f82f49df41cfee6937788935a662091734f56df9cd058054df12cda"
+    },
+    {
+      "path": "src/scripts/lib/url-auth.ts",
+      "bytes": 3508,
+      "sha256": "937c5e023ce947f70c234a01c90d39dc0f07151215feadfaa57ef84ef4f20149"
+    },
+    {
+      "path": "src/scripts/lib/version-compare.ts",
+      "bytes": 3599,
+      "sha256": "14bc4038a467288d32a676d5af8540f597f099836f72c294f326628865c540f0"
+    },
+    {
+      "path": "src/scripts/lib/video-scale-dialog.ts",
+      "bytes": 10108,
+      "sha256": "0dbd2ef025c6f9085d976216ad1ac9b63fe389b1506949057daa398ed7a93cc1"
+    },
+    {
+      "path": "src/scripts/lib/video-scale.ts",
+      "bytes": 6386,
+      "sha256": "6d457044a628d92014e0e2e03a1665e30402b3fac3bd083fd8ccd99018026a52"
+    },
+    {
+      "path": "src/scripts/lib/vod-audio-proxy.ts",
+      "bytes": 6269,
+      "sha256": "48cc6ffa3c72c72e36c28479bf6eeb2293f698e5e0c90c587a64b1d9fa9e4868"
+    },
+    {
+      "path": "src/scripts/lib/vod-audio-switch.ts",
+      "bytes": 17003,
+      "sha256": "24867c46fe0159db683d3121b76b6d821afe4f233edd44e6a33aa4187d6bf315"
+    },
+    {
+      "path": "src/scripts/lib/vod-container-plan.ts",
+      "bytes": 3204,
+      "sha256": "a6159c052c686cbd99b7a29a1612f875218544176b351f17c12c21622777c8a2"
+    },
+    {
+      "path": "src/scripts/lib/vod-container-probe.ts",
+      "bytes": 9188,
+      "sha256": "df3a7ebc2095c714086fd628e08e88d3eb728dafbea0d1ae152c9c9e3f6fb4f6"
+    },
+    {
+      "path": "src/scripts/lib/vod-info.ts",
+      "bytes": 3616,
+      "sha256": "3652249b1d1d2983f88330a5cbbf697c789e6ebdf8ecd87c9b3058a2d30f8842"
+    },
+    {
+      "path": "src/scripts/lib/vod-mount.ts",
+      "bytes": 16606,
+      "sha256": "c5e935a8e2da7e790c7e5063b9f2b15b6cddffad8e1cb3cf702595aa5d3f4612"
+    },
+    {
+      "path": "src/scripts/lib/vod-playback-toasts.ts",
+      "bytes": 2767,
+      "sha256": "d59faaf347930e242563e09e984adc4868c77a4c0cf9682eab35997ee089e50a"
+    },
+    {
+      "path": "src/scripts/lib/vod-proxy.ts",
+      "bytes": 8914,
+      "sha256": "06cb02179247b40c207f24438e0cbab0f73e15eb35ec9c16f174b66b31e42957"
+    },
+    {
+      "path": "src/scripts/lib/vod-remux-memory.ts",
+      "bytes": 1655,
+      "sha256": "86da76db7398b6b8e15e89a2ee22a41f93fed9a97086a6b464c11dc9aa97408e"
+    },
+    {
+      "path": "src/scripts/lib/vod-remux-recovery.ts",
+      "bytes": 8899,
+      "sha256": "2e58638f02658b784e09dee6844a068bc4d75e6a97b606bc371b87ef6e12e7f6"
+    },
+    {
+      "path": "src/scripts/lib/warmup-native.ts",
+      "bytes": 34295,
+      "sha256": "306ca20afd2a6a21bacbf24ed2a260ff2ede1345e485a5db8147564306fd89b0"
+    },
+    {
+      "path": "src/scripts/lib/whats-new.ts",
+      "bytes": 8636,
+      "sha256": "33dca337d96179ba363f252e7f5da33c6630e56dbc11b9d6e49d3c3271fb1ede"
+    },
+    {
+      "path": "src/scripts/lib/worker-origin.ts",
+      "bytes": 291,
+      "sha256": "f6f92a43ec9fc70cd95bdbf04835b00bfe3ea64415cc7b95d01ef05eecf9124b"
+    },
+    {
+      "path": "src/scripts/lib/xtream-api.js",
+      "bytes": 7791,
+      "sha256": "a2a6431db3308619a33c9372c2688fc2299334ca784513b2cc2153f0456dbaf3"
+    },
+    {
+      "path": "src/scripts/lib/zip-writer.ts",
+      "bytes": 4792,
+      "sha256": "7555725d3e52b0edd072a968f901705786b27495a26b007788c2d8f2965f2511"
+    },
+    {
+      "path": "src/scripts/make-latest-json.mjs",
+      "bytes": 2355,
+      "sha256": "8e708334c69031fa3f592034555bfeafe5b17706d584e61698b19538f973abe3"
+    },
+    {
+      "path": "src/scripts/make-rounded-icon.swift",
+      "bytes": 2047,
+      "sha256": "5671b17efbea6d65ca180d14f75b4f0ca2833e7aba65a11880a177b60d4012f0"
+    },
+    {
+      "path": "src/scripts/make-ui-sounds.mjs",
+      "bytes": 3919,
+      "sha256": "2f281b6ccb97965f53576bc5f72affea2e43d762ab97b8a9f2a1d87db02e0ba4"
+    },
+    {
+      "path": "src/scripts/movies/detail.ts",
+      "bytes": 55552,
+      "sha256": "61c44b20c9e82c8893fe3b7b7b7aa6d176a28bbe8d0fb78dd27df34554f47001"
+    },
+    {
+      "path": "src/scripts/movies/movies.ts",
+      "bytes": 35365,
+      "sha256": "fff2dc407c5e406e596ab7cdefe23add162a930a5b8f921b9b72ab35379e4548"
+    },
+    {
+      "path": "src/scripts/receiver/ambient.ts",
+      "bytes": 20311,
+      "sha256": "855403389cb4e6d579839461db12bcea0c25cd9eb45cd0ff515ce1e37d2ee8bd"
+    },
+    {
+      "path": "src/scripts/receiver/engine-select.ts",
+      "bytes": 2543,
+      "sha256": "d9d614c886c67dc376c7a6b4744567242744a033d02c268c28984b6dfd1eef7e"
+    },
+    {
+      "path": "src/scripts/receiver/engines.ts",
+      "bytes": 33453,
+      "sha256": "f5e328598380e38801266ee78e8398975a23c02a1cb51a483f523c8b9edafe1f"
+    },
+    {
+      "path": "src/scripts/receiver/receiver.ts",
+      "bytes": 20332,
+      "sha256": "4bb89f420a22c661541c3f7c26f7533cc3b3e67b55584ef8adf3e74d4cf62cfc"
+    },
+    {
+      "path": "src/scripts/series/detail.ts",
+      "bytes": 85336,
+      "sha256": "08c378a9ddafd31c0b72352517863fb59c195cb058fb4e9fd89135cef5e30e5a"
+    },
+    {
+      "path": "src/scripts/series/series.ts",
+      "bytes": 42877,
+      "sha256": "39e91613edb8db9455412feecf09b62ca528cf25f59530a34f5648894128ca59"
+    },
+    {
+      "path": "src/scripts/settings/play-on-tv-card.ts",
+      "bytes": 7324,
+      "sha256": "9b32cb8c7a3663dec0451128030182df7673766b5645861bb82ab178e109cf54"
+    },
+    {
+      "path": "src/scripts/settings/receiver-card.ts",
+      "bytes": 17140,
+      "sha256": "edc37b1c3d68e8988af086d0470bed2b2e212c47bcb4e0a07c731f6c3065549d"
+    },
+    {
+      "path": "src/scripts/settings/settings_effects.ts",
+      "bytes": 10489,
+      "sha256": "2684b0b014d52d6e55010c6254d3af218d854fc050437d154c832f0d3585cc5a"
+    },
+    {
+      "path": "src/scripts/settings/settings_search.ts",
+      "bytes": 9107,
+      "sha256": "9d95d8bca76fb90ceae3318fe23a8c6dadf76feb4b8279e7cbf2791117ac32ab"
+    },
+    {
+      "path": "src/scripts/spatial-navigation.js",
+      "bytes": 34218,
+      "sha256": "b47a7a95d23c25562d3a7f8eb6198e72c70483588e4cc4505df88da1ac9f670e"
+    },
+    {
+      "path": "src/scripts/stream/stream.ts",
+      "bytes": 212832,
+      "sha256": "db49e11ee9e54baf08df3ebd7b59a5c6a74e4c14378dde032d464bdcf4afd14e"
+    },
+    {
+      "path": "src/scripts/tv/ambient-color.ts",
+      "bytes": 13414,
+      "sha256": "62c87e60b9cd4af08cc6eff58acdeca3866519ce4a381f8f48228e1727d40b44"
+    },
+    {
+      "path": "src/scripts/tv/ambient-worker.ts",
+      "bytes": 1811,
+      "sha256": "fa0f3b945045f242b0ad6ea6aab441f2b5f4b4ea58523ff10dbeb7fbaaaea47d"
+    },
+    {
+      "path": "src/scripts/tv/catalog-filter-client.ts",
+      "bytes": 8214,
+      "sha256": "73b7c4b452427a3dabb87bc9beb064bf115fc4118584b0b43541b6a591d609fd"
+    },
+    {
+      "path": "src/scripts/tv/catalog-worker.ts",
+      "bytes": 4158,
+      "sha256": "cdecf6c5627a1f7afcb5d1cb74fbb21f33b315723927f450a989bff84d6a0d57"
+    },
+    {
+      "path": "src/scripts/tv/detail-enrich.ts",
+      "bytes": 2104,
+      "sha256": "c3299913bf935fc6c4fd76678dae4c0039cedd987e9abab76882d2ec69c6d922"
+    },
+    {
+      "path": "src/scripts/tv/epg-source.ts",
+      "bytes": 7437,
+      "sha256": "1e3971c12632a81840d85747a768f872ede864f79eb071604cbb9f634aa1eb87"
+    },
+    {
+      "path": "src/scripts/tv/focus-glide.ts",
+      "bytes": 11117,
+      "sha256": "d6acc8980d5709c2ee193519365d14caa017cf8ee51075628107043ba9c4a49d"
+    },
+    {
+      "path": "src/scripts/tv/focus.ts",
+      "bytes": 6810,
+      "sha256": "1db26c988902bdc1ba09c10e471fe9be4dd026ea6f90b4315669926a0c91c37a"
+    },
+    {
+      "path": "src/scripts/tv/long-press.ts",
+      "bytes": 4418,
+      "sha256": "e03027980c7569f28293b841cc0b353e540b958ee07e5f7d9227eeeb6983d2c5"
+    },
+    {
+      "path": "src/scripts/tv/motion.ts",
+      "bytes": 5344,
+      "sha256": "f65993cf3ce684b0d7d12b604d82e489eda4ce98d8c5bdb6aa8e2ebb35c1593e"
+    },
+    {
+      "path": "src/scripts/tv/osd-zap.ts",
+      "bytes": 705,
+      "sha256": "57e26752106af0908740d386403745d828ebc2edc8f1864c17c91b8f9fa78033"
+    },
+    {
+      "path": "src/scripts/tv/playback-local.ts",
+      "bytes": 2840,
+      "sha256": "de00c8a232b09ebe0e21c3f0cb1df31f9ec496cc0594fae3af75c10e539ddbc9"
+    },
+    {
+      "path": "src/scripts/tv/playback-progress.ts",
+      "bytes": 2618,
+      "sha256": "d86cdc73ac20cdcf44baa02997ef050956a703c5cb9353d5f132fff6dc114f15"
+    },
+    {
+      "path": "src/scripts/tv/playback.ts",
+      "bytes": 28938,
+      "sha256": "fb3c1584dae22ccae053f8df85b84a2e1eb91689b076dd2bd9b82f7f578aa8e6"
+    },
+    {
+      "path": "src/scripts/tv/prefetch.ts",
+      "bytes": 1530,
+      "sha256": "8acba5cf41fdb929b9c08f805eeb468752c5a29839781342eb73d10c7964cf60"
+    },
+    {
+      "path": "src/scripts/tv/rail-card-menu.ts",
+      "bytes": 1527,
+      "sha256": "465f706ce1ec13b2fa5e19e4421e505e4af605c46e17d191c58799694ea443d9"
+    },
+    {
+      "path": "src/scripts/tv/resume-playback.ts",
+      "bytes": 2749,
+      "sha256": "83a04a82685eab85c28426ff6415d42a51e0619294a00eefe66c69e94e7ab43a"
+    },
+    {
+      "path": "src/scripts/tv/router.ts",
+      "bytes": 7734,
+      "sha256": "7e682ecc5072c1ae68b72d0451d60b265635e7f60124de0ab5ed6231ef76b671"
+    },
+    {
+      "path": "src/scripts/tv/shell.ts",
+      "bytes": 15781,
+      "sha256": "982d4a76fd248078cb594670de108f6952dbbabee694e8e09fab471f6c09bff3"
+    },
+    {
+      "path": "src/scripts/tv/ui/action-sheet.ts",
+      "bytes": 2863,
+      "sha256": "ed51b197ae7cff0f98d958818da581a33e9ad934de6e1f82c068aba71bc363cd"
+    },
+    {
+      "path": "src/scripts/tv/ui/card.ts",
+      "bytes": 13838,
+      "sha256": "bb66c51d8633cd17c3d8b10d3b9ed9e0159865ffe9b39a07085a1dc515634bf2"
+    },
+    {
+      "path": "src/scripts/tv/ui/detail.ts",
+      "bytes": 12691,
+      "sha256": "dc5825797800ffc82541037986d8f53436ce5d349a8bb71e11b072a0495901f5"
+    },
+    {
+      "path": "src/scripts/tv/ui/filter-bar.ts",
+      "bytes": 8233,
+      "sha256": "69a4ed9fc4972df1a4b90d77660fc55fdbdd76b685382a7855d29bea384f2d0e"
+    },
+    {
+      "path": "src/scripts/tv/ui/grid.ts",
+      "bytes": 20295,
+      "sha256": "9566beee4a2a58fd024b66b062af37fd84563d6dbe54643620c312df070879e3"
+    },
+    {
+      "path": "src/scripts/tv/ui/hero.ts",
+      "bytes": 14248,
+      "sha256": "2c7716a4ef08d6ddfa710db1c00cef9dab1a5288c7f6799c59b1c36b876603c5"
+    },
+    {
+      "path": "src/scripts/tv/ui/live-row.ts",
+      "bytes": 21431,
+      "sha256": "cc38724b8f3bbc101c47faa7db0881016f64c2b2f4cfdc14a5c069c748afd009"
+    },
+    {
+      "path": "src/scripts/tv/ui/osd.ts",
+      "bytes": 12906,
+      "sha256": "7154033f7c3824b520362ff71cebd0eece365ff4a59b22c04220189a6628ce63"
+    },
+    {
+      "path": "src/scripts/tv/ui/rail.ts",
+      "bytes": 6143,
+      "sha256": "051981e24c27acc647b1d5997552f461078f0a80c6df1e413fc5cfddc8794bbd"
+    },
+    {
+      "path": "src/scripts/tv/ui/settings-list.ts",
+      "bytes": 8933,
+      "sha256": "9b1fbd62b9c99ae30ac106e9e77c438f1a68c995419ad93882f1297fb809147b"
+    },
+    {
+      "path": "src/scripts/tv/ui/virtual-rows.ts",
+      "bytes": 8198,
+      "sha256": "cee0c7d4075901f3cddc062ad6f0e08f38e614d3fa7b50b28fc781f8b8ca1220"
+    },
+    {
+      "path": "src/scripts/tv/ui/warmup-indicator.ts",
+      "bytes": 3085,
+      "sha256": "d5e64780bc9cb57207d6f2062fa318c0c79f4ec64243e72b902fc045546a54b4"
+    },
+    {
+      "path": "src/scripts/tv/views/catalog-grid.ts",
+      "bytes": 28564,
+      "sha256": "e8990449fd9b7b12d84f39c00252272ede980635a2cf47dc71708b36e7d02ace"
+    },
+    {
+      "path": "src/scripts/tv/views/downloads.ts",
+      "bytes": 20480,
+      "sha256": "cc5f91df30b2539a615cd1a55b3208d63859b74346629e6664a381cc80768672"
+    },
+    {
+      "path": "src/scripts/tv/views/home.ts",
+      "bytes": 56857,
+      "sha256": "1eabedade001a996f65ff6b10e2104ab885dabb9fb335caeb909ea18a5c7e067"
+    },
+    {
+      "path": "src/scripts/tv/views/live.ts",
+      "bytes": 32029,
+      "sha256": "1edb102a6d41b7680c3cc2d059fa3eee1284660fd18ecccb0fac2040ad38258f"
+    },
+    {
+      "path": "src/scripts/tv/views/login.ts",
+      "bytes": 18854,
+      "sha256": "5a134e79b8cf37727a3b11bd0bad648cd3a7b3e97cf7112f903b71026463cef8"
+    },
+    {
+      "path": "src/scripts/tv/views/movies-detail.ts",
+      "bytes": 23703,
+      "sha256": "4cafa9758dfd88c1d1c0b597c765771ae3c6ca157e49b4af34dd1be74bf024ee"
+    },
+    {
+      "path": "src/scripts/tv/views/movies.ts",
+      "bytes": 100,
+      "sha256": "aa70ec46413ca771e72c369274e7ac50dab72e8c900f60d3ae1c8e0e5a46dcf3"
+    },
+    {
+      "path": "src/scripts/tv/views/search.ts",
+      "bytes": 23473,
+      "sha256": "e849424ac84c6c529812d35a5f509aeffcd943e9582791f6041d5b3da6898dc6"
+    },
+    {
+      "path": "src/scripts/tv/views/series-detail.ts",
+      "bytes": 35532,
+      "sha256": "f2dc04b7e36b77adca70dafc1bd4182fabe0998d2a584a3135fb6070eb30c378"
+    },
+    {
+      "path": "src/scripts/tv/views/series.ts",
+      "bytes": 103,
+      "sha256": "115ecc03eae8702d35a760359c37beb17e8959d7a9ba281e7f771535682b14a6"
+    },
+    {
+      "path": "src/scripts/tv/views/settings.ts",
+      "bytes": 30524,
+      "sha256": "994da8f18fcfc250345ca467aa628f62f46f0daf9bcb723ebfe4730f47c4486b"
+    },
+    {
+      "path": "src/scripts/updater-startup.js",
+      "bytes": 4317,
+      "sha256": "f7d0e8c1a3f4ca037fd3df324a4a6ff399e1c1a15618dc81c943ef20c27b0078"
+    },
+    {
+      "path": "src/scripts/version.js",
+      "bytes": 1915,
+      "sha256": "822535659b7c2b0fab2a2f3012300a980aac2ec38a1b84fc85d889a540413964"
+    },
+    {
+      "path": "src/styles/global.css",
+      "bytes": 98147,
+      "sha256": "63e8dca772ea903133a4a9e5106da7f23112d039c9aa6921905f03e9026a0a60"
+    },
+    {
+      "path": "src/styles/tv.css",
+      "bytes": 8114,
+      "sha256": "f5411488bc3933be40fe8a12de12f34eb6a738e2bc34ca1e68f2370cb4632778"
+    },
+    {
+      "path": "src/types/globals.d.ts",
+      "bytes": 4669,
+      "sha256": "44363280a566eae34137e90d117d16ad6e3e9a26f3e480cee0d7d853fd750a1c"
+    },
+    {
+      "path": "src-tauri/.gitignore",
+      "bytes": 86,
+      "sha256": "646a917f23a3d76736252fac394b218e99c3f2d7f5c4dad9e334563452574cde"
+    },
+    {
+      "path": "src-tauri/build.rs",
+      "bytes": 39,
+      "sha256": "487059eaf8a947b80f20a9aacac038a5047b2ad69d2401b827376c67d6fe847f"
+    },
+    {
+      "path": "src-tauri/capabilities/android.json",
+      "bytes": 634,
+      "sha256": "ab8ad37256e7ae536393c3ef52c1a8840f9b48f609c8bfddd0542958a24b33b5"
+    },
+    {
+      "path": "src-tauri/capabilities/default.json",
+      "bytes": 1894,
+      "sha256": "7d2f62c9af0378b6310ea9f8a2870396d27e17a1f4657612271e1d6b0263401b"
+    },
+    {
+      "path": "src-tauri/capabilities/desktop.json",
+      "bytes": 1083,
+      "sha256": "91593ca9e988f4198470992e8809c384b1bf049e2d021ba1100ea01c0ddffd51"
+    },
+    {
+      "path": "src-tauri/capabilities/sniffer.json",
+      "bytes": 448,
+      "sha256": "1935d31f5994938a189d50f4cbad9ddda6f936b1106104211565840a69c1e1a2"
+    },
+    {
+      "path": "src-tauri/Cargo.lock",
+      "bytes": 162575,
+      "sha256": "19f773fa514455a3cf8181b920b2c21eb86309b471457f4fd6b547088838c212"
+    },
+    {
+      "path": "src-tauri/Cargo.toml",
+      "bytes": 1864,
+      "sha256": "4abdf217b03916180bc44c626ed448403fddf2700dafc5e4e5c52d06319e0606"
+    },
+    {
+      "path": "src-tauri/gen/android/.editorconfig",
+      "bytes": 230,
+      "sha256": "d22b394a5a140050065207d160273570edb04200480160e0951df3291dd7848f"
+    },
+    {
+      "path": "src-tauri/gen/android/.gitignore",
+      "bytes": 270,
+      "sha256": "26217e972f23b716d61a9bfe41198e8f671c722f8b3e4227d5a0ecbf5d1423c9"
+    },
+    {
+      "path": "src-tauri/gen/android/app/.gitignore",
+      "bytes": 168,
+      "sha256": "cfab8a751a59e945075fb6187f8ed0f6bff625d3b51b78d6b94ab9d5a260922a"
+    },
+    {
+      "path": "src-tauri/gen/android/app/build.gradle.kts",
+      "bytes": 5436,
+      "sha256": "da884ea669dc06c1e1ccac92c5844c66fb76de59e60c13208d16b0779ebc9f9d"
+    },
+    {
+      "path": "src-tauri/gen/android/app/proguard-rules.pro",
+      "bytes": 1146,
+      "sha256": "4a8b0fef504c47e3692c71dafcf6e3637b318b048df7f054f4e27b92c7e65b8c"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/AndroidManifest.xml",
+      "bytes": 5450,
+      "sha256": "001f8fea46b99e820dd1c150ed8839b05b3999895390a985e40f4a295ab1339d"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/java/com/infinitel8p/xtream/ChannelListAdapter.kt",
+      "bytes": 3680,
+      "sha256": "3b99b6b39f8ab900e1f73d64c3b3a27fb45796683b877fc302cb59c843e6a671"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/java/com/infinitel8p/xtream/MainActivity.kt",
+      "bytes": 87228,
+      "sha256": "e8c051df0bf59b2852b9dbdf6642cb28623491734e8afc590b77be42acf70d76"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/java/com/infinitel8p/xtream/ReceiverForegroundService.kt",
+      "bytes": 5002,
+      "sha256": "73b938767ae40a030e62e1b44a980694735ae922ce3d818d5da28988feb729cf"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/java/com/infinitel8p/xtream/VideoActivity.kt",
+      "bytes": 41360,
+      "sha256": "0e282100c6f593f51533fd7765fcf6336baf3e441b6f82d982f9222328075bf7"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/java/com/infinitel8p/xtream/XtreamDreamService.kt",
+      "bytes": 29318,
+      "sha256": "585d5fdd1f920eee1f0ae3f7fb25de95b205b7bc26c1857f4c9591a86411a046"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable/bg_video_control_focus.xml",
+      "bytes": 1191,
+      "sha256": "958937b0dd95e7b30d672a6e182baaada3a172331a42fd0d214cc87f8e04b7ac"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable/ic_brand_mark.xml",
+      "bytes": 1352,
+      "sha256": "e4218db7f7eb16176b7fb6f53c77bceec83271645754e2b3012dde2ee649938a"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable/ic_notif_pause.xml",
+      "bytes": 349,
+      "sha256": "4cb3b526355e2b63631153712ebdbbf1e5225259864ccb5020fd87e404b8ded9"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable/ic_notif_play.xml",
+      "bytes": 324,
+      "sha256": "26a5f1c9ff058db4f64c4fc9c28d82635a977ba138e4311a45f1c644384053dc"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable/ic_notif_skip_next.xml",
+      "bytes": 349,
+      "sha256": "9575de2e3e116324de5d48dfcdf26e6d03f6b41651d69c87341eb3b2b756147d"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable/ic_notif_skip_previous.xml",
+      "bytes": 342,
+      "sha256": "06b2e1b96e56ef0716d839c5a0243adbe80381f4e00ade55f2e183d249feb6a3"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable/ic_splash.xml",
+      "bytes": 1606,
+      "sha256": "02e619acb4cb1a9c47bc859ecb45b68caf31dc91db31b73ecbc189b386905194"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable/ic_video_channel_down.xml",
+      "bytes": 358,
+      "sha256": "a1c07ad63225c674b914f6f8627b3f39e6c1fa6d879d7e0c289665067c3a019a"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable/ic_video_channel_up.xml",
+      "bytes": 358,
+      "sha256": "a60cb488773cca852e7907df632099149e87394068e58dafee79e8fdf915dc6d"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable/ic_video_volume.xml",
+      "bytes": 517,
+      "sha256": "f86155b06072a37a01eadb9d676e76e9e95dd5bfdee853a5353f59df32e16902"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable/ic_video_volume_mute.xml",
+      "bytes": 702,
+      "sha256": "83b476ca381678239ee46754d82bd52619ba8e1598b06d319007dd2051739ac0"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable-hdpi/ic_banner.png",
+      "bytes": 5997,
+      "sha256": "51bc368c1c4a05b561ad5931506deaa336fd66158e555bcdbf591db2d5a5749f"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable-mdpi/ic_banner.png",
+      "bytes": 3804,
+      "sha256": "d6ee62c4c8c9cb4ec5a0a5d60f07e893d46e3566b448fc38ead7ae30f5087684"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable-xhdpi/ic_banner.png",
+      "bytes": 8061,
+      "sha256": "32c218639543ca07ad33fdd3675de6790b87e0f13c8a46e72e0a66a271d62e80"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable-xxhdpi/ic_banner.png",
+      "bytes": 13070,
+      "sha256": "0ab1e83b7feeffaf5aa9bd8dd9d520a3e454e3c427cfcde509062b3a11b2554f"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/drawable-xxxhdpi/ic_banner.png",
+      "bytes": 8106,
+      "sha256": "877cf256634e99258be7a9b841077e944a3df0d5cb8dc45230b725a98a27fada"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/layout/activity_main.xml",
+      "bytes": 780,
+      "sha256": "68466a0a3006f183eb3af4e978d52f50a68087a1aac0880bd16eef3760153bcb"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/layout/activity_video.xml",
+      "bytes": 1853,
+      "sha256": "4f86812ab74fe4c7ee16e3daadb04de9d5957c908c4a2cec1600cb7cd49f3cf0"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/layout/player_controller_tv.xml",
+      "bytes": 7134,
+      "sha256": "05a2d3be40c4536680400215e9086a1182309d118236f99f7268b2b00aa24dec"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/layout/row_channel.xml",
+      "bytes": 1671,
+      "sha256": "46dd689eca1c5089593b6b9ff5b0e6011894d49e3480988eaf1b27f33277566f"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "bytes": 328,
+      "sha256": "d30f117c24d1f4ebd101970549221e57c0ec3be98f4697217ca4cb510330303c"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "bytes": 2155,
+      "sha256": "13382629402c15b5fd489bf531a9a61a19a07317f6d6149cf62d6e7fdb76a416"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-hdpi/ic_launcher_background.png",
+      "bytes": 374,
+      "sha256": "178ef38495fda53c859ec3f07c478cf7333c332c6c644e0d6ff67d946dda463f"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png",
+      "bytes": 6405,
+      "sha256": "ada230323c450765a8310e51c050737ea17cc28972a90cf24657e341f19b50d1"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-hdpi/ic_launcher_monochrome.png",
+      "bytes": 4867,
+      "sha256": "98d2f9f1351f48e775ab4d9ce1606aa9b134ac347a83bdf26f23db7704e747b0"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
+      "bytes": 2511,
+      "sha256": "f8cea05bf8c7575a2f621b3d14f2d0db2274220e73cb7bc77245b5da21c43545"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "bytes": 1973,
+      "sha256": "0660b9b0ef1ca8ace2ea06cf8cc1998484853234fab2f8efbe39b8841ef0fe2b"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher_background.png",
+      "bytes": 240,
+      "sha256": "a03c3c7e20566f3547507f4e70bb0a9a8bef8201c32ef696c5363e60c2f24f2f"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png",
+      "bytes": 4045,
+      "sha256": "843b42304af6d6cab144a5bdfc669b768c3346df108084e313ac64e3e04894da"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher_monochrome.png",
+      "bytes": 2934,
+      "sha256": "300fb0ac6d9e031e4e7d96f1039aafa7301922f32a3c079bb2c575d299379d5c"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
+      "bytes": 2299,
+      "sha256": "a3fb2ceea9cea36b1d4653c19d1f445fcea610f8853a86445698f72de207453d"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "bytes": 5832,
+      "sha256": "bfe6be572b57f629e2e063a88cc700f72f2e77085b9dd44ce77de0f7db97fdaa"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xhdpi/ic_launcher_background.png",
+      "bytes": 515,
+      "sha256": "8f81a8bdafb24bb8ca5df15046c6eed318c2484ee4cd3116572cbc42e9e9b8cb"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png",
+      "bytes": 9143,
+      "sha256": "f852dabf72b331a92a9c43d8bfe866fddd0db5bbb47786ad7655ba27117c1a3c"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xhdpi/ic_launcher_monochrome.png",
+      "bytes": 6440,
+      "sha256": "10133a0675201bb9f2a4c8840cbe05c7423450559551b9be3963902a2b9857ac"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
+      "bytes": 6871,
+      "sha256": "18fc89708591e01d0c87dd2fcf0e824b48c75b0c810d1caba351c9b7745929f2"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "bytes": 10153,
+      "sha256": "b58480322f96ec4ab582b2e461ebd980b6aad09e0841a0b54739252575020d43"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_background.png",
+      "bytes": 901,
+      "sha256": "3e6bb7ed83a4cdc00f8d60f86ba6ae895500a57e9ffacdcce6012c34c9aac8f6"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png",
+      "bytes": 14047,
+      "sha256": "2ee3236b7c1506ca28ce429ca7e65e02cb2610fe37ca5e69fb1ad84cc16b261b"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_monochrome.png",
+      "bytes": 10366,
+      "sha256": "06862f13e58e88ed368c13cbf34dc5e3b2312dbdcc50481242aebc986cf99af6"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "bytes": 11963,
+      "sha256": "617cb547969ba7d613c2d92cd508f23bfc038a9819051f4621f12619a9f99f16"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "bytes": 15045,
+      "sha256": "7371e8e3a03189bfd9ba3d88db474622f76607a6d3ef95d7d0b838ef9d4c23dd"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_background.png",
+      "bytes": 1356,
+      "sha256": "24ab029e480faae4e5770f158d786dc34e45563143a8c68e3372853031c6839b"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      "bytes": 19233,
+      "sha256": "55d8bbadddce11c0d932f7de4c0cd6f2319b567e3c87f6763c86da9edea60ee4"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_monochrome.png",
+      "bytes": 14444,
+      "sha256": "c4ea2307e430bb3a0e54d33dc18cd48aa6656522596b4543af82fadede6d4164"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "bytes": 17446,
+      "sha256": "2a1a223f05eb7c124f439b59807003f69a692ca413a2bd83f5cb33c82aecc0f9"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values/colors.xml",
+      "bytes": 856,
+      "sha256": "510e21c563070a9e01ffe3ba8d6a74f790042b9bd1d45d942859a14a4db18230"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values/strings.xml",
+      "bytes": 2255,
+      "sha256": "04f39832cc33a85daec3363cb0fefce221191ec414bf7b7b10a27e30f6addc53"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values/themes.xml",
+      "bytes": 1305,
+      "sha256": "96ed0844aeb6ed1f5059b7320b8776d76ad459949e98721ee21c618c66d9b1d8"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-ar/strings.xml",
+      "bytes": 744,
+      "sha256": "e1d6e04e0da1cdc4cdb5abe9f1de8384c7bb0f60189ee17bcd8938921f5c68d4"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-de/strings.xml",
+      "bytes": 702,
+      "sha256": "3cf3d19b65715599294cca1721f3e65fc864d10ec4df6f89a4cb89bbdffb60f1"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-es/strings.xml",
+      "bytes": 709,
+      "sha256": "6596ed9f9d32dbd0c5bf064e1c8aa02846b78b1d05c7ef3576cf7c6e7a773dc3"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-fr/strings.xml",
+      "bytes": 693,
+      "sha256": "52a4278d31f5c8fb7aede4c0460c8973491484d086aa61c3d0093a204f96b75f"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-hi/strings.xml",
+      "bytes": 861,
+      "sha256": "8ad9983cac5d35b8de338f6735fc378ec6e687c2962196b522534e245f17b872"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-in/strings.xml",
+      "bytes": 678,
+      "sha256": "19be74caa741855eabd7f86d7025697b062e6d95eb17ad672cb7f0f3eae39b54"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-it/strings.xml",
+      "bytes": 708,
+      "sha256": "fc2f712eb193be7697d7e28cdc629646e947df10b31a82649a972a36d8b19161"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-ja/strings.xml",
+      "bytes": 728,
+      "sha256": "e8529456e89b25c466c253857fbd76ac134f5abc1614c635b18652050791f1e0"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-night/colors.xml",
+      "bytes": 110,
+      "sha256": "4393e3f6b55bd403404e7c61afd3807799712e0ef0678545771f70668935e301"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-night/themes.xml",
+      "bytes": 550,
+      "sha256": "452f1051249244c53cdab9500d3fa11c76466bb111353419c2f3fc88892d8b77"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-nl/strings.xml",
+      "bytes": 673,
+      "sha256": "c9e969897401649decec49f3bb15618dadf059b8ea2ece92d4da4bcd67c8323a"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-pl/strings.xml",
+      "bytes": 704,
+      "sha256": "2ba00a5350425ab4111db4416946072de3baa8d20471bc05c4bc63ee16ac1593"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-pt-rBR/strings.xml",
+      "bytes": 703,
+      "sha256": "1046f4ab373c6fe5839fcf721d404cfa5ed93fc4953abae6bb03b946f3b650cd"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-ru/strings.xml",
+      "bytes": 838,
+      "sha256": "2554bbeb1d83b40d47b2ad7efb3c1f643b09ad4da800b44d96973439ed57bc6c"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-tr/strings.xml",
+      "bytes": 669,
+      "sha256": "0906e1d9448e29af02727ea791f4a99cd114e7e334cbcf23bd51cc22aefb5e9a"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-ur/strings.xml",
+      "bytes": 732,
+      "sha256": "19ba5b20108580f7a92a3f8519b9aad01154201b8d546d14a59a53f6ea4cf814"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/values-zh/strings.xml",
+      "bytes": 653,
+      "sha256": "104505b644684ee32b8c1ed800108af4ff5ff6c5e6598f33100367ba69f71bab"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/xml/file_paths.xml",
+      "bytes": 261,
+      "sha256": "7e81fb76ae34ce88ba8e5019a2379b603e2ea46efc0946eaf5ec5d09b6fc041a"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/main/res/xml/network_security_config.xml",
+      "bytes": 142,
+      "sha256": "6331a1c01715a3ad57e683d5351a72d99bf1f78d0315fe3fd9ddbc1c149da280"
+    },
+    {
+      "path": "src-tauri/gen/android/app/src/test/java/com/infinitel8p/xtream/DreamManifestTest.kt",
+      "bytes": 4272,
+      "sha256": "a2a5e81379a12454910e9ed10f39cee7065280cda13ce89a41e222e3c2143785"
+    },
+    {
+      "path": "src-tauri/gen/android/build.gradle.kts",
+      "bytes": 377,
+      "sha256": "f8d6b8ac33de9acbe318595de7be4500fec1009f8ea0edc508fd998cc15294c5"
+    },
+    {
+      "path": "src-tauri/gen/android/buildSrc/build.gradle.kts",
+      "bytes": 345,
+      "sha256": "11818be939b3aa44d691228f8666fba5efc796cdc1b4fb8072ab7c91bc056eb0"
+    },
+    {
+      "path": "src-tauri/gen/android/buildSrc/src/main/java/com/infinitel8p/xtream/kotlin/BuildTask.kt",
+      "bytes": 1632,
+      "sha256": "e73187ab7f4ecb68b958ab7dff64d483dc7b667d79c8327d68f0aa3cb8a9f54b"
+    },
+    {
+      "path": "src-tauri/gen/android/buildSrc/src/main/java/com/infinitel8p/xtream/kotlin/RustPlugin.kt",
+      "bytes": 3336,
+      "sha256": "3488450f755ee6ed9eeaaad99e7adcc27de827f98f4657d9a4fb4af47c2f8663"
+    },
+    {
+      "path": "src-tauri/gen/android/gradle/wrapper/gradle-wrapper.jar",
+      "bytes": 59203,
+      "sha256": "e996d452d2645e70c01c11143ca2d3742734a28da2bf61f25c82bdc288c9e637"
+    },
+    {
+      "path": "src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties",
+      "bytes": 233,
+      "sha256": "5f8448f8760a88f7dfa64fad849012828706c6ce8e11041bb0640faa1e230f0e"
+    },
+    {
+      "path": "src-tauri/gen/android/gradle.properties",
+      "bytes": 1387,
+      "sha256": "580de86208e48edae2206e167da024f17794269d296ad46a94d001c6809ba2cb"
+    },
+    {
+      "path": "src-tauri/gen/android/gradlew",
+      "bytes": 5766,
+      "sha256": "63135287117a1e6d12c84580f1f49c61d1ba02218ecd28660605e97f976e7d65"
+    },
+    {
+      "path": "src-tauri/gen/android/gradlew.bat",
+      "bytes": 2763,
+      "sha256": "af835f98787e9269af5a046edcb821a592fed372139df7b947b471a63cfc236b"
+    },
+    {
+      "path": "src-tauri/gen/android/settings.gradle",
+      "bytes": 52,
+      "sha256": "99856053f245337d20d308dbeaf9cd7250ad0c186ebbb6866ab46a6e7005ee19"
+    },
+    {
+      "path": "src-tauri/icons/128x128.png",
+      "bytes": 7188,
+      "sha256": "105a5a74a6b4225dcdc619f652bf1bf484264bebbf2a00b85dd4e0377df9edf4"
+    },
+    {
+      "path": "src-tauri/icons/128x128@2x.png",
+      "bytes": 14799,
+      "sha256": "279fd0f148072d7144d2605ff2f89fcd4dcdf98cb4078b363c86c6b1176a3097"
+    },
+    {
+      "path": "src-tauri/icons/32x32.png",
+      "bytes": 1850,
+      "sha256": "3115f60ac987d8b2f3e3fb15e595d63c6a74e5f3dc79ee0eb217f3d366460fc8"
+    },
+    {
+      "path": "src-tauri/icons/64x64.png",
+      "bytes": 3474,
+      "sha256": "2ef37d5d5c42bc9b6ac31b69cb4852af449a356f9b2d9e51a99ebf70c711ec56"
+    },
+    {
+      "path": "src-tauri/icons/icon.icns",
+      "bytes": 184911,
+      "sha256": "f383c7b14bf58452f590fea35b5aeb974ceea7a08a19276a2d3c26a0255d4089"
+    },
+    {
+      "path": "src-tauri/icons/icon.ico",
+      "bytes": 31885,
+      "sha256": "0bab2f4a20feb8de2b6a064451bedad3372b3b63a828760ed3ed952857294e45"
+    },
+    {
+      "path": "src-tauri/icons/icon.png",
+      "bytes": 33245,
+      "sha256": "c8c12f00538c44cc6658b7bcc1501457d6f4769b5c236ffae0061adf48fa16dd"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-20x20@1x.png",
+      "bytes": 732,
+      "sha256": "afe41d93d0e8a5a21b16365b514fee45fef0e1859b6e95ca18f52fdf263e2b8b"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-20x20@2x-1.png",
+      "bytes": 1548,
+      "sha256": "42399352805635a96a9e389c8fe07dd3f6a4bb0a1e05ff072395f095af1b65ab"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-20x20@2x.png",
+      "bytes": 1548,
+      "sha256": "42399352805635a96a9e389c8fe07dd3f6a4bb0a1e05ff072395f095af1b65ab"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-20x20@3x.png",
+      "bytes": 2792,
+      "sha256": "d816a1f75b114e0024733835ae26a128e64d77c9ace3664964b53eaf7b61961b"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-29x29@1x.png",
+      "bytes": 1226,
+      "sha256": "5165c2825101c400459c45f1784c84238ca03edc93f3f2d730d327eab70e80fa"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-29x29@2x-1.png",
+      "bytes": 2727,
+      "sha256": "cc0a0dfe6d2f3c771a63413f7104ec8bda49717918789a2fd340231a6a478992"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-29x29@2x.png",
+      "bytes": 2727,
+      "sha256": "cc0a0dfe6d2f3c771a63413f7104ec8bda49717918789a2fd340231a6a478992"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-29x29@3x.png",
+      "bytes": 4486,
+      "sha256": "5050179bb6c95671158e5a85d594499eb64d350bb3807dee142cd0cc563fe7c1"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-40x40@1x.png",
+      "bytes": 1548,
+      "sha256": "42399352805635a96a9e389c8fe07dd3f6a4bb0a1e05ff072395f095af1b65ab"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-40x40@2x-1.png",
+      "bytes": 3741,
+      "sha256": "f8d150eed8e354ea513203bbf31394ff11b4bf4d05967d29125a81bac755ee47"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-40x40@2x.png",
+      "bytes": 3741,
+      "sha256": "f8d150eed8e354ea513203bbf31394ff11b4bf4d05967d29125a81bac755ee47"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-40x40@3x.png",
+      "bytes": 5843,
+      "sha256": "1556c6d11b528fdcd95fd3103eeac31d499c3b6e90fdc58f312ed3a07e1bfbbc"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-512@2x.png",
+      "bytes": 33955,
+      "sha256": "6c9df7ab81faadf38f182758ce7a8a088239f039f85265f9e4d3129c6688c8a8"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-60x60@2x.png",
+      "bytes": 5843,
+      "sha256": "1556c6d11b528fdcd95fd3103eeac31d499c3b6e90fdc58f312ed3a07e1bfbbc"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-60x60@3x.png",
+      "bytes": 9784,
+      "sha256": "79334bb51b7b04fef52a367f414ecbb19498c65cfea0390cf113cbd1ac316500"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-76x76@1x.png",
+      "bytes": 3839,
+      "sha256": "8e3faa39472d9274fe4d894e4f42440eee8139732f1fb79e7f3c5db7feb0b346"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-76x76@2x.png",
+      "bytes": 8129,
+      "sha256": "4ad23ec060456a7a72bd577baede1fe50efe0f53e0595074e834823557de4ff7"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-83.5x83.5@2x.png",
+      "bytes": 9179,
+      "sha256": "d4d1e9bf7d9f3f46b33845ac98569dba59e0a612a64ece44eb490b423eaae5ca"
+    },
+    {
+      "path": "src-tauri/icons/logos/feature-graphic-1024x500.png",
+      "bytes": 33861,
+      "sha256": "d1c5a4656f2a42d8b30f89927e16c99c3911b24c52dcb49d1349ba743da07e74"
+    },
+    {
+      "path": "src-tauri/icons/logos/ic_launcher_background.png",
+      "bytes": 24692,
+      "sha256": "3c044ced865fde166d2577b690333bbd317c5bc4258d310a48eb065cb515240d"
+    },
+    {
+      "path": "src-tauri/icons/logos/ic_launcher_foreground.png",
+      "bytes": 49556,
+      "sha256": "b4f068a6e531d4e8720fc6a8809090bbfbe8ac3a1ad529de8704b614b6541022"
+    },
+    {
+      "path": "src-tauri/icons/logos/ic_notification_mono.png",
+      "bytes": 15825,
+      "sha256": "fcd2ca4a7362140e28487270f05f667e2c3f2bd1c256d16f3a9efa2e3553c8bd"
+    },
+    {
+      "path": "src-tauri/icons/logos/icon-1024-rounded.png",
+      "bytes": 77211,
+      "sha256": "f93e41db6d41016d565f2d1adec8c1d311d0e0245f935e2b9851badefe72d598"
+    },
+    {
+      "path": "src-tauri/icons/logos/icon-1024-transparent.png",
+      "bytes": 44081,
+      "sha256": "49e4136621cb288f030d7c49546af8aeb32a1986ea40ef4526162c0bef2a008f"
+    },
+    {
+      "path": "src-tauri/icons/logos/icon-1024.png",
+      "bytes": 59445,
+      "sha256": "ce85f60a9627542c6b6f8cd633afdaf50bb17d5840fa7430d2533fae97e8edb6"
+    },
+    {
+      "path": "src-tauri/icons/logos/icon-128.png",
+      "bytes": 3295,
+      "sha256": "57aba160e248fb2570b9dc6e38b78637f744ad143e391c1c348863586f5d72eb"
+    },
+    {
+      "path": "src-tauri/icons/logos/icon-16.png",
+      "bytes": 409,
+      "sha256": "73569ce2b29ff67ada2079d537258fab8c11e6f9f27f6be09f058f3e1d703969"
+    },
+    {
+      "path": "src-tauri/icons/logos/icon-256.png",
+      "bytes": 7207,
+      "sha256": "52d1d9ed636252cdc31d725ae99acd79960f0069ddff547ba755de4555da9a96"
+    },
+    {
+      "path": "src-tauri/icons/logos/icon-32.png",
+      "bytes": 749,
+      "sha256": "edaa071fabef7ffa1b535e6d6226f6c79d4b5e07c9d908e49dc67d6260a9a330"
+    },
+    {
+      "path": "src-tauri/icons/logos/icon-48.png",
+      "bytes": 1125,
+      "sha256": "a340862cc3ca05654f2258304a93b64a11a830323f04ed304730d23bd0ab2925"
+    },
+    {
+      "path": "src-tauri/icons/logos/icon-512.png",
+      "bytes": 17739,
+      "sha256": "86946a4a7871ecbf350490f5cc043bb4223b286657ff01cf96536354e411a65f"
+    },
+    {
+      "path": "src-tauri/icons/logos/icon-64.png",
+      "bytes": 1494,
+      "sha256": "82c7f9b41887a546b4e9c1462397d9d07b53884bc17742cadd35e5218f0911bc"
+    },
+    {
+      "path": "src-tauri/icons/logos/icon.manifest.ios.json",
+      "bytes": 33,
+      "sha256": "253d5d2fe7680aea1b21ce370d7f5ff6556d45b425e5672b3552297a4a1a38e8"
+    },
+    {
+      "path": "src-tauri/icons/logos/icon.manifest.json",
+      "bytes": 396,
+      "sha256": "6ee642fa51b34a6548ca57cf7d45600585224df1bdba97603d964b4646a02bb2"
+    },
+    {
+      "path": "src-tauri/icons/logos/logo-mark-deep.svg",
+      "bytes": 571,
+      "sha256": "f3cf4edc42402ae38e2be1f799e8edf275b8378749ffe016f64d8055725dd003"
+    },
+    {
+      "path": "src-tauri/icons/logos/logo-mark-mono-black.svg",
+      "bytes": 571,
+      "sha256": "83eb821107651a64ccea0491f70e9369c109710d8cdbbce4f3dff28f90e8ee95"
+    },
+    {
+      "path": "src-tauri/icons/logos/logo-mark-mono-white.svg",
+      "bytes": 571,
+      "sha256": "34af0b1e981950f25e4237b4626274cd8fbc3e1e2fdc1a636550a229c95feb9d"
+    },
+    {
+      "path": "src-tauri/icons/logos/logo-mark.svg",
+      "bytes": 571,
+      "sha256": "6a89bcd2621bef38706f654c2501e99cf9a3e468f7aae3c1cac4b7d1fa9950a4"
+    },
+    {
+      "path": "src-tauri/icons/logos/ms-boxart-2160x2160.png",
+      "bytes": 70890,
+      "sha256": "96e90a99b24491d9d7225a435df7758c1447c281ae66e2727b308f62e2406a2e"
+    },
+    {
+      "path": "src-tauri/icons/logos/ms-keyart-584x800.png",
+      "bytes": 20311,
+      "sha256": "b7cda181e972d287cbc8a236f2d4d8eafc65e837fa5beb719ea8e3b142a24c97"
+    },
+    {
+      "path": "src-tauri/icons/logos/ms-poster-1440x2160.png",
+      "bytes": 64752,
+      "sha256": "e18bd21c4a3d61fdbcdabd84a9e475f5768f4448ad7705aabc38ea3a058e6522"
+    },
+    {
+      "path": "src-tauri/icons/logos/ms-promosquare-1080x1080.png",
+      "bytes": 30814,
+      "sha256": "0522d4cd2df7e8c37baf86d7fb79e6a26ac5ebd86626f2a54315d634e544fcd8"
+    },
+    {
+      "path": "src-tauri/icons/logos/ms-superhero-3840x2160.png",
+      "bytes": 79975,
+      "sha256": "92ae888367f1f822ded8a9810b52db7127e290b5d54a45e53cd14c5258fd7647"
+    },
+    {
+      "path": "src-tauri/icons/logos/ms-tile-150x150.png",
+      "bytes": 6186,
+      "sha256": "b2697552d003ad94fe2cbc5d7636e934404e758de18f6e5cb140e625da3a4437"
+    },
+    {
+      "path": "src-tauri/icons/logos/ms-tile-300x300.png",
+      "bytes": 13566,
+      "sha256": "2dabd76495d3741b96d9ab0668a3986937f5d63e0a2218248a5dbe80464eb0c0"
+    },
+    {
+      "path": "src-tauri/icons/logos/ms-tile-71x71.png",
+      "bytes": 2775,
+      "sha256": "6360d45a82bc67e5345c5d9f169d88055a903d1e79655c1ed8a266df41fb90f7"
+    },
+    {
+      "path": "src-tauri/icons/logos/ms-titledhero-1920x1080.png",
+      "bytes": 35915,
+      "sha256": "87901566ee0539970c54191f58229e381ee214ae09fe27f7f91570a68161ade5"
+    },
+    {
+      "path": "src-tauri/icons/logos/readme-lockup-2x.png",
+      "bytes": 12925,
+      "sha256": "e9fd493063bd664fea70d648fbf4d929654f5289081428c2a6a6a82fdf3805c7"
+    },
+    {
+      "path": "src-tauri/icons/logos/snap-banner-1920x640.png",
+      "bytes": 33244,
+      "sha256": "867ad6467ad3b49fa0a9a4b42562df90bb3a2db5a3b55dc8896a616a96e6c563"
+    },
+    {
+      "path": "src-tauri/icons/logos/tv-banner-1280x720.png",
+      "bytes": 21897,
+      "sha256": "0556e54220177d37714a6d239e4c399abca6fee6f59fa79eed0277642aa37493"
+    },
+    {
+      "path": "src-tauri/icons/logos/tv-banner-640x360.png",
+      "bytes": 15220,
+      "sha256": "c8b0d4674e3134bdd6762ee9a31de107a88f00881ac6d6b0b315c2fc3022e017"
+    },
+    {
+      "path": "src-tauri/icons/Square107x107Logo.png",
+      "bytes": 7511,
+      "sha256": "369c93db5b69469d9ea064b183c396909b4edacc1af5d9f578eec388aef419c8"
+    },
+    {
+      "path": "src-tauri/icons/Square142x142Logo.png",
+      "bytes": 10453,
+      "sha256": "63e48a451d0c5bb367af122aff19b42140e6bf315218619d7a264f5580c691a5"
+    },
+    {
+      "path": "src-tauri/icons/Square150x150Logo.png",
+      "bytes": 10788,
+      "sha256": "080e00ef0f074cdc49b431541fa477724c4ed892c1570790bd54ca6ddc14e1f1"
+    },
+    {
+      "path": "src-tauri/icons/Square284x284Logo.png",
+      "bytes": 21500,
+      "sha256": "ee30abac233848722fc10106e7341d448f2bae0933e8bf20d2d96ce06c824143"
+    },
+    {
+      "path": "src-tauri/icons/Square30x30Logo.png",
+      "bytes": 1572,
+      "sha256": "b6086aea5f0b6ebb0348c2f202a8f239fa0ff3f9dab8ea2102c3b4d23069efa1"
+    },
+    {
+      "path": "src-tauri/icons/Square310x310Logo.png",
+      "bytes": 23568,
+      "sha256": "ee83200d08dc47722e7b463ded37a45e342f2b2a5580075da2884f719f2270eb"
+    },
+    {
+      "path": "src-tauri/icons/Square44x44Logo.png",
+      "bytes": 2680,
+      "sha256": "109119ff0cbd9daa26549efce05913c2e7d0ba4bb710d5506f61c3b9da7f3c13"
+    },
+    {
+      "path": "src-tauri/icons/Square71x71Logo.png",
+      "bytes": 4962,
+      "sha256": "b9c4ac304641293a498516e506bef2d6ea3f7eda04302267dcfa857747dc137d"
+    },
+    {
+      "path": "src-tauri/icons/Square89x89Logo.png",
+      "bytes": 6468,
+      "sha256": "cde6b9ca90108a67641cb965fb3efc2b9c6b24f36acd6f230661ec436536ce02"
+    },
+    {
+      "path": "src-tauri/icons/StoreLogo.png",
+      "bytes": 3198,
+      "sha256": "f809d6995fc73d58285439a9ba6d1d7aa902450a94f5f8a453cd59e1c7ead4ba"
+    },
+    {
+      "path": "src-tauri/icons/tray.png",
+      "bytes": 7425,
+      "sha256": "f34d8bc9927fe50c90a15196153c9c187960759a5b3144daafcde325c540b20f"
+    },
+    {
+      "path": "src-tauri/Info.plist",
+      "bytes": 293,
+      "sha256": "7217eab5a5243e13ee9572cd1ac03a0e96c4eab3452418499f93e9dd405c9d1f"
+    },
+    {
+      "path": "src-tauri/permissions/desktop-commands.toml",
+      "bytes": 1286,
+      "sha256": "547a91a3d65118fad2650eb9b3f82b793ceb61d09474848f79e443e7576f19af"
+    },
+    {
+      "path": "src-tauri/permissions/receiver-commands.toml",
+      "bytes": 485,
+      "sha256": "2c0dc566fc3d6563de88bc36a7069c5ccfb12ab780f0059f665862d19f601bc0"
+    },
+    {
+      "path": "src-tauri/permissions/safe-fetch-commands.toml",
+      "bytes": 259,
+      "sha256": "eb0dc57e565ebb149b0876c2b12407d01b8d7daa13371df2c8b6ccaae74642db"
+    },
+    {
+      "path": "src-tauri/permissions/sniffer-remote.toml",
+      "bytes": 419,
+      "sha256": "fe178a871afca7a07cfea4336d603e2cc5165d75e9e0446d6dccad98af1576ce"
+    },
+    {
+      "path": "src-tauri/permissions/warmup-commands.toml",
+      "bytes": 339,
+      "sha256": "4fa4ee3b74fb92951469fc2b9f8dbb44233fb48fcb2a788084ee6fbc8672f4eb"
+    },
+    {
+      "path": "src-tauri/src/audio_proxy.rs",
+      "bytes": 46924,
+      "sha256": "0cf922250b4ecbfc6c1c9b1efe27249622d8374caa0e4ccde86d110f103b9a25"
+    },
+    {
+      "path": "src-tauri/src/compositing.rs",
+      "bytes": 20396,
+      "sha256": "98b6c41ff48ecba93e6809906e4848d1570af98b41810705606268af502789d2"
+    },
+    {
+      "path": "src-tauri/src/discord.rs",
+      "bytes": 4911,
+      "sha256": "6d6868ea5c3b52ea214f3aa453dfa92532354e3fbbcfedc948dfaaa0a34203ac"
+    },
+    {
+      "path": "src-tauri/src/external_player.rs",
+      "bytes": 60665,
+      "sha256": "80911f8ad2fc96a787a1dc8f0cf3f83813f59073df3253b306fb5f0f5db7418a"
+    },
+    {
+      "path": "src-tauri/src/firewall.rs",
+      "bytes": 7047,
+      "sha256": "da524b7310f4e89728b59e034a0364516f5091a09d0af6b0f37d22edbb502f92"
+    },
+    {
+      "path": "src-tauri/src/hevc_extension.rs",
+      "bytes": 6489,
+      "sha256": "79550218ca9720c3eed49f9cee4c77e2714783cd11cc02cf6d26032cd35f9b70"
+    },
+    {
+      "path": "src-tauri/src/http_range.rs",
+      "bytes": 5275,
+      "sha256": "2350d27bd846671afd96bec6bcb2a836d952abf70e7bf43e5659ae61fd3abd52"
+    },
+    {
+      "path": "src-tauri/src/lib.rs",
+      "bytes": 14647,
+      "sha256": "36b2e42c46e53c35df7d948bf299f4957719e494ced988a07d9b0a3238d73301"
+    },
+    {
+      "path": "src-tauri/src/main.rs",
+      "bytes": 179,
+      "sha256": "e5dfab54c7a9843285d54ff5a783c00813cd3f28d1bb2f6982aa348697cbb1c4"
+    },
+    {
+      "path": "src-tauri/src/matroska.rs",
+      "bytes": 40552,
+      "sha256": "c207806b71693135c1bfaf8b319ec82ee08c567fb83ce5c2f8897ed38e1472b8"
+    },
+    {
+      "path": "src-tauri/src/receiver.rs",
+      "bytes": 162192,
+      "sha256": "ec6cafd78d2619013f7acdd140ec3df1db0d0ffcbabafda5dc971daf8dc6eab8"
+    },
+    {
+      "path": "src-tauri/src/receiver_store.rs",
+      "bytes": 8875,
+      "sha256": "03ae4338e54b5988341f7ea60394d3146f3130441ab4e1aa48b002b5b6396bd0"
+    },
+    {
+      "path": "src-tauri/src/safe_fetch.rs",
+      "bytes": 12391,
+      "sha256": "d201a760e99501d543c9fdbe7a3c1eb4be54eb74bdb41efd85a6e5e82132c0b9"
+    },
+    {
+      "path": "src-tauri/src/sniffer.rs",
+      "bytes": 9582,
+      "sha256": "43c0272b3d95b2ada41ce7e06a98cad5fda8140a48c4ff456fda2bcfe4552c25"
+    },
+    {
+      "path": "src-tauri/src/store_paths.rs",
+      "bytes": 6109,
+      "sha256": "7bf17ec604a090225b30ac203628c8eda96665ea3488e3334a6fb37114efe2fb"
+    },
+    {
+      "path": "src-tauri/src/tray.rs",
+      "bytes": 5808,
+      "sha256": "52e5fe7c336c771de08b4a1c5c46dd4d42ec8d33701180051f5dd1aa2c7c3c65"
+    },
+    {
+      "path": "src-tauri/src/updater.rs",
+      "bytes": 4027,
+      "sha256": "d19959af64aa1e1a0abf37f4d327380275a6c58c1cf5c4eaf52369e9c96a9334"
+    },
+    {
+      "path": "src-tauri/src/vod_audio_proxy.rs",
+      "bytes": 77216,
+      "sha256": "ade552e553c91c335746ce1caaa8e3fe978bee5f7b023dd39b2be05388510c30"
+    },
+    {
+      "path": "src-tauri/src/vod_proxy.rs",
+      "bytes": 52816,
+      "sha256": "67acbe12710a3acace09c9c086e0177d8ba6f9cc57ed1638fb60eab5498394cf"
+    },
+    {
+      "path": "src-tauri/src/warmup.rs",
+      "bytes": 39101,
+      "sha256": "d8bb1426c6316d419de0c650c1a42f3bbcfefd0c54319daf4f043bee86227edc"
+    },
+    {
+      "path": "src-tauri/tauri.conf.json",
+      "bytes": 1878,
+      "sha256": "233a6a8b9d3e6b00cdca99c83d1347bd26f65f0dd5ffc69730ad2faefdba6312"
+    },
+    {
+      "path": "src-tauri/tauri.linux.conf.json",
+      "bytes": 270,
+      "sha256": "76320d8bda073bbfc1590efaa6379d18669e2c2d36a3bc6ca53815a4434dd6c3"
+    },
+    {
+      "path": "src-tauri/tauri.macos.conf.json",
+      "bytes": 70,
+      "sha256": "42392849c33e2a1fb34f9b808da7b686075c74be9ae76f25f4c6071c34e3a545"
+    },
+    {
+      "path": "src-tauri/tauri.windows.conf.json",
+      "bytes": 173,
+      "sha256": "2c8093ed2e4c8733535fc3ce07654a4e95d82079205bf3f0fcbc33b3ac51d0a6"
+    },
+    {
+      "path": "src-tauri/windows/firewall-hooks.nsh",
+      "bytes": 1870,
+      "sha256": "0904a8f72a13be762e85e8a4508c463e2ac7ec12e6f2fe9a687ab74d341f7679"
+    },
+    {
+      "path": "svelte.config.js",
+      "bytes": 101,
+      "sha256": "8bfce182ad10e17be404d832380dde636b67d532d50cd79c22c94600bb6f03d8"
+    },
+    {
+      "path": "terms_of_service.md",
+      "bytes": 5971,
+      "sha256": "730ed9e18db2b5f1b63f88524a03d3eed8f35b0032592162d4b71a28513c810f"
+    },
+    {
+      "path": "tests/ambient-handoff.test.ts",
+      "bytes": 2654,
+      "sha256": "f5113c8571ff7034b8186461bc22258d2b97495d3bd1af53ad11a845e9120ac0"
+    },
+    {
+      "path": "tests/ambient-manifest.test.ts",
+      "bytes": 14266,
+      "sha256": "a0d7153b6218780d8e37f83d1a74b74dfd6a5915ff7dd2974581d3a98ca08da8"
+    },
+    {
+      "path": "tests/ambient-math.test.ts",
+      "bytes": 4887,
+      "sha256": "430bf410ba51aaa8db72d966c86c8dfbbccaed1f3444aa7d3834be0ede2a9777"
+    },
+    {
+      "path": "tests/ambient-trending.test.ts",
+      "bytes": 2613,
+      "sha256": "f899a23a551f1cc36b6dd7bd789ccce8f88341a46112d255e334989f91e9c3b6"
+    },
+    {
+      "path": "tests/android-video-launcher.test.ts",
+      "bytes": 5144,
+      "sha256": "0d5249b53314fda5223511d79e749799db91a5a14e195fb7a70fed6f5e604622"
+    },
+    {
+      "path": "tests/app-settings.test.ts",
+      "bytes": 18553,
+      "sha256": "b99fbd2a1c7f0b6b409ef803a064ef5de4e862a21f14f66974969ba8a1bffa57"
+    },
+    {
+      "path": "tests/audio-effects.test.ts",
+      "bytes": 1758,
+      "sha256": "fbab908b1da28f62a00dafba438efe0f5dcba289dd7069abcd89dd1d20c965a1"
+    },
+    {
+      "path": "tests/audio-proxy.test.ts",
+      "bytes": 328,
+      "sha256": "9387e4d2682b693d61b492df63ef82cef3e11cf9dae3d3faf49e3f96b69b0dfb"
+    },
+    {
+      "path": "tests/audio-test.m3u",
+      "bytes": 440,
+      "sha256": "ab5fd122fcb87155c177b91f0f15ae730d15eefffc05b02e6289ac864e9048e2"
+    },
+    {
+      "path": "tests/audio-tracks.test.ts",
+      "bytes": 11554,
+      "sha256": "79b84081432f28e149a7fe74899fc07eab47f386ebd2d55d912c9df6693fdb0a"
+    },
+    {
+      "path": "tests/backdrop.test.ts",
+      "bytes": 1386,
+      "sha256": "450cd2a0f70d6729dd4ff08426a8cf84e3a308d63cadb7086d3a5c8f35ac46ee"
+    },
+    {
+      "path": "tests/backup.test.ts",
+      "bytes": 21325,
+      "sha256": "a61d0bd5bc1d3e6409440c27e0c4dbfa39932e686e5013bef5ad7b24bc2250a8"
+    },
+    {
+      "path": "tests/because-watched.test.ts",
+      "bytes": 8362,
+      "sha256": "c8639672974e867df7541e3614875c85ea106397b4dd994a585de9d3cfa84a0f"
+    },
+    {
+      "path": "tests/cache-custom-deps.test.ts",
+      "bytes": 4960,
+      "sha256": "1b5d8fb186e4798dd9b3e8c3fb92963393a589c6c3bd9dbd57fd1329b65cb895"
+    },
+    {
+      "path": "tests/catalog-custom-sources.test.ts",
+      "bytes": 5777,
+      "sha256": "fc4f8d6e58287a17b2552ae36a082809f446124c427875d94bd4c9727f7b58e2"
+    },
+    {
+      "path": "tests/catalog-mappers.test.ts",
+      "bytes": 7477,
+      "sha256": "642121825b4d2fc229fba7200ee377cd00f83ea8ee9263410ee55594dd4e830e"
+    },
+    {
+      "path": "tests/catalog-search-client.test.ts",
+      "bytes": 1585,
+      "sha256": "f4eb3f6428dc7ccbf764e51ac93d1ff6f555b7098927d1d85733bfa2867be233"
+    },
+    {
+      "path": "tests/catchup-resolve.test.ts",
+      "bytes": 10216,
+      "sha256": "11cca032feab230ba5e8bb50301addfa2665ebe6f4361a177e1215b40702e706"
+    },
+    {
+      "path": "tests/catchup.test.ts",
+      "bytes": 36672,
+      "sha256": "9361ddc8fde0b6510680c247be27baebba54270042f892b7a4b5380ccfe1d9b8"
+    },
+    {
+      "path": "tests/changelog.test.ts",
+      "bytes": 2421,
+      "sha256": "8736b6409d55a7e67637bc5c7cd8cb3f28b4bfe8e1d9fffb7e6536d221498a97"
+    },
+    {
+      "path": "tests/channel-lite.test.ts",
+      "bytes": 3770,
+      "sha256": "6504ef100a8f6ae9966a1031bf875da915f732bc9956260dfd0e25cd49e66c01"
+    },
+    {
+      "path": "tests/channel-overrides.test.ts",
+      "bytes": 14869,
+      "sha256": "03fd936ab77e747d104e701701969c25d7eb2c9305e6887150fbcf82f246797b"
+    },
+    {
+      "path": "tests/channel-sort.test.ts",
+      "bytes": 3575,
+      "sha256": "332f7266d21b322a4f43baa4ff3bdaeea5c521694775a0a07dfe7ec6c6f3560a"
+    },
+    {
+      "path": "tests/channel-step.test.ts",
+      "bytes": 2782,
+      "sha256": "5d41c0dde4d29b7d47b389e655e2d3238ce8e434f1a6fc9f50534b224d4a3f08"
+    },
+    {
+      "path": "tests/codec-hints.test.ts",
+      "bytes": 22143,
+      "sha256": "15856a6be1498c184b985ac558ed456ace17943afe3b33265eace28724fc3b7e"
+    },
+    {
+      "path": "tests/custom-playlist.test.ts",
+      "bytes": 34021,
+      "sha256": "d07f7bd5c0ba4d976c8e13987782e41944d8f833b1dea1f33d91f51c13608b95"
+    },
+    {
+      "path": "tests/detail-chrome.test.ts",
+      "bytes": 2247,
+      "sha256": "e47942fcb110ff28607cad3da7f12f2547e7e01d2a2d8633046c29884b3fd6c6"
+    },
+    {
+      "path": "tests/diagnostic-bundle.test.ts",
+      "bytes": 21592,
+      "sha256": "a1f49d2dd1a5a939c0814a38536a42a8364b90379699aafef71c9442826436b4"
+    },
+    {
+      "path": "tests/diagnostic-snapshot.test.ts",
+      "bytes": 5073,
+      "sha256": "2cddaa8d4283e7db2d38827bf923eeaf9395277b67887ed9f55edbd8f123cf1d"
+    },
+    {
+      "path": "tests/diagnostic-targets.test.ts",
+      "bytes": 6669,
+      "sha256": "b94a22ae40dfabcee943676f85fe8aaabd0714349838dca4011b4a88fc988fa6"
+    },
+    {
+      "path": "tests/diagnostic-verdict.test.ts",
+      "bytes": 2804,
+      "sha256": "355379fa074de9fac248304d3391846454621d21fd76616f5cacce3435afecc1"
+    },
+    {
+      "path": "tests/discord-presence-logging.test.ts",
+      "bytes": 3034,
+      "sha256": "aa39e3b2c72876bf35fdbee423c544d6f75c547200e0637bc6940367c3e4fe16"
+    },
+    {
+      "path": "tests/e2e/flow.spec.ts",
+      "bytes": 6738,
+      "sha256": "6e5e67cfa3294f2a100f0f88fd8124ddc95af3300429ea439978f440de7ac0e2"
+    },
+    {
+      "path": "tests/e2e/tv-960.spec.ts",
+      "bytes": 20014,
+      "sha256": "ba69f0ec3bea9a94f8f1064cf2d54d40e14e3f37dfeb04c76aa52ca713bdef3e"
+    },
+    {
+      "path": "tests/e2e/tv-focus-memory.spec.ts",
+      "bytes": 7618,
+      "sha256": "f45fd9645a22fca8f172bcffcd9a171c5a586f64ea7cf3203ac374a76d7b6ceb"
+    },
+    {
+      "path": "tests/e2e/tv-language-settings.spec.ts",
+      "bytes": 11722,
+      "sha256": "253a29177138b72a429a0ccb3a75d4ea68e0ebd3f0c05a235ccce6a47b9cff61"
+    },
+    {
+      "path": "tests/e2e/tv-motion/tv-overdrive.spec.ts",
+      "bytes": 13213,
+      "sha256": "e6219829bf812bd564b43e49de2e6a821365c0135a9ef54b1575c57b3dda52a3"
+    },
+    {
+      "path": "tests/e2e/tv-motion/tv-seed.ts",
+      "bytes": 10772,
+      "sha256": "4e67cea0cc931dcd78c8e3c27946e4059f058fa52c1f5ce878105b4c20d67408"
+    },
+    {
+      "path": "tests/e2e/tv-shell.spec.ts",
+      "bytes": 33241,
+      "sha256": "68a39aea70f1d6336eca948725a6ad747c1f6af87d4923e26c21c40b18810103"
+    },
+    {
+      "path": "tests/enrichment.test.ts",
+      "bytes": 12486,
+      "sha256": "9e1c572ba617e1174831e0bfdbcd77191236a5e1174bfdc6aff1feebf418a1e4"
+    },
+    {
+      "path": "tests/epg-data.test.ts",
+      "bytes": 39558,
+      "sha256": "222bfc6a33e76e37a01880009da97646c7fa5a41a6c739a8482370529d2ff700"
+    },
+    {
+      "path": "tests/epg-worker-fixtures.test.ts",
+      "bytes": 12151,
+      "sha256": "9b2b807c2c71e91d039d9f753f5c2702c057c3cfb86d1f2b3e8bdc00da697a88"
+    },
+    {
+      "path": "tests/epg-worker-now-next.test.ts",
+      "bytes": 7859,
+      "sha256": "0fb20c0b4d4b15b71eb977da8f641b09546bdae13aece2907bbff5d1ac2d6877"
+    },
+    {
+      "path": "tests/epg-worker-parity.test.ts",
+      "bytes": 8146,
+      "sha256": "0df910a4ed5ee8772ae5800fead864aaf6e73a9610faedf7aed2b22628955bc6"
+    },
+    {
+      "path": "tests/epg-worker-stream.test.ts",
+      "bytes": 11085,
+      "sha256": "24bb8d6713322478cbc20b5b4522e87ca223ded99cd81f111adf52395995a4a9"
+    },
+    {
+      "path": "tests/epg-worker-timeout.test.ts",
+      "bytes": 3802,
+      "sha256": "d4c004ab79d2bbec2e18673505769d2bf47f514218928f3fa05b7eca62ee973f"
+    },
+    {
+      "path": "tests/episode-title.test.ts",
+      "bytes": 2888,
+      "sha256": "f055dc565ad0d66007436dbcc03691b401501017e4c912e0cc7f547a482177f4"
+    },
+    {
+      "path": "tests/export-m3u.test.ts",
+      "bytes": 5470,
+      "sha256": "26e96be3e4df89675e9273ac2d3cf7c92bb28888137a087ab0c52084d9a9bd83"
+    },
+    {
+      "path": "tests/fixtures/m3u/alt-order.m3u",
+      "bytes": 205,
+      "sha256": "a1bd570aeb8f379b841a287f3dde7fce778291ae751c3b0b7b73ef6a763f58ef"
+    },
+    {
+      "path": "tests/fixtures/m3u/catchup.m3u",
+      "bytes": 274,
+      "sha256": "fb28a9ed5d5497d53744690e781659732e8a3acc42af0aab65de91579c8f3fff"
+    },
+    {
+      "path": "tests/fixtures/m3u/extvlcopt-headers.m3u",
+      "bytes": 308,
+      "sha256": "85ad780869bc2b7f2d70ec59103a3e5d98e68185aec71464c624c7dd5522891b"
+    },
+    {
+      "path": "tests/fixtures/m3u/hls-master.m3u",
+      "bytes": 320,
+      "sha256": "6691c885fe3d00ee97864c1b69b15115fa0cb542b1540675b765d4b9c7482776"
+    },
+    {
+      "path": "tests/fixtures/m3u/standard.m3u",
+      "bytes": 415,
+      "sha256": "55991d5927cc682b95dc37e1cb1ad8af07f866e7b1c8ebd6a28c64aab6a3be7d"
+    },
+    {
+      "path": "tests/fixtures/xmltv/offsets-floating.xml",
+      "bytes": 708,
+      "sha256": "87d85f3c680320db425442a61986b2ff9a44b96be16f1b6f82509a3bf5b1f7e4"
+    },
+    {
+      "path": "tests/fixtures/xmltv/offsets.xml",
+      "bytes": 743,
+      "sha256": "5614cec3f154196da40b52c8839432ac313aa28846a19c12a183e2b55b6004a2"
+    },
+    {
+      "path": "tests/fixtures/xmltv/quirks.xml",
+      "bytes": 994,
+      "sha256": "82abbcbe6d71e0f74b2a43178c218161534f99bca75df9d101dd9761c8493020"
+    },
+    {
+      "path": "tests/fixtures/xmltv/standard.xml",
+      "bytes": 4303,
+      "sha256": "34afe3c6c50459302899d549f3896e6d5bd473911c75865e17545e669c939c96"
+    },
+    {
+      "path": "tests/fixtures/xmltv/windowing.xml",
+      "bytes": 2166,
+      "sha256": "e1ceb1af1345ad7aed1dc61b58e4a6c3273ed7c6dcea6e96709786f985e0a712"
+    },
+    {
+      "path": "tests/format.test.ts",
+      "bytes": 3149,
+      "sha256": "b4947a5791111b62a8989ff42f4152d053ddfb018cab33a09485db6c30ede41d"
+    },
+    {
+      "path": "tests/genre-boost.test.ts",
+      "bytes": 3495,
+      "sha256": "146ff56609b0307686c8bfe3e915e71cdd3b5d731c415ce53b33369f06edf427"
+    },
+    {
+      "path": "tests/genre-index.test.ts",
+      "bytes": 3703,
+      "sha256": "b6fc9939b686dce725319d0dc8ced37dbe40a84c0b05eb52d2db72edea104e23"
+    },
+    {
+      "path": "tests/genres.test.ts",
+      "bytes": 3379,
+      "sha256": "272899a43a782ec348c16c587d28c972aa5325f651b3425f64473149ded28c72"
+    },
+    {
+      "path": "tests/grid-state.test.ts",
+      "bytes": 5747,
+      "sha256": "29b1121f25318ed17d9e395323b2c490b077d31f062b0b94de5587d6d186f629"
+    },
+    {
+      "path": "tests/i18n.test.ts",
+      "bytes": 4562,
+      "sha256": "740dc70d7ba8108e94f963949e5445e31aa1c5dbc97e58523c3cf72c3e8dcf98"
+    },
+    {
+      "path": "tests/img-scale.test.ts",
+      "bytes": 3001,
+      "sha256": "e2b931460da9b753e7115972eaef98cbf580706cfefd9d6103b7703d01c0b4ad"
+    },
+    {
+      "path": "tests/kinds-fallback-name.test.ts",
+      "bytes": 1140,
+      "sha256": "aab64c5b3fbcfc8991616779e8014293ccd2741e9ed34741bc3ab882c5a2b364"
+    },
+    {
+      "path": "tests/language-groups.test.ts",
+      "bytes": 12560,
+      "sha256": "3071eb23bd0f9aab0b21d390f9c0b07fff42446875d344866a05c62fcd4f24d5"
+    },
+    {
+      "path": "tests/language-tags.test.ts",
+      "bytes": 6619,
+      "sha256": "a7c7f155b568ae86aadcea324a693f6f368cb83636307863ebc431651b601a7c"
+    },
+    {
+      "path": "tests/log.test.ts",
+      "bytes": 11771,
+      "sha256": "be73df5f9e1043a57b5bcbb05456a7f73e40e4313ee9c63e38e93f65cd2ee290"
+    },
+    {
+      "path": "tests/logo-fallback-match.test.ts",
+      "bytes": 9653,
+      "sha256": "c2a2e15f3a530e69ec7e63ac2ce13deed7abe3d98a0b401ae2e4ac66665c48c4"
+    },
+    {
+      "path": "tests/m3u-parser.test.ts",
+      "bytes": 28015,
+      "sha256": "18a73615c611521c8534cb076826f2d690f2cf31e8334ec0c6bc2937609092d5"
+    },
+    {
+      "path": "tests/m3u-serializer.test.ts",
+      "bytes": 12493,
+      "sha256": "9ad5814b5a30225e9bbd900cef18b50c54ae940a669341b1976e34ca9879281d"
+    },
+    {
+      "path": "tests/manifest-probe.test.ts",
+      "bytes": 5798,
+      "sha256": "be9d7dcbce119c6cf47f50c0b90198c4213bfb19b6947c6a225bca8c5773834a"
+    },
+    {
+      "path": "tests/morph-detail.test.ts",
+      "bytes": 2827,
+      "sha256": "f810cef541e9080ac465cf9a8893c98762c8fe032e62d8350a85f1cbc6d9e3d8"
+    },
+    {
+      "path": "tests/mp4-subtitles.test.ts",
+      "bytes": 40723,
+      "sha256": "23eb130c604f064db2d5e9e53899e128b696b71967f7a68528a1de14717a17e4"
+    },
+    {
+      "path": "tests/native-src-resume.test.ts",
+      "bytes": 4093,
+      "sha256": "969f33afd21ca66c6e8a5732ffd2186c63fb2f3cacf7f1e4dfb1b74db0e657cb"
+    },
+    {
+      "path": "tests/net-log.test.ts",
+      "bytes": 13841,
+      "sha256": "d8dbd2fc899990841790fe9265c7b5aae70162c691258b78a3fed746082ab5be"
+    },
+    {
+      "path": "tests/nfo.test.ts",
+      "bytes": 4116,
+      "sha256": "f71e916a65be2af87f3c809b639f20d882c125a49b9f4bd39c194717e688b2ee"
+    },
+    {
+      "path": "tests/now-next.test.ts",
+      "bytes": 4057,
+      "sha256": "47c808259af0ee616b5a822c51fe049b920d64f83a776b230bc25af656d9559d"
+    },
+    {
+      "path": "tests/person-filter.test.ts",
+      "bytes": 3235,
+      "sha256": "a87c6f172b8fd531a015a25a3a41ccf58eebe64cec71153c95b616ec8d3bee78"
+    },
+    {
+      "path": "tests/person-search.test.ts",
+      "bytes": 3805,
+      "sha256": "0669179e117075d2bf7c58d9f490abc4e8132ce96c1faed8dd1928115fac460b"
+    },
+    {
+      "path": "tests/player-runtime.test.ts",
+      "bytes": 12466,
+      "sha256": "94e54a2a83ec442a8e8aca0dc1619f18dc1d4bfecfc200119e0fef1fa73bed2d"
+    },
+    {
+      "path": "tests/player-stats.test.ts",
+      "bytes": 7462,
+      "sha256": "e8688545c3137be1e0c1520ddf845021c23e4a2c0f6bb5a553929c60372bf054"
+    },
+    {
+      "path": "tests/playlist-accent.test.ts",
+      "bytes": 5038,
+      "sha256": "655ca1cba24b1b66d8e9ecda9ec5b0c13c425b5461a1c4b87268294e579160a0"
+    },
+    {
+      "path": "tests/playlist-entry-personalization.test.ts",
+      "bytes": 4631,
+      "sha256": "bbea93eeebb6d5c378eea5e20b252ff0a1dc83358859cb3db9113f6617ea763a"
+    },
+    {
+      "path": "tests/playlist-health-provider.test.ts",
+      "bytes": 2631,
+      "sha256": "3249ee7eaaeb5319fb4c4e2a0dfa6b7a5d7d8d157a21ccebd9e7ba2e20b8e57c"
+    },
+    {
+      "path": "tests/playlist-link.test.ts",
+      "bytes": 6433,
+      "sha256": "49da55d8af69e5fae7a6cbd532ad238c426d119096a98b97a7db09dcd794fa03"
+    },
+    {
+      "path": "tests/premature-ended.test.ts",
+      "bytes": 1667,
+      "sha256": "810139b27e3c73972de01e6f5779c85c367eb3b4fc849872610102ea6ea0a40e"
+    },
+    {
+      "path": "tests/private-host.test.ts",
+      "bytes": 5523,
+      "sha256": "2881efa4ea32cbdcd44b2b3628d9bc5c71f82c7080e622d385f895276e6d77c2"
+    },
+    {
+      "path": "tests/provider-fetch-abort.test.ts",
+      "bytes": 9232,
+      "sha256": "b49c7cf580c74b7d47ac9c888131296f0eb05fd7f11044340557ba8ac4a6834c"
+    },
+    {
+      "path": "tests/provider-fetch-netlog.test.ts",
+      "bytes": 5430,
+      "sha256": "96544a1f849766a0ca0b5a9bc88aff90b9f00f93fc8cde0abe0c279e8225666c"
+    },
+    {
+      "path": "tests/quality-badge.test.ts",
+      "bytes": 8154,
+      "sha256": "3cdc6544821fc0e18a2d295f5dd51527d4a465e19d22023346165d8d0a47ec79"
+    },
+    {
+      "path": "tests/receiver-ambient.test.ts",
+      "bytes": 11383,
+      "sha256": "e0b8afacfdfaa900ef405fbe990c68ec57bd6e9ff3d27fcba497f4e664e8d2aa"
+    },
+    {
+      "path": "tests/receiver-discovery.test.ts",
+      "bytes": 5093,
+      "sha256": "1251c5d2eb0a72a535fe28d9e4d8119cdda43463acaf8ae4ebf9b082a8f2f990"
+    },
+    {
+      "path": "tests/receiver-engine-duration.test.ts",
+      "bytes": 4789,
+      "sha256": "3e2384cceab3403aa7a55c0653befc4e09334e4e45713c64cc471c183fd5655b"
+    },
+    {
+      "path": "tests/receiver-engine-error-probe.test.ts",
+      "bytes": 5819,
+      "sha256": "b561a5c97a45f2fe8fcd8e6c87de84212e4dde2f03d6b95561d606d6e2b4a9f3"
+    },
+    {
+      "path": "tests/receiver-engine-loading-watchdog.test.ts",
+      "bytes": 6275,
+      "sha256": "d59c85ff4039d7fe15d82aa13b6652b9e57e061eae35b06d9a3d307fbf02ca4b"
+    },
+    {
+      "path": "tests/receiver-engine-play-state.test.ts",
+      "bytes": 7395,
+      "sha256": "2196fd609e97aa34754635ec31927cc8b08e3af0a48b391313ca896e87e261b2"
+    },
+    {
+      "path": "tests/receiver-engine-select.test.ts",
+      "bytes": 6491,
+      "sha256": "9a6d116042a08b3999b943a0c7c61a965fb02ae5d6b386128c75e8e9c6f06fd5"
+    },
+    {
+      "path": "tests/receiver-engine-volume.test.ts",
+      "bytes": 7982,
+      "sha256": "667117131f39017ebf9fb0582ad24931fc8d531a2c02ed9ecf2715c7722965cb"
+    },
+    {
+      "path": "tests/receiver-engines.test.ts",
+      "bytes": 11373,
+      "sha256": "870bb7d683586d63ae9932c3d703e54c26e36b9feaa6b75b2b6f44c24268c288"
+    },
+    {
+      "path": "tests/receiver-log-stream.test.ts",
+      "bytes": 4324,
+      "sha256": "47078cf14113095fb9c2826235e379c587adf58d325025aaa02d40c004aa20b9"
+    },
+    {
+      "path": "tests/receiver-parse-refinement.test.ts",
+      "bytes": 3177,
+      "sha256": "5d3472a7e628a8a5e3323bb60a864f79ab495865d47defc4829463615687b2e2"
+    },
+    {
+      "path": "tests/receiver-shared.test.ts",
+      "bytes": 2033,
+      "sha256": "c69145fa1620e51be4b0114f73872a25ed07ee9f02d1377817da3762227d6502"
+    },
+    {
+      "path": "tests/search-recent.test.ts",
+      "bytes": 4755,
+      "sha256": "6771b6db58048cd621f5304d90b2665e5ec7a23381bfc6720b556282c6c54fb0"
+    },
+    {
+      "path": "tests/short-epg.test.ts",
+      "bytes": 14992,
+      "sha256": "3d936b32216b4e9e2f9c438c580bae45d2febfdd8d38f49da424c9db8274b31c"
+    },
+    {
+      "path": "tests/similar-local.test.ts",
+      "bytes": 7033,
+      "sha256": "69623fcd043e1db9f663f59d426653477516ad57b3bdf35bf471ed0e92bab05c"
+    },
+    {
+      "path": "tests/sniff-classify.test.ts",
+      "bytes": 11792,
+      "sha256": "7a27180a4006c93ea863d81a96e46fce348dcc3350dfb19f4e31f0088322e527"
+    },
+    {
+      "path": "tests/stall-watchdog.test.ts",
+      "bytes": 6633,
+      "sha256": "8dd1535bece47c3e60857bf85faefdbeb8c87a541096ed1083c77bb12ee3d760"
+    },
+    {
+      "path": "tests/stream-diagnostic.test.ts",
+      "bytes": 994,
+      "sha256": "7ec01bbe8d38329d3641fc4e4397aa77d36527954793f91ef69caad25459b2e6"
+    },
+    {
+      "path": "tests/stream-health.test.ts",
+      "bytes": 10880,
+      "sha256": "10f60aa807d2b11ac5bef1b758ee2e8dee0460b6bc1d60dccfc3e2a268923899"
+    },
+    {
+      "path": "tests/stream-probe-release.test.ts",
+      "bytes": 3506,
+      "sha256": "3ad0bbc319b7d29796324078b34ecd24f3ce95a876d741c235db87baa5b8f3ac"
+    },
+    {
+      "path": "tests/subtitle-tracks.test.ts",
+      "bytes": 30023,
+      "sha256": "2e6c28a58839d7a6d5c87d10c0d4576f453611a0a3e242c2c01d78cd83598422"
+    },
+    {
+      "path": "tests/surprise-picker.test.ts",
+      "bytes": 4967,
+      "sha256": "42168002bba72b0b031b9a286b4e4fdc8e69a215fbd0af2d5f7837ee00b21260"
+    },
+    {
+      "path": "tests/timeshift-math.test.ts",
+      "bytes": 17524,
+      "sha256": "193ba1c6d8759ca150cbd03e9018e1c7bf8dd80e29929e39a2f255536a082fbf"
+    },
+    {
+      "path": "tests/tmdb-logo.test.ts",
+      "bytes": 1937,
+      "sha256": "4a24a5a61cf86a07023a958bd5bf8482698dd58bf52a774ed2e98477f4305811"
+    },
+    {
+      "path": "tests/tmdb-match.test.ts",
+      "bytes": 19714,
+      "sha256": "35f58a425aa8f4d2c1fa797f8a1e28422b50c02724ec523989affb28c492b4b4"
+    },
+    {
+      "path": "tests/tmdb-season-enrichment.test.ts",
+      "bytes": 6206,
+      "sha256": "447b019858727a6a77c99307c1415ef1cf42ee1afaad9979cb1197724d4f2043"
+    },
+    {
+      "path": "tests/tmdb-season-map.test.ts",
+      "bytes": 6400,
+      "sha256": "3291590807a20e942a264be121febb5e4a427783c1d62cf689c6a5b05269d3a0"
+    },
+    {
+      "path": "tests/tv-cast-catchup.test.ts",
+      "bytes": 12578,
+      "sha256": "9033a4a1a3afce72e98975c255e59a0b0828fe4eeece3c119d9796deac1c08f4"
+    },
+    {
+      "path": "tests/tv-cast-channel-list.test.ts",
+      "bytes": 7879,
+      "sha256": "f2a068b3e904011c7a694ebbb3508ae147da0cc4ed8c5d78ef787b7b3a95e66e"
+    },
+    {
+      "path": "tests/tv-cast-conn-limit.test.ts",
+      "bytes": 6935,
+      "sha256": "2676e2f3e4ddc89dea50e94b8512b9c60e4dc5e2934697db5accb8ce02f0ba17"
+    },
+    {
+      "path": "tests/tv-cast-descriptor.test.ts",
+      "bytes": 10242,
+      "sha256": "f23dfb8f89be1a6ae976aedd2bf073362ffc27bd19a68ed946a659fbbef917a3"
+    },
+    {
+      "path": "tests/tv-cast-devices.test.ts",
+      "bytes": 15430,
+      "sha256": "d3535b8e7dc6f074488411fff89444d8adc329eac7b49ac391b5c66a38ed3c56"
+    },
+    {
+      "path": "tests/tv-cast-host-fallback.test.ts",
+      "bytes": 9385,
+      "sha256": "5cbf8d3806537986b321e0dfae5cab8e6dae8dffc533c420940835b6980e8898"
+    },
+    {
+      "path": "tests/tv-cast-idle-guard.test.ts",
+      "bytes": 6057,
+      "sha256": "75f16df0becdced94f9d6ffccd22f3454955e79cb6d6086accacebcd00666095"
+    },
+    {
+      "path": "tests/tv-cast-loading-stall-guard.test.ts",
+      "bytes": 2231,
+      "sha256": "82e56448bd894d1158e361b286b19078bcd53e4503debbe04f5ad13be9516312"
+    },
+    {
+      "path": "tests/tv-cast-next.test.ts",
+      "bytes": 11284,
+      "sha256": "95870da73ed2e56715684e33f3a854868a68e4177bceba7807dc778ce941398c"
+    },
+    {
+      "path": "tests/tv-cast-picker-panel.test.ts",
+      "bytes": 9163,
+      "sha256": "e00ba3048f36ce5d632a272ea69b7e7eb58bee081d19f151b18edbdd2c93296b"
+    },
+    {
+      "path": "tests/tv-cast-progress.test.ts",
+      "bytes": 10304,
+      "sha256": "c8a95c34c5305455fd8edfe027d4258ee0ff91715d083bbeef68a64270389763"
+    },
+    {
+      "path": "tests/tv-cast-reattach.test.ts",
+      "bytes": 12916,
+      "sha256": "c6d9099be8e5c657fdd129b135ed3e39680227a8ee950f9a47d17e73861ef9da"
+    },
+    {
+      "path": "tests/tv-cast-remote-content.test.ts",
+      "bytes": 5142,
+      "sha256": "209f18edd18f6c517aec23ccc031c78e0344850fa3ee652fd0c520f53379aca5"
+    },
+    {
+      "path": "tests/tv-cast-remote-dom.test.ts",
+      "bytes": 8820,
+      "sha256": "cfc62f26c9fdeeb2bd40529208a9ccfb1138898f505de63ed892a943846d4cbe"
+    },
+    {
+      "path": "tests/tv-cast-state-feed.test.ts",
+      "bytes": 7549,
+      "sha256": "1869d1b000272721ec88c032997e319801e44a0ac3794bae16ba6c243b005db1"
+    },
+    {
+      "path": "tests/tv-detail-enrich.test.ts",
+      "bytes": 3549,
+      "sha256": "e53fe3888d78cb9ec0bef19731c41b16f51f82680be1bfda77b95a955c3b0b18"
+    },
+    {
+      "path": "tests/tv-epg-source.test.ts",
+      "bytes": 7756,
+      "sha256": "a1145ac28116d3cfd7b1ff1e4b1f4eebfc77a8baad407cab619e78ece5c32fcd"
+    },
+    {
+      "path": "tests/tv-grid-filter.test.ts",
+      "bytes": 7217,
+      "sha256": "4a8a27c99fa8b5b77e2e543627b67057a408892dbb45e61f9de76efda7670041"
+    },
+    {
+      "path": "tests/tv-motion.test.ts",
+      "bytes": 2185,
+      "sha256": "80662ded6928086c01f750293b9ff7fc9ccc59cb434ef409ae6e44f966c8ae93"
+    },
+    {
+      "path": "tests/tv-osd-zap.test.ts",
+      "bytes": 1179,
+      "sha256": "409738a283088e678d6e4d172a6c54d64e545e20428e805a15f2c6fca5253b36"
+    },
+    {
+      "path": "tests/tv-playback-progress.test.ts",
+      "bytes": 4053,
+      "sha256": "3bb1155040c82480adfd07a93bd9dd19e5e8e379be0399ead0d833200e65a0e4"
+    },
+    {
+      "path": "tests/tv-prefetch.test.ts",
+      "bytes": 2625,
+      "sha256": "cb09cec4393dc1762e49bb3590a3a1b6544b0b4bb9119ad910530929f6baeb47"
+    },
+    {
+      "path": "tests/tv-routes.test.ts",
+      "bytes": 4796,
+      "sha256": "bd3a57d490aa1362a68aecec248dfe6cb287177960b9c7ca7d3ff8635fd36fcd"
+    },
+    {
+      "path": "tests/tv-virtual-rows.test.ts",
+      "bytes": 1093,
+      "sha256": "20d3e6b1ed9225f8576273f65b6984133597baaf57179672f6e14ee4e9330617"
+    },
+    {
+      "path": "tests/tvdb-normalize.test.ts",
+      "bytes": 15519,
+      "sha256": "bab8df18a093b8cb384991c417de35ac530555d989eecbd8da30fe2f05ba837f"
+    },
+    {
+      "path": "tests/tvdb-params.test.ts",
+      "bytes": 9002,
+      "sha256": "abe71f5c5918c25e22d7bf234b2276cf964125deeb378a2586c87daa801f8d42"
+    },
+    {
+      "path": "tests/tvdb-proxy.test.ts",
+      "bytes": 18317,
+      "sha256": "b92a87b411ca024bcf8d804997f5b04b1e3fc4b1aea0982de486da3b5567af03"
+    },
+    {
+      "path": "tests/tvdb-rate-limit.test.ts",
+      "bytes": 2030,
+      "sha256": "a05cc0078fc0d51d0aca453b93d35ddeeca6c67dec9e279c3347d4a4950981c3"
+    },
+    {
+      "path": "tests/updater-retry.test.ts",
+      "bytes": 2898,
+      "sha256": "5849ee6189a0e29bf67f63d6604c37c0a62ff028faf4d986294acd7e8a3fccb0"
+    },
+    {
+      "path": "tests/url-auth.test.ts",
+      "bytes": 6334,
+      "sha256": "352ad6d11f27707e9eb80df771466132d7ccf096f46a210208c9a0bb387a4f65"
+    },
+    {
+      "path": "tests/version-compare.test.ts",
+      "bytes": 2985,
+      "sha256": "6f836acab053a071ea32bb184e2da4e865a460e288f7843ddd9bba158eb27e89"
+    },
+    {
+      "path": "tests/video-scale.test.ts",
+      "bytes": 2485,
+      "sha256": "eb1a130e0149f0b3a6c7eb017943112355394fd18432431af75cbd739af9989a"
+    },
+    {
+      "path": "tests/visual/fixtures/epg.xml",
+      "bytes": 35949,
+      "sha256": "4e069c69be279fbeb4de379ef63b838725609098ef0599c474b190b74496189d"
+    },
+    {
+      "path": "tests/visual/fixtures/playlist.m3u",
+      "bytes": 1514,
+      "sha256": "1f0a7277e0d6d7448f189fc97ce1cb6ad3807c8c7ceee8554ca0869ae63572c4"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts",
+      "bytes": 3933,
+      "sha256": "77c0f2c708e23826473242195e7b6df2dcc225bc38a1256c5eb2ce0438c96ac2"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/epg-desktop-linux.png",
+      "bytes": 169657,
+      "sha256": "9ee19cb36bf2b326998e15e6195847a785875d1d06fcab294a49ef30efbc44f2"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/epg-phone-linux.png",
+      "bytes": 87837,
+      "sha256": "05977e079e3c8b663b5621b3d0c0b86bbdb6e4682ddbeeda422f0e7ccfa950ce"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/favorites-desktop-linux.png",
+      "bytes": 162473,
+      "sha256": "0ed767ce28bc7fddfc54f52f2f0b1be0a3e4336c7680c36f942be204e74b057c"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/favorites-phone-linux.png",
+      "bytes": 79420,
+      "sha256": "c312bdf8c99f168c3a22404f1d98d83f9e75f3bfe27efe4d61d27951fee60b6a"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/home-desktop-linux.png",
+      "bytes": 61013,
+      "sha256": "ec6df31aaac7fe7f565a7e1efa2a46d599fb8e3cc2e52f1200a505654df76539"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/home-phone-linux.png",
+      "bytes": 28008,
+      "sha256": "81404c92135b9beab5321c89beb117bd8c56b28b2cdab07920d7a6100c989bdb"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/livetv-desktop-linux.png",
+      "bytes": 145804,
+      "sha256": "9a37278f9ebf4f9fb5f240ae5c1fb0d8be7cc833826468764560b3069ed484f9"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/livetv-phone-linux.png",
+      "bytes": 68135,
+      "sha256": "6ac68f5aa14929101c684243025594955b3c85b498f4a14fbb21ad32e3d5efeb"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/login-desktop-linux.png",
+      "bytes": 190551,
+      "sha256": "4e9fa88831397941f70d48ebcf647c3d22566abd9946bcfb5c407dc772e4c531"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/login-phone-linux.png",
+      "bytes": 98480,
+      "sha256": "47ddd87b2be4b64f571858b7e022a5ec11ac7460f47e5070f7dc1a9d21b958e8"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/movies-desktop-linux.png",
+      "bytes": 146554,
+      "sha256": "5895587b6b95befd6f9546f2004ba310aab8ff6e78e87c9555ff75a4571b8354"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/movies-phone-linux.png",
+      "bytes": 59561,
+      "sha256": "00e51ab83dc5d90ba0a996442726ee9acba2bf46435dcccc9b2da93963668e38"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/search-desktop-linux.png",
+      "bytes": 160267,
+      "sha256": "e1a1ce4beedca068f9712216af492d648ddf7d70650a08aa1cacb39ecf3488c4"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/search-phone-linux.png",
+      "bytes": 78656,
+      "sha256": "c744eb70df51377048dc3be0c5c3d6ca45e5128baed714348c48b55b33c6037c"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/series-desktop-linux.png",
+      "bytes": 144850,
+      "sha256": "9f73c0cd1f0ba4041d3e8374bcba4b4f815320cc1e85c9253ba04873c5f02fac"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/series-phone-linux.png",
+      "bytes": 58800,
+      "sha256": "5749526f71afe25e1b78f8ae2fa168977e6e44b3fc0c9707cca2c3a1d0fddc9a"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/settings-desktop-linux.png",
+      "bytes": 177865,
+      "sha256": "5b118a5f409b646025446039e7f884ed2b4d5583905d2d8acadd602e90263e6d"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts-snapshots/settings-phone-linux.png",
+      "bytes": 83384,
+      "sha256": "e2b97eb3c2f2e8f4d2e2813112081183f76b3d5d735f887bc3c71c305d5432b6"
+    },
+    {
+      "path": "tests/vod-audio-proxy.test.ts",
+      "bytes": 1970,
+      "sha256": "c73aee7e352b97bdbeedc4db7f052a961d214fed8769dcfa7aba861099fd0e33"
+    },
+    {
+      "path": "tests/vod-audio-switch.test.ts",
+      "bytes": 30019,
+      "sha256": "8d3f9d7e698c3c341e51f4da27b52ff0831cdd78d395952be7c6872c58c2168e"
+    },
+    {
+      "path": "tests/vod-container-plan.test.ts",
+      "bytes": 8652,
+      "sha256": "8c4854573bee336479126ec12d74b5601881d7828f7003467341dadc3ea8e75a"
+    },
+    {
+      "path": "tests/vod-container-probe.test.ts",
+      "bytes": 7839,
+      "sha256": "5e2953a3cc9c5924bcaee5d07e235cb885960ab57c63221f0f87d3d5a7303c99"
+    },
+    {
+      "path": "tests/vod-proxy.test.ts",
+      "bytes": 2682,
+      "sha256": "8c811d26a671e5b438d36911b1e8b614e6bc1afc2ccc6f570dda0a39e5a601e9"
+    },
+    {
+      "path": "tests/vod-remux-memory.test.ts",
+      "bytes": 4356,
+      "sha256": "0026870c9988a00b5b4eef379ece3eba1cb305a35640f4152528b6fbf680532a"
+    },
+    {
+      "path": "tests/warmup-native-await-merge.test.ts",
+      "bytes": 5735,
+      "sha256": "ecae5513d337e469bf41b5f07c7379c1e291a7616ba3014ffede5e1122f2e28c"
+    },
+    {
+      "path": "tests/warmup-native-spec.test.ts",
+      "bytes": 13190,
+      "sha256": "2b0822867d7cb440cd3e7adf3c391c1ef7828ce487dd0d8ea0b813dea5bd3bd4"
+    },
+    {
+      "path": "tests/worker-origin.test.ts",
+      "bytes": 1024,
+      "sha256": "5a195f46e03646d3bc21ddaea149734a43c7cb5ffbbe73086539107b869c3bab"
+    },
+    {
+      "path": "tests/xtream-mirrors.test.ts",
+      "bytes": 3455,
+      "sha256": "ae2ea0e981963661137200ec12fce7da406a0d1b02a9c204ea756e049782518f"
+    },
+    {
+      "path": "tests/zip-writer.test.ts",
+      "bytes": 4823,
+      "sha256": "9a5487942bde92b8430e72f4efdbf7eff3229c3e3f715d81718eb4f8e1426783"
+    },
+    {
+      "path": "tsconfig.json",
+      "bytes": 296,
+      "sha256": "97d4a5c61a807a6c02f8266c33ede4a4c030bf5df9b381e19aab2bd2b0da6499"
+    },
+    {
+      "path": "vitest.config.ts",
+      "bytes": 367,
+      "sha256": "a11ebe5b2fb0c176d5f64aa9c641505bd33db44e5f8b685dc3af512e41af0102"
+    }
+  ]
+}

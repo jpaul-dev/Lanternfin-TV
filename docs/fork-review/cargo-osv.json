@@ -1,0 +1,131 @@
+{
+  "checkedAtUtc": "2026-10-03T02:03:32.404287+00:00",
+  "source": "https://api.osv.dev/v1/querybatch",
+  "queryCount": 619,
+  "findings": [
+    {
+      "query": {
+        "package": {
+          "name": "glib",
+          "ecosystem": "crates.io"
+        },
+        "version": "0.18.5"
+      },
+      "vulns": [
+        {
+          "id": "GHSA-wrw7-89jp-8q8g",
+          "modified": "2025-10-28T06:29:26.473225Z"
+        },
+        {
+          "id": "RUSTSEC-2024-0429",
+          "modified": "2025-10-28T06:29:26.473225Z"
+        }
+      ]
+    },
+    {
+      "query": {
+        "package": {
+          "name": "proc-macro-error",
+          "ecosystem": "crates.io"
+        },
+        "version": "1.0.4"
+      },
+      "vulns": [
+        {
+          "id": "RUSTSEC-2024-0370",
+          "modified": "2026-06-07T20:00:03.923932Z"
+        }
+      ]
+    },
+    {
+      "query": {
+        "package": {
+          "name": "rustls",
+          "ecosystem": "crates.io"
+        },
+        "version": "0.23.43"
+      },
+      "vulns": [
+        {
+          "id": "RUSTSEC-2026-0285",
+          "modified": "2026-09-14T16:15:03.240735Z"
+        }
+      ]
+    },
+    {
+      "query": {
+        "package": {
+          "name": "unic-char-property",
+          "ecosystem": "crates.io"
+        },
+        "version": "0.9.0"
+      },
+      "vulns": [
+        {
+          "id": "RUSTSEC-2025-0081",
+          "modified": "2025-10-21T11:12:59Z"
+        }
+      ]
+    },
+    {
+      "query": {
+        "package": {
+          "name": "unic-char-range",
+          "ecosystem": "crates.io"
+        },
+        "version": "0.9.0"
+      },
+      "vulns": [
+        {
+          "id": "RUSTSEC-2025-0075",
+          "modified": "2025-10-22T14:41:04Z"
+        }
+      ]
+    },
+    {
+      "query": {
+        "package": {
+          "name": "unic-common",
+          "ecosystem": "crates.io"
+        },
+        "version": "0.9.0"
+      },
+      "vulns": [
+        {
+          "id": "RUSTSEC-2025-0080",
+          "modified": "2025-10-21T11:12:59Z"
+        }
+      ]
+    },
+    {
+      "query": {
+        "package": {
+          "name": "unic-ucd-ident",
+          "ecosystem": "crates.io"
+        },
+        "version": "0.9.0"
+      },
+      "vulns": [
+        {
+          "id": "RUSTSEC-2025-0100",
+          "modified": "2025-10-21T11:12:59Z"
+        }
+      ]
+    },
+    {
+      "query": {
+        "package": {
+          "name": "unic-ucd-version",
+          "ecosystem": "crates.io"
+        },
+        "version": "0.9.0"
+      },
+      "vulns": [
+        {
+          "id": "RUSTSEC-2025-0098",
+          "modified": "2025-10-21T11:12:59Z"
+        }
+      ]
+    }
+  ]
+}

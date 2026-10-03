@@ -1,0 +1,61 @@
+
+<review-workspace>\src\layouts\Layout.astro
+    50:16   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+    50:19   warning  Empty block statement                                                         no-empty
+    55:16   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+    55:19   warning  Empty block statement                                                         no-empty
+    73:18   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+    73:21   warning  Empty block statement                                                         no-empty
+    96:20   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+    96:23   warning  Empty block statement                                                         no-empty
+   116:22   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+   116:25   warning  Empty block statement                                                         no-empty
+   142:18   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+   142:21   warning  Empty block statement                                                         no-empty
+   172:76   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+   172:79   warning  Empty block statement                                                         no-empty
+   173:76   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+   173:79   warning  Empty block statement                                                         no-empty
+   236:97   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+   236:100  warning  Empty block statement                                                         no-empty
+   239:92   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+   239:95   warning  Empty block statement                                                         no-empty
+   260:20   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+   260:23   warning  Empty block statement                                                         no-empty
+   271:16   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+   271:19   warning  Empty block statement                                                         no-empty
+   291:16   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+   291:19   warning  Empty block statement                                                         no-empty
+   866:57   warning  Empty block statement                                                         no-empty
+   924:67   warning  Empty block statement                                                         no-empty
+   994:15   warning  Empty block statement                                                         no-empty
+  1036:13   warning  Empty block statement                                                         no-empty
+  1046:15   warning  Empty block statement                                                         no-empty
+  1066:19   warning  Empty block statement                                                         no-empty
+  1090:15   warning  Empty block statement                                                         no-empty
+  1105:13   warning  Empty block statement                                                         no-empty
+
+<review-workspace>\src\layouts\TvLayout.astro
+   60:18   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+   60:21   warning  Empty block statement                                                         no-empty
+   83:18   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+   83:21   warning  Empty block statement                                                         no-empty
+  111:18   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+  111:21   warning  Empty block statement                                                         no-empty
+  118:18   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+  118:21   warning  Empty block statement                                                         no-empty
+  126:98   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+  126:101  warning  Empty block statement                                                         no-empty
+  129:93   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+  129:96   warning  Empty block statement                                                         no-empty
+  141:18   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+  141:21   warning  Empty block statement                                                         no-empty
+  209:18   warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+  209:21   warning  Empty block statement                                                         no-empty
+
+<review-workspace>\src\scripts\lib\app-settings.js
+  428:11  warning  Empty block statement  no-empty
+  539:13  warning  Empty block statement  no-empty
+
+✖ 52 problems (0 errors, 52 warnings)
+
