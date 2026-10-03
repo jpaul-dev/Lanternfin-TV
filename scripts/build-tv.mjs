@@ -25,8 +25,10 @@ const result = await build({
 for (const bundle of Array.isArray(result) ? result : [result]) {
   for (const output of bundle.output) await writeFile(resolve(out, output.fileName), output.type === 'chunk' ? output.code : output.source)
 }
-const worker = await build({ configFile: false, root, publicDir: false, resolve: { alias: { '@': resolve(root, 'src') } }, build: { write: false, target: 'chrome85', minify: true, sourcemap: false, lib: { entry: resolve(root, 'src/scripts/lib/epg-worker.ts'), name: 'LanternfinGuide', formats: ['iife'] }, rollupOptions: { output: { entryFileNames: 'epg-worker.js' } } } })
-for (const bundle of Array.isArray(worker) ? worker : [worker]) for (const output of bundle.output) await writeFile(resolve(out, output.fileName), output.type === 'chunk' ? output.code : output.source)
+for (const [entry, name, file] of [['src/scripts/lib/epg-worker.ts', 'LanternfinGuide', 'epg-worker.js'], ['tv-app/mp4-text-worker.ts', 'LanternfinMp4Text', 'mp4-text-worker.js']]) {
+  const worker = await build({ configFile: false, root, publicDir: false, resolve: { alias: { '@': resolve(root, 'src') } }, build: { write: false, target: 'chrome85', minify: true, sourcemap: false, lib: { entry: resolve(root, entry), name, formats: ['iife'] }, rollupOptions: { output: { entryFileNames: file } } } })
+  for (const bundle of Array.isArray(worker) ? worker : [worker]) for (const output of bundle.output) await writeFile(resolve(out, output.fileName), output.type === 'chunk' ? output.code : output.source)
+}
 const html = (await readFile(resolve(root, 'tv-app/index.html'), 'utf8'))
   .replace('<!-- PLATFORM_SCRIPT -->', target === 'tizen' ? '<script src="$WEBAPIS/webapis/webapis.js"></script>' : '')
 await writeFile(resolve(out, 'index.html'), html)

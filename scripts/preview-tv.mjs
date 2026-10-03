@@ -11,6 +11,15 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1:4323').pathname)
+    if (fixtures && pathname === '/_test/subtitled.mp4') {
+      // Optional locally generated video, never copied into a TV package.
+      const data = await readFile(resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/tv-mp4-text-demo.mp4'))
+      const range = /^bytes=(\d+)-(\d*)$/.exec(request.headers.range || '')
+      const start = range ? Number(range[1]) : 0, end = range?.[2] ? Math.min(Number(range[2]), data.length - 1) : data.length - 1
+      if (start > end || !Number.isSafeInteger(start)) { response.writeHead(416, { 'Content-Range': `bytes */${data.length}` }); response.end(); return }
+      response.writeHead(range ? 206 : 200, { 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1, 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'Access-Control-Expose-Headers': 'Content-Range', ...(range ? { 'Content-Range': `bytes ${start}-${end}/${data.length}` } : {}) })
+      response.end(data.subarray(start, end + 1)); return
+    }
     if (fixtures && pathname === '/_test/captions.vtt') {
       const stamp = seconds => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}.000`
       response.writeHead(200, { 'Content-Type': 'text/vtt; charset=utf-8', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })

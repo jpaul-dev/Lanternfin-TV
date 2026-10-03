@@ -11,6 +11,7 @@ export function subtitleUI(root: HTMLElement, overlay: HTMLElement, options: {
   const method = el<HTMLSelectElement>('subtitle-method'), open = el<HTMLButtonElement>('subtitle-add')
   const load = el<HTMLButtonElement>('subtitle-load'), editor = el('subtitle-editor'), status = el('subtitle-load-status')
   let timeline: SubtitleTimeline | undefined, active = false, presentation = { delay: 0, scale: 1 }
+  let loadedId = EXTERNAL_SUBTITLE
   let loading: AbortController | undefined, interval: ReturnType<typeof setInterval> | undefined
   const render = () => {
     const text = active && options.allowed() ? timeline?.at(options.position() - presentation.delay) || '' : ''
@@ -51,7 +52,7 @@ export function subtitleUI(root: HTMLElement, overlay: HTMLElement, options: {
       if (pending.signal.aborted || loading !== pending) return
       if (!options.allowed()) throw new SubtitleError('Resume playback before loading subtitles for this video.')
       if (!options.silence()) throw new SubtitleError('The current captions could not be turned off. Resume playback and try again.')
-      timeline = loaded; active = true; presentation = { delay: 0, scale: 1 }
+      timeline = loaded; active = true; loadedId = EXTERNAL_SUBTITLE; presentation = { delay: 0, scale: 1 }
       clearInterval(interval); interval = setInterval(render, 250); render()
       close(); options.changed(); el('track-status').textContent = tr('External subtitles loaded for this video. Size and timing can be adjusted below.')
       el('subtitle-track').focus()
@@ -62,13 +63,20 @@ export function subtitleUI(root: HTMLElement, overlay: HTMLElement, options: {
     }
   }
   return {
-    get loaded() { return !!timeline }, get active() { return active },
+    get loaded() { return !!timeline && loadedId === EXTERNAL_SUBTITLE }, get active() { return active },
+    get activeId() { return active ? loadedId : undefined },
+    embedded(id: string, next: SubtitleTimeline, update = false) {
+      if (update ? !active || loadedId !== id : !options.allowed() || !options.silence()) return false
+      timeline = next; loadedId = id; active = true
+      if (!update) presentation = { delay: 0, scale: 1 }
+      clearInterval(interval); interval = setInterval(render, 250); render(); return true
+    },
     presentation(): SubtitlePresentation | undefined { return active ? { ...presentation } : undefined },
     setPresentation(value: SubtitlePresentation) {
       if (!active || !Number.isFinite(value.delay) || Math.abs(value.delay) > 5 || ![.75, 1, 1.25, 1.5, 2].includes(value.scale)) return false
       presentation = { ...value }; render(); return true
     },
-    select() { if (!timeline || !options.allowed() || !options.silence()) return false; active = true; render(); return true },
+    select() { if (!timeline || loadedId !== EXTERNAL_SUBTITLE || !options.allowed() || !options.silence()) return false; active = true; render(); return true },
     deselect() { active = false; render() },
     refresh() { open.disabled = !options.allowed(); render() },
     back() { if (editor.hidden) return false; close(); open.focus(); return true },

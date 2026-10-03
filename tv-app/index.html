@@ -190,6 +190,7 @@
       <h2 id="tracks-title">Playback settings</h2><p class="hint">Picture, language and playback options for this stream.</p>
       <label for="audio-track">Audio</label><select id="audio-track"></select>
       <label for="subtitle-track">Subtitles</label><select id="subtitle-track"></select>
+      <div id="mp4-subtitle-tools" hidden><div class="subtitle-actions"><button id="mp4-scan">Find embedded MP4 subtitles</button><button id="mp4-cancel" hidden>Cancel reading</button><button id="mp4-retry" hidden>Retry embedded captions</button></div><p id="mp4-status" class="hint" role="status"></p></div>
       <button id="subtitle-add" class="subtitle-add" aria-expanded="false" aria-controls="subtitle-editor">Load subtitle file</button>
       <div id="subtitle-editor" class="subtitle-editor" hidden>
         <p class="hint">UTF-8 SRT or WebVTT, up to 2 MB. Timed from the start of this video. Text only; styles and positioning are ignored. Kept until this video stops.</p>
