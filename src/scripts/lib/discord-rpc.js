@@ -60,8 +60,8 @@ function logPresenceFailure(label, error) {
 }
 
 const PROMO_BUTTONS = [
-  { label: "Get Extreme InfiniTV", url: "https://github.com/infinitel8p/Extreme-InfiniTV/releases/latest" },
-  { label: "View on GitHub", url: "https://github.com/infinitel8p/Extreme-InfiniTV" },
+  { label: "Get Lanternfin TV", url: "https://github.com/jpaul-dev/Lanternfin-TV/releases/latest" },
+  { label: "View on GitHub", url: "https://github.com/jpaul-dev/Lanternfin-TV" },
 ]
 
 let lastSignature = ""
@@ -204,7 +204,7 @@ export async function setIdleRichPresence(opts) {
       details: detailsLine,
       stateText: stateLine,
       largeImage: "logo",
-      largeText: "Extreme InfiniTV",
+      largeText: "Lanternfin TV",
       smallImage: null,
       smallText: null,
       startTimestamp: null,

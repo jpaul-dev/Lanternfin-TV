@@ -1,8 +1,8 @@
 {
-  "productName": "Extreme InfiniTV",
-  "mainBinaryName": "extreme-infinitv",
-  "version": "1.9.0",
-  "identifier": "com.infinitel8p.xtream",
+  "productName": "Lanternfin TV",
+  "mainBinaryName": "lanternfin-tv",
+  "version": "0.1.0-alpha.1",
+  "identifier": "io.github.jpauldev.lanternfin",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:4321",
@@ -13,7 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "Extreme InfiniTV",
+        "title": "Lanternfin TV",
         "width": 1300,
         "height": 850,
         "minWidth": 900,
@@ -45,12 +45,12 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "publisher": "InfiniteL8p",
+    "publisher": "jpaul-dev",
     "category": "public.app-category.video",
-    "copyright": "© 2025 Ludovico Ferrara",
-    "createUpdaterArtifacts": true,
+    "copyright": "Copyright (c) 2025 Ludovico Ferrara; modifications (c) 2026 Lanternfin TV contributors",
+    "createUpdaterArtifacts": false,
     "android": {
-      "versionCode": 109009000
+      "versionCode": 1
     },
     "icon": [
       "icons/32x32.png",
@@ -60,13 +60,5 @@
       "icons/icon.ico"
     ]
   },
-
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE2NERBRENFQzczNDZENjQKUldSa2JUVEh6cTFOcHJzVi9PYTB0TWZFYUZEV3RrdW5LRk56cmhDcjdxQlJ1QldjbXAwNEVxWHQK",
-      "endpoints": [
-        "https://github.com/infinitel8p/Extreme-InfiniTV/releases/latest/download/latest.json"
-      ]
-    }
-  }
+  "plugins": {}
 }

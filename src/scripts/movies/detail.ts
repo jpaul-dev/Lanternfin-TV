@@ -1074,7 +1074,7 @@ function pushMoviePresence() {
     details: movie.name || t("detail.discord.watchingMovie") || "Watching a movie",
     state: movie.year ? `Released ${movie.year}` : "Movie",
     largeImage: movie.logo || "logo",
-    largeText: movie.name || "Extreme InfiniTV",
+    largeText: movie.name || "Lanternfin TV",
     smallImage: "movie",
     smallText: "Movie",
     startTimestamp: Date.now(),

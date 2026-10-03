@@ -3,5 +3,11 @@ import TvLayout from "@/layouts/TvLayout.astro"
 ---
 
 <TvLayout pageTitle="Settings" view="settings">
-  <section class="h-full overflow-hidden p-6" data-tv-view-root></section>
+  <div class="flex h-full min-h-0 flex-col">
+    <section class="min-h-0 flex-1 overflow-hidden p-6" data-tv-view-root></section>
+    <footer class="px-6 pb-3 text-xs text-fg-3">
+      Lanternfin TV · Independent fork of Extreme InfiniTV by Ludovico Ferrara / InfiniteL8p and contributors.
+      Original copyright © 2025 Ludovico Ferrara · GPL-3.0-or-later.
+    </footer>
+  </div>
 </TvLayout>

@@ -21,7 +21,7 @@ interface Props {
   view: string
 }
 const { pageTitle, view } = Astro.props
-const documentTitle = `${pageTitle} | Extreme InfiniTV`
+const documentTitle = `${pageTitle} | Lanternfin TV`
 
 const path = Astro.url.pathname.replace(/\/$/, "") || "/tv"
 const activeNavHref = tvNavActiveHref(path)

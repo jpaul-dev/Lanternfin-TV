@@ -1,4 +1,4 @@
-package com.infinitel8p.xtream
+package io.github.jpauldev.lanternfin
 
 import android.graphics.Color
 import android.view.LayoutInflater

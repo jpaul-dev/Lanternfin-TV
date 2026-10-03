@@ -3,6 +3,7 @@ import { cachedFetch } from "@/scripts/lib/cache.js"
 import { providerFetch } from "@/scripts/lib/provider-fetch.js"
 import { getActiveLocale } from "@/scripts/lib/i18n.js"
 import { getTvdbEnabled } from "@/scripts/lib/app-settings.js"
+import { getTvdbProxyUrl } from "@/scripts/lib/fork-services.js"
 import { log } from "@/scripts/lib/log.js"
 import { hashName, normalizeSearchName, tvdbLanguageFor } from "@/scripts/lib/tvdb-params"
 import type { TmdbTitleEnrichment } from "@/scripts/lib/tmdb-enrich"
@@ -16,7 +17,6 @@ import {
   type TvdbTrendingEntry,
 } from "@/scripts/lib/tvdb-contract"
 
-const PROXY_BASE = "https://xt-tvdb-proxy.infinitel8p.com"
 const CACHE_ENTRY_ID = "tvdb"
 const TTL_MS = 7 * 24 * 60 * 60 * 1000
 const TRENDING_TTL_MS = 24 * 60 * 60 * 1000
@@ -131,7 +131,9 @@ type ProxyResult<T> = { ok: true; data: T | null } | { ok: false; data: null }
 const FAILED: ProxyResult<never> = { ok: false, data: null }
 
 function fetchOnce(path: string): Promise<Response> {
-  return providerFetch(`${PROXY_BASE}${path}`, {
+  const base = getTvdbProxyUrl()
+  if (!base) return Promise.reject(new Error("No metadata service configured"))
+  return providerFetch(`${base}${path}`, {
     logKind: "api",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })

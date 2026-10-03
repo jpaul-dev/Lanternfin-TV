@@ -1,4 +1,4 @@
-package com.infinitel8p.xtream
+package io.github.jpauldev.lanternfin
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

@@ -20,7 +20,7 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
--keep class com.infinitel8p.xtream.** { *; }
+-keep class io.github.jpauldev.lanternfin.** { *; }
 -keep class * extends android.webkit.WebChromeClient { *; }
 
 # DefaultMediaSourceFactory loads this reflectively for DASH playback.

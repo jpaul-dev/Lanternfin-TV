@@ -20,15 +20,15 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 // Legacy single rule name from before TCP/UDP were split out; kept only so the elevated
 // recovery chain and the NSIS uninstall hook still clean it up on upgrade.
 #[cfg(target_os = "windows")]
-pub const RECEIVER_FIREWALL_RULE_NAME: &str = "Extreme InfiniTV Receiver";
+pub const RECEIVER_FIREWALL_RULE_NAME: &str = "Lanternfin TV Receiver";
 
 // Must stay identical to the rule names baked into src-tauri/windows/firewall-hooks.nsh.
 // netsh advfirewall needs one rule per protocol, so TCP (the receiver's own listener) and
 // UDP (inbound mDNS queries on 5353 for the in-process mdns-sd responder) are separate rules.
 #[cfg(target_os = "windows")]
-pub const RECEIVER_FIREWALL_RULE_NAME_TCP: &str = "Extreme InfiniTV Receiver (TCP)";
+pub const RECEIVER_FIREWALL_RULE_NAME_TCP: &str = "Lanternfin TV Receiver (TCP)";
 #[cfg(target_os = "windows")]
-pub const RECEIVER_FIREWALL_RULE_NAME_UDP: &str = "Extreme InfiniTV Receiver (UDP)";
+pub const RECEIVER_FIREWALL_RULE_NAME_UDP: &str = "Lanternfin TV Receiver (UDP)";
 
 #[tauri::command]
 pub async fn receiver_firewall_status() -> Result<String, String> {

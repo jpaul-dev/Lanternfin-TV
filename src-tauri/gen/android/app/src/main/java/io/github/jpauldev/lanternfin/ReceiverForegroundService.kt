@@ -1,4 +1,4 @@
-package com.infinitel8p.xtream
+package io.github.jpauldev.lanternfin
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -29,8 +29,8 @@ class ReceiverForegroundService : Service() {
     private const val LOCK_TAG = "xtream:receiver"
     private const val WAKE_LOCK_TIMEOUT_MS = 24 * 60 * 60 * 1000L
 
-    const val ACTION_START = "com.infinitel8p.xtream.receiver.START"
-    const val ACTION_STOP = "com.infinitel8p.xtream.receiver.STOP"
+    const val ACTION_START = "io.github.jpauldev.lanternfin.receiver.START"
+    const val ACTION_STOP = "io.github.jpauldev.lanternfin.receiver.STOP"
     const val EXTRA_DEVICE_NAME = "deviceName"
   }
 

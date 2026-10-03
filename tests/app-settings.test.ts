@@ -364,9 +364,9 @@ describe("TMDb / TVDB enrichment toggles", () => {
     expect(getTmdbEnabled()).toBe(false)
   })
 
-  it("TVDB defaults to enabled (unset means on)", async () => {
+  it("TVDB defaults off without a configured service", async () => {
     const { getTvdbEnabled } = await import("@/scripts/lib/app-settings.js")
-    expect(getTvdbEnabled()).toBe(true)
+    expect(getTvdbEnabled()).toBe(false)
   })
 
   it("TVDB writes an explicit off flag", async () => {
@@ -400,9 +400,9 @@ describe("TMDb / TVDB enrichment toggles", () => {
     expect(isTmdbActive()).toBe(false)
   })
 
-  it("isEnrichmentActive is true when only TVDB is on", async () => {
+  it("isEnrichmentActive is false without a configured source", async () => {
     const { isEnrichmentActive } = await import("@/scripts/lib/app-settings.js")
-    expect(isEnrichmentActive()).toBe(true)
+    expect(isEnrichmentActive()).toBe(false)
   })
 
   it("isEnrichmentActive is true when TVDB is off but TMDb is active", async () => {

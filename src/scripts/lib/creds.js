@@ -33,7 +33,7 @@
 // (must be an ACCENT_PRESETS value, else dropped); both absent when unset.
 //
 // Tauri builds persist via @tauri-apps/plugin-store; web/SSR via localStorage
-// + cookies. Old "xt_host" / "xt_port" / "xt_user" / "xt_pass" keys are
+// only. Old "xt_host" / "xt_port" / "xt_user" / "xt_pass" keys are
 // auto-migrated into one entry on first read.
 
 import { log } from "@/scripts/lib/log.js"
@@ -292,9 +292,9 @@ async function writeRaw(data) {
   }
   try {
     localStorage.setItem(STORAGE_KEY, json)
-    setCookie(STORAGE_KEY, json)
+    setCookie(STORAGE_KEY, "", -1)
   } catch (e) {
-    log.error("[xt:creds] localStorage/cookie write failed:", e)
+    log.error("[xt:creds] localStorage write failed:", e)
   }
   migrationPromise = Promise.resolve(data)
 }
@@ -733,7 +733,7 @@ export function parseXtreamUrl(input) {
   const trimmed = String(input).trim()
   let url
   try {
-    url = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`)
+    url = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`)
   } catch {
     return null
   }
@@ -750,18 +750,9 @@ export function parseXtreamUrl(input) {
 }
 
 /**
- * Resolve which scheme actually works for an Xtream server. Lets the user
- * type `host` / `host:port` / `http://host` / `https://host` and figures the
- * rest out by probing. Silently falls back in either direction; we never gate
- * the save behind a downgrade prompt because Xtream credentials are URL
- * query params anyway (HTTPS is mostly cosmetic for this protocol) and most
- * providers in the wild are HTTP-only.
- *
- * Probing order:
- *   - user-supplied scheme → that scheme first, then the other
- *   - no scheme + port 443/8443 → https first
- *   - no scheme + any other port (or none) → http first
- *
+ * Respect an explicit scheme and default missing schemes to HTTPS. A TLS
+ * failure must never trigger a credential-bearing HTTP retry. HTTP-only
+ * providers require an explicit http:// URL from the user.
  * @returns {Promise<{ serverUrl: string, scheme: "http"|"https", swapped: boolean, originalScheme: "http"|"https"|null, test: object }>}
  */
 export async function resolveServerScheme({ serverUrl, username, password }) {
@@ -780,14 +771,7 @@ export async function resolveServerScheme({ serverUrl, username, password }) {
   const originalScheme = schemeMatch ? /** @type {"http"|"https"} */ (schemeMatch[1].toLowerCase()) : null
   const rest = originalScheme ? trimmed.replace(/^https?:\/\//i, "") : trimmed
 
-  let order
-  if (originalScheme) {
-    order = [originalScheme, originalScheme === "https" ? "http" : "https"]
-  } else {
-    const portMatch = rest.match(/:(\d+)(?:\/|$|\?)/)
-    const port = portMatch ? parseInt(portMatch[1], 10) : 0
-    order = port === 443 || port === 8443 ? ["https", "http"] : ["http", "https"]
-  }
+  const order = [originalScheme || "https"]
 
   let lastResult = { status: "unavailable" }
   for (const scheme of order) {
@@ -807,7 +791,7 @@ export async function resolveServerScheme({ serverUrl, username, password }) {
     lastResult = result
   }
 
-  const fallbackScheme = originalScheme || "http"
+  const fallbackScheme = originalScheme || "https"
   return {
     serverUrl: `${fallbackScheme}://${rest}`,
     scheme: fallbackScheme,
@@ -818,11 +802,7 @@ export async function resolveServerScheme({ serverUrl, username, password }) {
 }
 
 /**
- * Same idea as resolveServerScheme but for M3U / M3U8 playlist URLs - probes
- * both schemes (http first unless port hints at TLS) and saves whichever
- * actually serves a valid M3U body. Lets users paste `provider.com/get.php?...`
- * without the `http://` prefix on D-pad keyboards.
- *
+ * Resolve a playlist URL without silently downgrading HTTPS.
  * @returns {Promise<{ url: string, scheme: "http"|"https", swapped: boolean, originalScheme: "http"|"https"|null, test: object }>}
  */
 export async function resolveM3UScheme(url) {
@@ -841,14 +821,7 @@ export async function resolveM3UScheme(url) {
   const originalScheme = schemeMatch ? /** @type {"http"|"https"} */ (schemeMatch[1].toLowerCase()) : null
   const rest = originalScheme ? trimmed.replace(/^https?:\/\//i, "") : trimmed
 
-  let order
-  if (originalScheme) {
-    order = [originalScheme, originalScheme === "https" ? "http" : "https"]
-  } else {
-    const portMatch = rest.match(/:(\d+)(?:\/|$|\?)/)
-    const port = portMatch ? parseInt(portMatch[1], 10) : 0
-    order = port === 443 || port === 8443 ? ["https", "http"] : ["http", "https"]
-  }
+  const order = [originalScheme || "https"]
 
   let lastResult = { status: "unavailable" }
   for (const scheme of order) {
@@ -866,7 +839,7 @@ export async function resolveM3UScheme(url) {
     lastResult = result
   }
 
-  const fallbackScheme = originalScheme || "http"
+  const fallbackScheme = originalScheme || "https"
   return {
     url: `${fallbackScheme}://${rest}`,
     scheme: fallbackScheme,

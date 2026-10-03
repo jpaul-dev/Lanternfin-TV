@@ -1,4 +1,5 @@
 import { log } from "@/scripts/lib/log.js"
+import { getTvdbProxyUrl } from "@/scripts/lib/fork-services.js"
 import { normalizeVideoScale } from "@/scripts/lib/video-scale.ts"
 import { sandboxRuntimeSync } from "@/scripts/lib/sandbox.ts"
 import { LANGUAGE_TOKENS } from "@/scripts/lib/language-tags.ts"
@@ -1150,13 +1151,13 @@ export function setTmdbEnabled(enabled) {
   )
 }
 
-// Defaults on: it needs no key, so it is the only enrichment most users get.
+// A fork-owned service must be configured and the user must opt in.
 export function getTvdbEnabled() {
-  return readLS(KEY_TVDB_ENABLED, "") !== "0"
+  return !!getTvdbProxyUrl() && readLS(KEY_TVDB_ENABLED, "0") === "1"
 }
 
 export function setTvdbEnabled(enabled) {
-  writeLS(KEY_TVDB_ENABLED, enabled ? "" : "0")
+  writeLS(KEY_TVDB_ENABLED, enabled ? "1" : "0")
   document.dispatchEvent(
     new CustomEvent(TMDB_SETTINGS_EVENT, { detail: { key: "tvdbEnabled", value: !!enabled } })
   )

@@ -1,4 +1,4 @@
-package com.infinitel8p.xtream
+package io.github.jpauldev.lanternfin
 
 import android.content.Context
 import android.os.Bundle
@@ -1633,7 +1633,7 @@ class CastMediaBridge(
     private const val CHANNEL_ID = "cast_media"
     private const val NOTIFICATION_ID = 4301
     private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 4302
-    private const val ACTION_CAST_MEDIA = "com.infinitel8p.xtream.CAST_MEDIA_ACTION"
+    private const val ACTION_CAST_MEDIA = "io.github.jpauldev.lanternfin.CAST_MEDIA_ACTION"
     private const val EXTRA_ACTION = "action"
     private const val MAX_ARTWORK_BYTES = 5 * 1024 * 1024
     private const val ARTWORK_TARGET_PX = 512

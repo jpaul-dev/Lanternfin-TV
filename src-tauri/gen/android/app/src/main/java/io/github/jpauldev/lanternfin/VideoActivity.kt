@@ -1,4 +1,4 @@
-package com.infinitel8p.xtream
+package io.github.jpauldev.lanternfin
 
 import android.app.PictureInPictureParams
 import android.content.Intent

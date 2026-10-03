@@ -26,11 +26,11 @@ fun required(name: String): String =
         .orNull ?: error("Missing signing property: $name")
 
 android {
-    namespace = "com.infinitel8p.xtream"
+    namespace = "io.github.jpauldev.lanternfin"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.infinitel8p.xtream"
+        applicationId = "io.github.jpauldev.lanternfin"
         minSdk = 26
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()

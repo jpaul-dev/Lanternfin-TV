@@ -1699,7 +1699,7 @@ function pushEpisodePresence(episode) {
     details: series.name || "Watching a series",
     state: `S${episode.season || currentSeason || "?"}E${episode.episode_num || "?"} · ${episode.title || ""}`.trim(),
     largeImage: series.logo || "logo",
-    largeText: series.name || "Extreme InfiniTV",
+    largeText: series.name || "Lanternfin TV",
     smallImage: "series",
     smallText: "Series",
     startTimestamp: Date.now(),

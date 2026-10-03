@@ -32,6 +32,9 @@ function jsonResponse(body: unknown, ok = true, status = 200) {
 }
 
 beforeEach(() => {
+  vi.stubEnv("PUBLIC_TVDB_PROXY_URL", "https://metadata.example.test")
+  const settings = new Map([["xt_tvdb_enabled", "1"]])
+  vi.stubGlobal("localStorage", { getItem: (key: string) => settings.get(key) ?? null })
   vi.clearAllMocks()
   resetTvdbProxyRateLimitForTests()
   cachedFetchMock.mockImplementation(async (_id, _kind, _ttl, fetcher) => ({

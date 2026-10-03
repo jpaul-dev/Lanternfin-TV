@@ -1056,7 +1056,7 @@ const navStructure: NavSection[] = [
                     <span data-i18n="settings.discord.title">Discord Rich Presence</span>
                   </h3>
                   <span data-i18n="settings.discord.helperLong" class="text-xs text-fg-3 line-clamp-1 block">
-                    Show "Watching X on Extreme InfiniTV" on your Discord profile while you use the app. On by default; uncheck a playlist below to mute presence for that account. Desktop only - requires Discord running on the same machine.
+                    Show "Watching X on Lanternfin TV" on your Discord profile while you use the app. On by default; uncheck a playlist below to mute presence for that account. Desktop only - requires Discord running on the same machine.
                   </span>
                 </span>
                 <span class="settings-row__control">
@@ -1106,7 +1106,7 @@ const navStructure: NavSection[] = [
                     </span>
                   </h3>
                   <span id="receiver-summary-helper" data-i18n="settings.receiver.helperLong" class="text-xs text-fg-3 line-clamp-1 block">
-                    Let other devices running Extreme InfiniTV send playback to this one over your local network.
+                    Let other devices running Lanternfin TV send playback to this one over your local network.
                   </span>
                   <span id="receiver-summary-status" class="hidden text-xs text-fg-3 line-clamp-1 block"></span>
                 </span>
@@ -1246,7 +1246,7 @@ const navStructure: NavSection[] = [
                   <div class="settings-row__text">
                     <h3 data-i18n="settings.receiver.screensaver.title" class="text-sm font-medium leading-snug">Screensaver</h3>
                     <p data-i18n="settings.receiver.screensaver.helper" class="text-xs text-fg-3">
-                      Select Extreme InfiniTV as the system screensaver to see artwork from your library while idle.
+                      Select Lanternfin TV as the system screensaver to see artwork from your library while idle.
                     </p>
                   </div>
                   <div class="settings-row__control">
@@ -1346,7 +1346,7 @@ const navStructure: NavSection[] = [
               <script is:inline>
                 try {
                   var tvdbEnabledRaw = localStorage.getItem("xt_tvdb_enabled");
-                  var tvdbEnabledOn = tvdbEnabledRaw !== "0";
+                  var tvdbEnabledOn = tvdbEnabledRaw === "1";
                   var tvdbEnabledGroup = document.getElementById("settings-tvdb-enabled");
                   if (tvdbEnabledGroup) {
                     var tvdbEnabledBtns = tvdbEnabledGroup.querySelectorAll(".tvdb-enabled-btn");
@@ -1837,7 +1837,8 @@ const navStructure: NavSection[] = [
             <span class="icon-mark">
               <IconInfoCircle aria-hidden="true" stroke={2} />
             </span>
-            <h3 data-i18n="settings.about.title" class="text-base font-semibold">Extreme InfiniTV</h3>
+            <h3 data-i18n="settings.about.title" class="text-base font-semibold">Lanternfin TV</h3>
+            <p class="mt-2 text-sm text-muted">Independent fork of <a href="https://github.com/infinitel8p/Extreme-InfiniTV" target="_blank" rel="noopener noreferrer">Extreme InfiniTV</a> by Ludovico Ferrara / InfiniteL8p and contributors. Original copyright © 2025 Ludovico Ferrara. GPL-3.0-or-later. Independently maintained; no upstream endorsement.</p>
             <span
               id="update-pill"
               data-i18n="settings.about.updateAvailableShort"
@@ -1932,7 +1933,7 @@ const navStructure: NavSection[] = [
                   </button>
                   <a
                     id="update-github"
-                    href="https://github.com/infinitel8p/Extreme-InfiniTV/releases/latest"
+                    href="https://github.com/jpaul-dev/Lanternfin-TV/releases/latest"
                     target="_blank"
                     rel="noopener noreferrer"
                     data-external
@@ -2048,7 +2049,7 @@ const navStructure: NavSection[] = [
                   <span data-i18n="settings.licenses.lgplText">LGPL v2.1 license text</span>
                 </a>
                 <a
-                  href="https://github.com/infinitel8p/Extreme-InfiniTV/releases/tag/ffmpeg-sidecar-v2"
+                  href="https://github.com/jpaul-dev/Lanternfin-TV/releases/tag/ffmpeg-sidecar-v2"
                   target="_blank"
                   rel="noopener noreferrer"
                   data-external
@@ -2082,7 +2083,7 @@ const navStructure: NavSection[] = [
               <p class="text-xs text-fg-3">
                 <span data-i18n="settings.licenses.mpegtsPatch">mpegts.js ships with a small audio-track fallback patch.</span>
                 <a
-                  href="https://github.com/infinitel8p/Extreme-InfiniTV/blob/main/patches/mpegts.js.patch"
+                  href="https://github.com/jpaul-dev/Lanternfin-TV/blob/main/patches/mpegts.js.patch"
                   target="_blank"
                   rel="noopener noreferrer"
                   data-external
@@ -2188,7 +2189,7 @@ const navStructure: NavSection[] = [
           <div class="px-5 sm:px-6 pb-5">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <a
-                href="https://github.com/infinitel8p/Extreme-InfiniTV/issues/new/choose"
+                href="https://github.com/jpaul-dev/Lanternfin-TV/issues/new/choose"
                 target="_blank"
                 rel="noopener noreferrer"
                 data-external
@@ -2197,7 +2198,7 @@ const navStructure: NavSection[] = [
                 <span data-i18n="settings.help.reportIssue">Report a bug</span>
               </a>
               <a
-                href="https://github.com/infinitel8p/Extreme-InfiniTV/discussions/new/choose"
+                href="https://github.com/jpaul-dev/Lanternfin-TV/discussions/new/choose"
                 target="_blank"
                 rel="noopener noreferrer"
                 data-external
@@ -2248,8 +2249,8 @@ const navStructure: NavSection[] = [
             <h3 data-i18n="settings.support.title" class="text-base font-semibold">Like the app?</h3>
           </div>
           <div class="px-5 sm:px-6 pb-5 pt-4 flex flex-col gap-4">
-            <p data-i18n="settings.support.intro" class="text-sm text-fg-2">
-              Extreme InfiniTV is free and open source. If it saves you time or sweetens your living-room setup, a small tip helps cover hosting, signing certs, and the next round of features.
+            <p  class="text-sm text-fg-2">
+              These optional donation links support Ludovico Ferrara / InfiniteL8p, the original Extreme InfiniTV author. They do not fund or represent the Lanternfin TV fork.
             </p>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <a
@@ -2572,7 +2573,7 @@ const navStructure: NavSection[] = [
         const link = "color: oklch(0.78 0.15 330); text-decoration: underline;"
         // eslint-disable-next-line no-console
         console.log(
-          "%cExtreme InfiniTV%c  thanks for poking around. %csource & issues -> github.com/infinitel8p/Extreme-InfiniTV",
+          "%cLanternfin TV%c  thanks for poking around. %csource & issues -> github.com/jpaul-dev/Lanternfin-TV",
           heading,
           body,
           link,
@@ -4268,7 +4269,7 @@ const navStructure: NavSection[] = [
       if (isAndroid) {
         dirInput.value = v
           ? prettifyAndroidUri(v)
-          : "/Download/Extreme InfiniTV/ (default)"
+          : "/Download/Lanternfin TV/ (default)"
       } else {
         dirInput.value = v
       }
@@ -4555,7 +4556,7 @@ const navStructure: NavSection[] = [
     )
 
     const GITHUB_RELEASES_URL =
-      "https://github.com/infinitel8p/Extreme-InfiniTV/releases"
+      "https://github.com/jpaul-dev/Lanternfin-TV/releases"
 
     function setUpdateState(state) {
       if (updateSectionEl) updateSectionEl.setAttribute("data-state", state)

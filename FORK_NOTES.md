@@ -11,3 +11,11 @@ Local changes dated October 2, 2026 make standalone browsing the default on TV d
 The inherited publishing, deployment, funding, and automation workflows were removed on October 2, 2026. Their originals remain in Git history. New build workflows must produce fork-owned test artifacts without publishing to the original author's stores or services. This is an alpha project, not a store-ready release.
 
 Read the [security review and LG and Samsung roadmap](docs/fork-review/README.md) for findings, scan evidence, licensing work, platform scope, and the recommended implementation sequence.
+
+## Initial alpha changes, October 2, 2026
+
+- Android and Tauri identity: `io.github.jpauldev.lanternfin`, Lanternfin TV, version `0.1.0-alpha.1`. New vector icon, launcher artwork, banner, splash, and in-app branding. Original author credit remains in About and TV settings.
+- Removed the upstream update key; update/release links now identify this fork. Metadata relay access requires an independently configured HTTPS endpoint and explicit user opt-in.
+- HTTPS and scheme-less credential URLs no longer fall back to HTTP. Explicit HTTP sources remain usable. New credential saves expire the old playlist cookie instead of writing passwords into it. Local/native storage is still unencrypted.
+- Updated compatible dependency versions, including DOMPurify 3.4.16; unresolved advisories remain documented.
+- Added a read-only GitHub Actions workflow for frontend validation and ARM64/ARMv7 standalone Android TV APKs. CI packages are unsigned and are not store releases. See [alpha build instructions](docs/ALPHA_BUILDS.md).
