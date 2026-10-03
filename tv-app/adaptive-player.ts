@@ -2,6 +2,7 @@ import { htmlPlayer, samsungPlayer, type AVPlay, type Player, type Report } from
 import { browserHeaderProblem, needsAdaptivePlayer, type Media } from './media'
 import { wrapLicense, unwrapLicense } from './license-format'
 import { transportPlayer, transportType, loadTransportRuntime } from './transport-player'
+import { safeStats, type PlayerStats } from './diagnostics'
 
 type Request = { headers: Record<string, string>; body?: ArrayBuffer | ArrayBufferView | string | null }
 type AdaptiveTrack = { id?: number; active: boolean; language: string; label?: string; roles?: string[]; channelsCount?: number; codecs?: string; spatialAudio?: boolean }
@@ -16,6 +17,7 @@ type Engine = {
   getAudioTracks?(): AdaptiveTrack[]; getTextTracks?(): AdaptiveTrack[]
   selectAudioTrack?(track: AdaptiveTrack, safeMargin?: number): void; selectTextTrack?(track: AdaptiveTrack | null): void
   getVideoTracks?(): VideoTrack[]; selectVideoTrack?(track: VideoTrack, clearBuffer?: boolean, safeMargin?: number): void
+  getStats?(): { estimatedBandwidth?: number; decodedFrames?: number; droppedFrames?: number }
 }
 type Shaka = { Player: { new(): Engine; isBrowserSupported(): boolean }; polyfill: { installAll(): void }; net: { NetworkingEngine: { RequestType: { LICENSE: number; MANIFEST: number; SEGMENT: number; KEY?: number } } } }
 let runtime: Promise<Shaka> | undefined
@@ -47,6 +49,7 @@ export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka
     queue = Promise.all([queue.catch(() => {}), closing]).then(() => {})
   }
   return {
+    diagnostics() { try { const stats = engine?.getStats?.(); return safeStats({ bandwidth: stats?.estimatedBandwidth, decodedFrames: stats?.decodedFrames, droppedFrames: stats?.droppedFrames }) } catch { return {} } },
     play(input, position = 0) {
       stop(); const token = generation, media = typeof input === 'string' ? { url: input } : input
       automaticQuality = true
@@ -160,6 +163,14 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
     } else report(state, detail)
   }, getShaka)
   return {
+    diagnostics() {
+      const engine = current === samsung ? 'samsung' : current === adaptive ? 'shaka' : current === transport ? 'mpegts' : 'html'
+      if (engine === 'samsung') return { engine }
+      const stats: PlayerStats = { engine, width: video.videoWidth, height: video.videoHeight }
+      try { const frames = video.getVideoPlaybackQuality?.(); stats.decodedFrames = frames?.totalVideoFrames; stats.droppedFrames = frames?.droppedVideoFrames } catch {}
+      try { for (let i = 0; i < video.buffered.length; i++) if (video.buffered.start(i) <= video.currentTime && video.buffered.end(i) >= video.currentTime) stats.bufferedSeconds = video.buffered.end(i) - video.currentTime } catch {}
+      return safeStats({ ...stats, ...current.diagnostics?.() })
+    },
     play(input, position) {
       current.stop()
       const token = ++generation, previous = current

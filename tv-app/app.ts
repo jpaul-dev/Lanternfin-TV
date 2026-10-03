@@ -1,6 +1,8 @@
 import './app.css'
 import { backupUI } from './backup-ui'
 import { ScreenSaver, bindLifecycle, type AppCommon } from './lifecycle'
+import { PlaybackDiagnostics, capabilities, buildInfo, type DiagnosticReport } from './diagnostics'
+import { diagnosticsUI } from './diagnostics-ui'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
 import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, sourceId, type SourceProfile } from './profiles'
@@ -35,9 +37,10 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const input = (id: string) => $<HTMLInputElement>(id)
 const select = (id: string) => $<HTMLSelectElement>(id)
 const button = (id: string) => $<HTMLButtonElement>(id)
-type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail' | 'programme' | 'account' | 'backup'
+type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail' | 'programme' | 'account' | 'backup' | 'diagnostics'
 let screen: Screen = 'setup', previousScreen: Screen = 'setup'
 let backupReturn: 'settings' | 'setup' = 'settings'
+let diagnosticsReturn: 'settings' | 'setup' = 'settings'
 let channels: Channel[] = [], filtered: Channel[] = [], page = 0, lastChannel = 0
 let state: State = 'idle', player: Player | undefined, loading: AbortController | undefined
 let controlsTimer: ReturnType<typeof setTimeout> | undefined
@@ -68,6 +71,7 @@ let guidePage = 0, selectedProgramme: Programme | undefined, programmeChannel: C
 let currentGuideSlot: number | undefined
 const catalogCache = new CatalogCache()
 const screenSaver = new ScreenSaver(__TV_TARGET__ === 'tizen' ? window.webapis?.appcommon : undefined)
+const playbackDiagnostics = new PlaybackDiagnostics()
 let suspendedIndex: ProviderIndex | undefined
 let away = document.hidden
 let keepActiveLibrary = false, cacheSaving: AbortController | undefined, cacheAttempted: ProviderIndex | undefined, forceFresh = false
@@ -79,8 +83,10 @@ try { preferenceStorage = localStorage; preferences = readPreferences(localStora
 applyPreferences(preferences)
 
 const backups = backupUI($('backup'), () => localStorage, count => { try { sessionStorage.setItem('lanternfin.restored', String(count)) } catch {}; window.location.reload() })
+const diagnostics = diagnosticsUI($('diagnostics'), (): DiagnosticReport => ({ schema: 1, app: buildInfo(__TV_TARGET__), capabilities: capabilities(document.querySelector('video') || document.createElement('video')), samsungPlayer: !!window.webapis?.avplay, screenSaver: screenSaver.status, playback: playbackDiagnostics.snapshot() }), () => playbackDiagnostics.clear())
 function show(next: Screen) {
   if (screen === 'backup' && next !== 'backup') backups.close()
+  if (screen === 'diagnostics' && next !== 'diagnostics') diagnostics.close()
   if (next !== 'account') { accountLoading?.abort(); accountLoading = undefined }
   if (next !== 'programme') { replayLoading?.abort(); replayLoading = undefined }
   $('card-menu').hidden = true
@@ -89,8 +95,8 @@ function show(next: Screen) {
   if (!['detail', 'playback', 'resume'].includes(next)) cancelDetails()
   screen = next
   document.documentElement.dataset.screen = next
-  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup']) $(id).hidden = id !== next
-  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account', 'backup'].includes(next)
+  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics']) $(id).hidden = id !== next
+  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account', 'backup', 'diagnostics'].includes(next)
   document.documentElement.classList.toggle('in-library', !$('tv-nav').hidden)
   $('player-surface').hidden = next !== 'playback'
   document.documentElement.classList.toggle('watching', next === 'playback')
@@ -276,6 +282,8 @@ function controls() {
 }
 function report(next: State, detail?: string) {
   state = next
+  playbackDiagnostics.record(next, detail)
+  if (['playing', 'paused', 'buffering'].includes(next)) playbackDiagnostics.sample(player?.diagnostics?.())
   screenSaver.update(!away && !document.hidden && (next === 'playing' || next === 'buffering' && hasPlayed))
   $('player-status').textContent = detail || ({ loading: 'Opening stream…', playing: 'Playing', paused: 'Paused', buffering: 'Buffering…', ended: 'Stream ended', error: 'Playback unavailable', idle: '' })[next]
   button('toggle').textContent = next === 'paused' ? 'Resume' : 'Pause'
@@ -339,6 +347,7 @@ function playChannel(channel: Channel) {
 }
 function startWatching(channel: Channel, position = 0) {
   cancelNextEpisode()
+  playbackDiagnostics.begin(channel, activeSource?.kind || 'unknown')
   if (__TV_TARGET__ === 'tizen' && !window.webapis?.avplay) { notice('Samsung AVPlay is unavailable. Install the signed TV package on a supported Samsung TV.'); return }
   if (!player) {
     const surface = $('player-surface')
@@ -430,6 +439,7 @@ function updateFavorite() {
 }
 function saveProgress(ended = false) {
   if (!currentChannel || !hasPlayed) return
+  if (!ended) playbackDiagnostics.sample(player?.diagnostics?.())
   const timeline = player?.timeline()
   if (!ended && timeline && Number.isFinite(timeline.position) && timeline.position > 0) lastTimeline = timeline
   try { library?.record(currentChannel, lastTimeline.position, lastTimeline.duration, ended || state === 'ended'); rememberLibraryChannel(currentChannel); lastSaved = Date.now() }
@@ -486,6 +496,7 @@ function back() {
   else if (screen === 'settings') goHome()
   else if (screen === 'account') show('settings')
   else if (screen === 'backup') show(backupReturn)
+  else if (screen === 'diagnostics') show(diagnosticsReturn)
   else if (screen === 'catalog' && providerLoading) { cancelProviderLoad(); notice('Loading cancelled.') }
   else if (screen === 'catalog' && browseView !== 'home') goHome()
   else if (screen === 'catalog') show('exit')
@@ -950,6 +961,8 @@ $('nav-settings').onclick = () => { cancelProviderLoad(); show('settings'); sync
 $('settings-back').onclick = goHome
 for (const [id, from] of [['settings-backup', 'settings'], ['setup-backup', 'setup']] as const) $(id).onclick = () => { backupReturn = from; backups.open(); button('backup-back').textContent = from === 'setup' ? 'Back to sources' : 'Back to settings'; show('backup') }
 $('backup-back').onclick = () => show(backupReturn)
+for (const from of ['setup', 'settings'] as const) $(`${from}-diagnostics`).onclick = () => { diagnosticsReturn = from; diagnostics.open(); show('diagnostics') }
+$('diagnostics-back').onclick = () => show(diagnosticsReturn)
 $('settings-source').onclick = () => show('setup')
 $('settings-clear-cache').onclick = async () => { cacheSaving?.abort(); try { await catalogCache.forget(); $('settings-note').textContent = 'Saved catalogs cleared. Sources, favorites and playback progress are retained. The next library refresh can save a new catalog.' } catch { $('settings-note').textContent = 'Saved catalogs could not be cleared. Try clearing app data in TV settings.' } }
 $('settings-refresh').onclick = () => button('refresh-catalog').click()
