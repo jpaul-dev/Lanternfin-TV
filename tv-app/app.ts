@@ -1,5 +1,6 @@
 import './app.css'
 import { backupUI } from './backup-ui'
+import { ScreenSaver, bindLifecycle, type AppCommon } from './lifecycle'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
 import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, sourceId, type SourceProfile } from './profiles'
@@ -26,7 +27,7 @@ import { ACCENTS, LANGUAGES, DEFAULTS, readPreferences, savePreferences, normali
 declare const __TV_TARGET__: 'webos' | 'tizen' | 'browser'
 declare global {
   interface Window {
-    webapis?: { avplay?: AVPlay }
+    webapis?: { avplay?: AVPlay; appcommon?: AppCommon }
     tizen?: { tvinputdevice?: { registerKey(key: string): void }; application?: { getCurrentApplication(): { exit(): void } } }
   }
 }
@@ -66,6 +67,9 @@ let hasPlayed = false, currentAspect: Aspect = 'fit'
 let guidePage = 0, selectedProgramme: Programme | undefined, programmeChannel: Channel | undefined, replayLoading: AbortController | undefined
 let currentGuideSlot: number | undefined
 const catalogCache = new CatalogCache()
+const screenSaver = new ScreenSaver(__TV_TARGET__ === 'tizen' ? window.webapis?.appcommon : undefined)
+let suspendedIndex: ProviderIndex | undefined
+let away = document.hidden
 let keepActiveLibrary = false, cacheSaving: AbortController | undefined, cacheAttempted: ProviderIndex | undefined, forceFresh = false
 const knownLibraryChannels = new Map<string, Channel>()
 const PAGE_SIZE = 24
@@ -272,6 +276,7 @@ function controls() {
 }
 function report(next: State, detail?: string) {
   state = next
+  screenSaver.update(!away && !document.hidden && (next === 'playing' || next === 'buffering' && hasPlayed))
   $('player-status').textContent = detail || ({ loading: 'Opening stream…', playing: 'Playing', paused: 'Paused', buffering: 'Buffering…', ended: 'Stream ended', error: 'Playback unavailable', idle: '' })[next]
   button('toggle').textContent = next === 'paused' ? 'Resume' : 'Pause'
   button('toggle').disabled = !['playing', 'paused', 'buffering'].includes(next)
@@ -597,10 +602,31 @@ $('card-menu-watched').onclick = async () => {
 }
 document.addEventListener('change', () => { nativeSelectOpen = false })
 document.addEventListener('focusin', () => { nativeSelectOpen = false; if (heldCard && !holdOpened && heldCard !== document.activeElement) { clearTimeout(holdTimer); heldCard = undefined } })
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { cancelLoad(); cancelProviderLoad(); if (screen === 'playback') { stopWatching(); notice('Playback stopped while the app was away. Select a stream to continue.'); } }
+bindLifecycle(document, window, () => {
+  away = true; screenSaver.release()
+  suspendedIndex = providerIndex?.progress.running ? providerIndex : undefined
+  providerIndex?.pause(); renderIndexStatus()
+  const interrupted = !!loading || !!providerLoading
+  cancelLoad(); cancelProviderLoad(); cancelGuide(); searching?.abort(); clearTimeout(searchTimer)
+  clearTimeout(indexTimer); indexTimer = undefined
+  cancelHomeRows(); clearTimeout(holdTimer); heldCard = undefined; holdOpened = false
+  $('card-menu').hidden = true
+  if (detailLoading) { cancelDetails(); $('detail-status').textContent = 'Details loading stopped while the app was away.'; $('detail-retry').hidden = false; renderEpisodes() }
+  if (accountLoading) { accountLoading.abort(); accountLoading = undefined; button('account-retry').disabled = false; $('account-status').textContent = 'Account check stopped. Choose Refresh account to try again.' }
+  if (replayLoading) { replayLoading.abort(); replayLoading = undefined; button('programme-replay').disabled = false; $('programme-note').textContent = 'Replay preparation stopped. Select Watch replay to try again.' }
+  if (screen === 'backup') { backups.close(); notice('Backup fields were cleared while the app was away.') }
+  if (screen === 'playback') { stopWatching(); notice('Playback stopped while the app was away. Select a stream to continue.') }
+  else if (interrupted) notice('Loading stopped while the app was away. Select the source or category again to continue.')
+}, () => {
+  away = false; screenSaver.release()
+  syncGuideDays()
+  const index = suspendedIndex; suspendedIndex = undefined
+  if (index && index === providerIndex) startIndex()
+  if (screen === 'catalog') {
+    if (browseView === 'home') renderHome()
+    else { void filter(false); if (browseView === 'live' && guideChannel) selectGuide(guideChannel) }
+  }
 })
-window.addEventListener('pagehide', () => { cancelLoad(); cancelProviderLoad(); cancelGuide(); guide?.clear(); providerIndex?.pause(); saveProgress(); player?.stop() })
 window.addEventListener('offline', () => { if (screen === 'playback') { saveProgress(); player?.stop(); report('error', 'The TV is offline. Reconnect to your network, then choose Retry stream.') } })
 for (const key of ['MediaPlay', 'MediaPause', 'MediaPlayPause', 'MediaStop', 'MediaRewind', 'MediaFastForward', 'MediaTrackNext', 'ChannelUp', 'ChannelDown', 'Info', ...'0123456789']) {
   try { window.tizen?.tvinputdevice?.registerKey(key) } catch { /* not every remote has every key */ }
@@ -766,7 +792,7 @@ function renderIndexStatus() {
 }
 function startIndex() {
   const index = providerIndex
-  if (!index) return
+  if (!index || away) return
   void index.start(() => {
     if (index !== providerIndex) return
     renderIndexStatus()

@@ -16,6 +16,7 @@ This is the implementation checklist for the standalone TV ports. Reference: the
 | Downloads / offline | Not implemented | Investigate platform storage, codec/DRM persistence and developer/store permissions before selecting a supported design |
 | Casting / receiver | Deliberately absent from the standalone install | Optional future feature only; not required to watch |
 | Updates / distribution | Reproducible source builds, LG IPK, unsigned Samsung WGT, setup companion | Store/signing workflow, update design, final name/trademark and dependency review |
+| TV lifecycle | Samsung saver follows foreground playback; LG Type 2 configuration; standby saves progress and stops video; interrupted background indexing resumes while manual pauses persist; transient backup fields clear | Actual device standby, OLED dimming and saver validation |
 
 ## External validation gates
 
@@ -25,3 +26,9 @@ This is the implementation checklist for the standalone TV ports. Reference: the
 - Provider-controlled license access, allowed request headers, codec support and catch-up retention cannot be created by the UI framework. Never drop security/header requirements to force playback.
 
 These gates are not reasons to stop the software work listed above. Checkpoints will update this ledger as features are built and tested.
+
+## Screen saver and background work
+
+Samsung's documented [AppCommon API](https://developer.samsung.com/smarttv/develop/api-references/samsung-product-api-references/appcommon-api.html) is called with OFF only during foreground playback (including bounded buffering after playback starts). Pause, stop, errors and leaving the app request ON. Delayed OFF callbacks are corrected after a pause or background transition. Missing/failed APIs do not crash playback; the TV's own Auto Protection Time setting still applies. LG's [Type 2 configuration](https://webostv.developer.lge.com/develop/guides/screensaver) covers the player's on-screen controls on supported OLED models; no private power service is used.
+
+Visibility and page lifecycle events stop media, save existing progress, cancel foreground source/detail/guide/account/replay requests and pause provider indexing. Returning resumes an index only if it was running before suspension, without automatically restarting a stream. Transient backup contents and passphrases clear on background. Guide day choices refresh after returning. These behaviors have unit/UI integration coverage, not physical-TV standby certification.

@@ -9,6 +9,7 @@
   "largeIcon": "large-icon.png",
   "iconColor": "#102934",
   "disableBackHistoryAPI": true,
+  "screenSaverProperties": { "preferredType": 2 },
   "requiredACG": [],
   "resolution": "1920x1080"
 }
