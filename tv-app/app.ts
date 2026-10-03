@@ -2,13 +2,14 @@ import './app.css'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
 import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, sourceId, type SourceProfile } from './profiles'
-import { keyAction, moveFocus, type Direction } from './remote'
+import { keyAction, moveFocus, atPageEdge, pageEntry, type Direction } from './remote'
 import { type AVPlay, type Player, type State, type Aspect } from './player'
 import { tvPlayer } from './adaptive-player'
 import { channelCard, cardChannel, homeRows, cancelHomeRows } from './presentation'
 import { loadCategories, loadCategory, basicDetails, loadTitleDetails, type TitleDetails, type Category, type MediaKind } from './xtream'
 import { searchCatalog } from './search'
 import { sortCatalog } from './sort'
+import { providerLanguage, providerLanguageLabel, watchedFilter } from './browse-filters'
 import { TVLibrary, durationLabel, forgetLibraries, forgetLibrary } from './library'
 import { channelId } from './library'
 import { ProviderIndex } from './provider-index'
@@ -188,17 +189,25 @@ async function filter(resetPage = true) {
   $('result-count').textContent = 'Searching your streams…'
   button('previous').disabled = button('next').disabled = true
   try {
+    const tags = new Set<string>(), language = browseView === 'live' ? '' : select('language-filter').value
     const include = (channel: Channel) => {
       const kind = select('media-filter').value
       if (['search', 'all'].includes(browseView) && kind && (kind === 'series' ? !['series', 'episode'].includes(channel.mediaKind || '') : (channel.mediaKind || 'live') !== kind)) return false
-      if (input('hide-watched').checked && library?.isWatched(channel)) return false
-      if (libraryView === 'favorites') return !!library?.isFavorite(channel)
-      if (libraryView === 'recent') return !!library?.lastPlayed(channel)
-      return !['live', 'movie', 'series'].includes(browseView) || (browseView === 'series' ? ['series', 'episode'].includes(channel.mediaKind || '') : (channel.mediaKind || 'live') === browseView)
+      if (browseView !== 'live' && !watchedFilter(select('watched-filter').value, !!library?.isWatched(channel))) return false
+      if (libraryView === 'favorites' && !library?.isFavorite(channel)) return false
+      if (libraryView === 'recent' && !library?.lastPlayed(channel)) return false
+      if (['live', 'movie', 'series'].includes(browseView) && !(browseView === 'series' ? ['series', 'episode'].includes(channel.mediaKind || '') : (channel.mediaKind || 'live') === browseView)) return false
+      const tag = providerLanguage(channel); tags.add(tag)
+      return !language || language === tag
     }
     const pool = activeSource?.kind === 'xtream' && (libraryView !== 'all' || ['search', 'all'].includes(browseView)) ? libraryPool() : channels
     const matches = await sortCatalog(await searchCatalog(pool, input('search').value, select('group').value, controller.signal, include), browseView === 'live' ? 'provider' : select('sort-order').value, controller.signal)
     if (searching !== controller) return
+    const languageSelect = select('language-filter'); languageSelect.replaceChildren(new Option('All languages', ''))
+    if (language) tags.add(language)
+    for (const tag of [...tags].sort((a, b) => providerLanguageLabel(a).localeCompare(providerLanguageLabel(b)))) languageSelect.add(new Option(providerLanguageLabel(tag), tag))
+    languageSelect.value = language
+    $('language-field').hidden = !language && ![...tags].some(tag => tag !== 'untagged')
     if (libraryView === 'recent' && select('sort-order').value === 'provider') matches.sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
     filtered = matches; page = resetPage ? 0 : Math.min(page, Math.max(0, Math.ceil(matches.length / PAGE_SIZE) - 1)); render()
   } catch { /* Superseded searches do not replace current results. */ }
@@ -217,6 +226,8 @@ function render() {
   if (live && (!guideChannel || !filtered.includes(guideChannel))) selectGuide(filtered[page * PAGE_SIZE])
   if (guideChannel) button('guide-favorite').textContent = library?.isFavorite(guideChannel) ? '★ Favorited' : '☆ Favorite'
   $('result-count').textContent = `${filtered.length.toLocaleString()} ${filtered.length === 1 ? 'title' : 'titles'}${filtered.length ? '' : ' — try a different search or category'}${providerIndex && browseView === 'search' ? providerIndex.progress.complete ? ' · Entire library' : ' · Loaded titles; library is incomplete' : ''}`
+  input('page-jump').max = String(Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))); input('page-jump').value = String(page + 1)
+  button('page-go').disabled = filtered.length <= PAGE_SIZE
   $('page-label').textContent = `Page ${page + 1} of ${Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))}`
   button('previous').disabled = page === 0; button('next').disabled = (page + 1) * PAGE_SIZE >= filtered.length
   for (const view of ['all', 'favorites', 'recent']) button(`view-${view}`).setAttribute('aria-pressed', String(libraryView === view))
@@ -225,8 +236,17 @@ function render() {
 }
 input('search').oninput = () => { searching?.abort(); searchTimer && clearTimeout(searchTimer); searchTimer = setTimeout(filter, 180) }
 select('group').onchange = () => { void filter() }
-for (const id of ['media-filter', 'sort-order', 'hide-watched']) $(id).onchange = () => { void filter() }
-for (const [id, delta] of [['previous', -1], ['next', 1]] as const) $(id).onclick = () => { page += delta; render(); $('channels').querySelector('button')?.focus() }
+for (const id of ['media-filter', 'sort-order', 'watched-filter', 'language-filter']) $(id).onchange = () => { void filter() }
+for (const [id, delta] of [['previous', -1], ['next', 1]] as const) $(id).onclick = () => changePage(page + delta)
+function changePage(next: number, x?: number) {
+  if (searching || next < 0 || next * PAGE_SIZE >= filtered.length || next === page) return
+  const direction = next > page ? 'down' : 'up'; page = next; render()
+  const items = [...$('channels').querySelectorAll<HTMLElement>('button')], index = x === undefined ? 0 : pageEntry(items.map(item => item.getBoundingClientRect()), x, direction)
+  items[index]?.focus(); items[index]?.scrollIntoView?.({ block: 'nearest' })
+}
+$('page-go').onclick = () => { const value = Number(input('page-jump').value); if (Number.isInteger(value)) changePage(Math.max(0, Math.min(Math.ceil(filtered.length / PAGE_SIZE) - 1, value - 1))) }
+input('page-jump').onkeydown = event => { if (event.key === 'Enter') { event.preventDefault(); button('page-go').click() } }
+$('reset-filters').onclick = () => { input('search').value = ''; for (const id of ['group', 'media-filter', 'language-filter']) select(id).value = ''; select('watched-filter').value = 'all'; select('sort-order').value = 'provider'; void filter() }
 $('change-source').onclick = () => { cancelProviderLoad(); show('setup') }
 $('return-catalog').onclick = () => { cancelLoad(); show('catalog') }
 for (const view of ['all', 'favorites', 'recent'] as const) $(`view-${view}`).onclick = () => { cancelProviderLoad(); libraryView = view; browseView = 'all'; input('search').value = ''; select('group').value = ''; browseLayout(view === 'all' ? 'All streams' : view === 'favorites' ? 'Favorites' : 'Recently watched'); void filter() }
@@ -502,11 +522,12 @@ document.addEventListener('keydown', event => {
   }
   if (active instanceof HTMLSelectElement && nativeSelectOpen) { if (action === 'back') nativeSelectOpen = false; return }
   if (action === 'back') { event.preventDefault(); back(); return }
-  if (screen === 'catalog' && browseView === 'live' && active?.closest('#channels') && ['up', 'down'].includes(action)) {
-    const items = [...$('channels').querySelectorAll<HTMLElement>('button')], index = items.indexOf(active as HTMLElement)
-    if ((action === 'down' && index === items.length - 1 && (page + 1) * PAGE_SIZE < filtered.length) || (action === 'up' && index === 0 && page > 0)) {
-      event.preventDefault(); page += action === 'down' ? 1 : -1; render()
-      const next = $('channels').querySelectorAll<HTMLElement>('button'); next[action === 'down' ? 0 : next.length - 1]?.focus(); return
+  if (screen === 'catalog' && active?.closest('#channels')) {
+    const items = [...$('channels').querySelectorAll<HTMLElement>('button')], index = items.indexOf(active as HTMLElement), boxes = items.map(item => item.getBoundingClientRect())
+    const direction = action === 'channel-down' ? 'down' : action === 'channel-up' ? 'up' : action
+    if (direction === 'up' || direction === 'down') {
+      const next = page + (direction === 'down' ? 1 : -1), explicit = action.startsWith('channel-')
+      if ((explicit || atPageEdge(boxes, index, direction)) && next >= 0 && next * PAGE_SIZE < filtered.length) { event.preventDefault(); changePage(next, boxes[index].left + boxes[index].width / 2); return }
     }
   }
   if (screen === 'playback' && active === input('seek-position') && ['left', 'right'].includes(action)) { event.preventDefault(); controls(); const field = input('seek-position'); field.value = String(Math.max(0, Math.min(Number(field.max), Number(field.value) + (action === 'left' ? -10 : 10)))); field.dispatchEvent(new Event('input')); field.dispatchEvent(new Event('change')); return }

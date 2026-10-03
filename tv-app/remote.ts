@@ -1,5 +1,16 @@
 export type Direction = 'left' | 'right' | 'up' | 'down'
 export type Box = { left: number; top: number; width: number; height: number }
+export function atPageEdge(boxes: Box[], index: number, direction: 'up' | 'down'): boolean {
+  const current = boxes[index]
+  return !!current && !boxes.some(box => direction === 'down' ? box.top > current.top + 4 : box.top < current.top - 4)
+}
+export function pageEntry(boxes: Box[], x: number, direction: 'up' | 'down'): number {
+  if (!boxes.length) return -1
+  const row = direction === 'down' ? Math.min(...boxes.map(box => box.top)) : Math.max(...boxes.map(box => box.top))
+  let best = 0, distance = Infinity
+  boxes.forEach((box, index) => { const dx = Math.abs(box.left + box.width / 2 - x); if (Math.abs(box.top - row) <= 4 && dx < distance) { best = index; distance = dx } })
+  return best
+}
 export function nextFocus(origin: Box, boxes: Box[], direction: Direction): number {
   const x = origin.left + origin.width / 2, y = origin.top + origin.height / 2
   let best = -1, score = Infinity

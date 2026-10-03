@@ -224,3 +224,10 @@ Kodi's ordinary `|R` license response is accepted. The documented base64/decimal
 Playback settings now exposes 0.5–2× speed for finite HTML/MSE video and 1×/2× for compatible Samsung native VOD. Live channels keep normal speed; each new stream resets speed. Samsung rates and audio behavior depend on the protocol/device and failures are reported.
 
 Validation: TV type checks and the full suite passed **173 files / 3,172 tests**. The browser decoded and paused a public 10-second MPEG-TS segment from Mux's Big Buck Bunny sample and accepted 1.5× speed. Controlled tests cover delayed startup, stale errors, teardown failures, timeouts, forbidden-header/DRM rejection, native speeds and license wrappers. This does not validate real provider DRM, continuous live TS streams, or native TV playback.
+
+
+### Large-library remote browsing (2026-10-03)
+
+Poster grids now continue across pages with Up/Down while keeping the selected column. Page Up/Down (or channel keys while focused on the catalog) jump pages; a bounded page-number field supports distant jumps. Filters include Only watched, Hide watched, provider title-language tags, and Reset filters. Language tags reuse the original Android helper and do not assert which audio tracks a stream contains. Only watched resolves marks against loaded catalog/bookmarked titles; episodes absent from that pool appear after their series/history is loaded.
+
+Validation: **174 files / 3,173 tests** passed. Browser checks covered remote page continuation in a 60-title fixture, French filtering to 30 titles and the final six-title page. Controlled UI tests also mark/unmark watched titles through card actions while filtered. The fixture contains generated artwork and no playable media.
