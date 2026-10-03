@@ -20,6 +20,7 @@ it('loads subtitles in playback, switches tracks, adjusts captions, cancels edit
   video.currentTime = 5; video.dispatchEvent(new Event('playing'))
   await click('tracks-open'); choose('subtitle-track', '0'); expect(embedded.mode).toBe('showing')
   vi.stubGlobal('fetch', vi.fn(async () => new Response('WEBVTT\n\n00:04.000 --> 00:06.000\n<img src=x> First\n\n00:07.000 --> 00:09.000\nSecond')))
+  expect(el<HTMLInputElement>('subtitle-file').accept).toContain('.ass,.ssa')
   await click('subtitle-add'); el<HTMLInputElement>('subtitle-url').value = 'https://captions.example/test.vtt'
   const cursor = new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }); document.dispatchEvent(cursor)
   expect(cursor.defaultPrevented).toBe(false); expect(document.activeElement).toBe(el('subtitle-url'))

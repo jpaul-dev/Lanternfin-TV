@@ -5,7 +5,7 @@ export const SUBTITLE_BYTES = 2 * 1024 * 1024
 const MAX_CUES = 20000, MAX_TIME = 7 * 24 * 60 * 60
 export type SubtitleCue = { start: number; end: number; text: string }
 const stopped = (signal?: AbortSignal) => { if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError') }
-const invalid = () => new SubtitleError('Use a UTF-8 SRT or WebVTT file with valid timestamps and plain text.')
+const invalid = () => new SubtitleError('Use a UTF-8 SRT, WebVTT, ASS or SSA file with valid timestamps and plain text.')
 
 function timestamp(value: string): number {
   const match = /^(?:(\d{1,3}):)?(\d{2}):(\d{2})[.,](\d{3})$/.exec(value)
@@ -20,12 +20,108 @@ function plainText(value: string): string {
     .trim()
 }
 
-/** Text-only, file-relative SRT/WebVTT. Advanced cue placement/styles and live timestamp maps are not supported. */
+function assTimestamp(value: string): number {
+  const match = /^(\d{1,3}):(\d{2}):(\d{2})\.(\d{2})$/.exec(value.trim())
+  if (!match || Number(match[2]) > 59 || Number(match[3]) > 59) throw invalid()
+  return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(match[4]) / 100
+}
+
+function assText(value: string, defaultWrap: number): string {
+  let text = '', drawing = false, wrap = defaultWrap
+  for (let i = 0; i < value.length; i++) {
+    if (value[i] === '{') {
+      const end = value.indexOf('}', i + 1)
+      if (end < 0) throw invalid()
+      // Only interpret text/drawing boundaries and line breaks. Never evaluate styles,
+      // transforms, embedded fonts, links or ASS/SSA command/picture/sound events.
+      let depth = 0
+      for (let j = i + 1; j < end; j++) {
+        if (value[j] === '(') { depth++; continue }
+        if (value[j] === ')') { depth = Math.max(0, depth - 1); continue }
+        if (value[j] !== '\\' || depth) continue
+        let next = j + 1
+        while (next < end && !'\\()'.includes(value[next])) next++
+        const tag = value.slice(j + 1, next).trim()
+        if (/^p\d*$/.test(tag)) drawing = Number(tag.slice(1)) > 0
+        else if (/^q[0-3]?$/.test(tag)) wrap = tag.length > 1 ? Number(tag[1]) : defaultWrap
+        else if (tag.startsWith('r')) { drawing = false; wrap = defaultWrap }
+        j = next - 1
+      }
+      i = end; continue
+    }
+    if (drawing) continue
+    if (value[i] === '\\' && 'Nnh'.includes(value[i + 1] || '\0')) {
+      const escape = value[++i]
+      text += escape === 'h' ? '\u00a0' : escape === 'N' || wrap === 2 ? '\n' : ' '
+    } else text += value[i]
+    if (text.length > 4096) throw invalid()
+  }
+  // Preserve ASS hard spaces (including at the edges), and literal HTML/entities.
+  return text.replace(/^[ \t\n]+|[ \t\n]+$/g, '')
+}
+
+async function parseAss(text: string, signal?: AbortSignal): Promise<SubtitleTimeline> {
+  const cues: SubtitleCue[] = [], sections = new Set<string>(), lines = text.split('\n')
+  let section = '', scriptType = '', wrap = 0, fields: string[] | undefined, events = 0, turn = performance.now()
+  for (let i = 0; i < lines.length; i++) {
+    stopped(signal)
+    if (i % 256 === 255 || performance.now() - turn >= 10) { await new Promise(resolve => setTimeout(resolve, 0)); stopped(signal); turn = performance.now() }
+    if (lines[i].length > 16384) throw invalid()
+    const line = lines[i].trimStart()
+    if (!line.trim() || line.startsWith(';')) continue
+    const header = /^\[([^\]]+)\][ \t]*$/.exec(line)
+    if (header) {
+      section = header[1].toLowerCase()
+      if (sections.has(section) || sections.size >= 64) throw invalid()
+      sections.add(section)
+      if (section === 'events' && !scriptType) throw invalid()
+      continue
+    }
+    const record = /^([A-Za-z][A-Za-z ]*):[ \t]*(.*)$/.exec(line)
+    if (!record) continue
+    const key = record[1].trim().toLowerCase(), value = record[2]
+    if (section === 'script info') {
+      if (key === 'scripttype') {
+        if (scriptType) throw invalid()
+        scriptType = value.trim().toLowerCase()
+        if (!['v4.00', 'v4.00+'].includes(scriptType)) throw new SubtitleError('Use ASS v4+ or SSA v4 subtitles. This script version is not supported.')
+      } else if (key === 'wrapstyle') {
+        if (!/^[0-3]$/.test(value.trim())) throw invalid()
+        wrap = Number(value.trim())
+      }
+    } else if (section === 'events') {
+      if (key === 'format') {
+        if (fields) throw invalid()
+        fields = value.split(',').map(field => field.trim().toLowerCase())
+        if (fields.length < 3 || fields.length > 32 || new Set(fields).size !== fields.length || fields.some(field => !/^[a-z][a-z0-9 ]{0,31}$/.test(field)) || fields[fields.length - 1] !== 'text' || !fields.includes('start') || !fields.includes('end')) throw invalid()
+      } else if (key === 'dialogue') {
+        if (!fields) throw invalid()
+        if (++events > MAX_CUES) throw new SubtitleError('Subtitle files must contain no more than 20,000 cues.')
+        // Text is the final field and may itself contain commas; metadata may not.
+        const values: string[] = []; let offset = 0
+        for (let field = 0; field < fields.length - 1; field++) {
+          const comma = value.indexOf(',', offset)
+          if (comma < 0) throw invalid()
+          values.push(value.slice(offset, comma)); offset = comma + 1
+        }
+        const start = assTimestamp(values[fields.indexOf('start')]), end = assTimestamp(values[fields.indexOf('end')])
+        if (!(end > start) || end > MAX_TIME) throw invalid()
+        const body = assText(value.slice(offset), wrap)
+        if (body) cues.push({ start, end, text: body })
+      }
+    }
+  }
+  if (!cues.length) throw new SubtitleError('This file has no supported subtitle cues.')
+  return new SubtitleTimeline(cues)
+}
+
+/** Text-only, file-relative SRT/WebVTT/ASS/SSA. No advanced layout, fonts, drawings or live timestamp maps. */
 export async function parseSubtitles(text: string, signal?: AbortSignal): Promise<SubtitleTimeline> {
   stopped(signal)
   if (text.length > SUBTITLE_BYTES || new TextEncoder().encode(text).length > SUBTITLE_BYTES) throw new SubtitleError('Subtitle files must be 2 MB or smaller.')
   text = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
   if (text.includes('\0')) throw invalid()
+  if (/^(?:[ \t]*(?:;[^\n]*)?\n)*[ \t]*\[Script Info\][ \t]*(?:\n|$)/i.test(text)) return parseAss(text, signal)
   const blocks = text.split(/\n[\t ]*\n/), cues: SubtitleCue[] = []
   const webvtt = /^WEBVTT(?:[ \t].*)?(?:\n|$)/.test(blocks[0])
   if (webvtt && /(?:^|\n)X-TIMESTAMP-MAP[=:]/i.test(blocks[0])) throw new SubtitleError('Live WebVTT timestamp maps are not supported. Use a subtitle file timed from the start of this video.')
