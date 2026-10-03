@@ -1,4 +1,5 @@
 import { httpUrl } from './catalog'
+import { localDownload } from './downloads'
 import type { Media } from './media'
 import type { PlayerStats } from './diagnostics'
 export type State = 'loading' | 'playing' | 'paused' | 'buffering' | 'ended' | 'error' | 'idle'
@@ -40,7 +41,7 @@ export function samsungPlayer(api: AVPlay, report: Report): Player {
         const media = typeof url === 'string' ? { url } : url
         live = media.mediaKind === 'live'
         if (media.playback?.drm || media.playback?.problem) throw new Error('Use the adaptive player for DRM.')
-        api.open(httpUrl(media.url))
+        api.open(localDownload(media) || httpUrl(media.url))
         dash = /\.mpd(?:\?|$)/i.test(media.url) || ['mpd', 'dash'].includes(media.playback?.manifestType || '')
         subtitlesHidden = true
         try { api.setSilentSubtitle?.(true) } catch { /* Optional subtitle support must not prevent video playback. */ }

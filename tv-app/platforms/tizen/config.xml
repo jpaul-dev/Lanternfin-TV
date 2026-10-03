@@ -10,6 +10,9 @@
   <access origin="*" subdomains="true" />
   <tizen:privilege name="http://tizen.org/privilege/internet" />
   <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice" />
+  <tizen:privilege name="http://tizen.org/privilege/download" />
+  <tizen:privilege name="http://tizen.org/privilege/filesystem.read" />
+  <tizen:privilege name="http://tizen.org/privilege/filesystem.write" />
   <tizen:privilege name="http://developer.samsung.com/privilege/drmplay" />
   <tizen:profile name="tv-samsung" />
   <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable" />

@@ -24,11 +24,12 @@
       <div class="nav-divider"></div>
       <button id="view-favorites" aria-pressed="false"><span aria-hidden="true">☆</span>Favorites</button>
       <button id="view-recent" aria-pressed="false"><span aria-hidden="true">◷</span>Recent</button>
+      <button id="nav-downloads"><span aria-hidden="true">↓</span>Downloads</button>
       <button id="nav-settings"><span aria-hidden="true">⚙</span>Settings</button>
     </nav>
     <header><div class="brand"><img src="icon.png" alt="" width="56" height="56"><span>Lanternfin <b>TV</b></span></div><span id="platform" class="badge">TV development build</span></header>
     <section id="setup" class="panel">
-      <div class="intro"><p class="eyebrow">YOUR STREAMS. YOUR SCREEN.</p><h1>Settle in.</h1><p>Connect your own playlist and watch directly on your TV.</p><p class="muted">No casting device needed. No channels are included.</p><div id="saved-sources" hidden><h2>Your saved sources</h2><div id="profile-list"></div><button id="profile-new" type="button">Add another source</button></div><button id="setup-backup" type="button" class="subtle">Backup and restore</button><button id="setup-diagnostics" type="button" class="subtle">Device &amp; playback diagnostics</button></div>
+      <div class="intro"><p class="eyebrow">YOUR STREAMS. YOUR SCREEN.</p><h1>Settle in.</h1><p>Connect your own playlist and watch directly on your TV.</p><p class="muted">No casting device needed. No channels are included.</p><div id="saved-sources" hidden><h2>Your saved sources</h2><div id="profile-list"></div><button id="profile-new" type="button">Add another source</button></div><button id="setup-backup" type="button" class="subtle">Backup and restore</button><button id="setup-downloads" type="button" class="subtle">Downloads</button><button id="setup-diagnostics" type="button" class="subtle">Device &amp; playback diagnostics</button></div>
       <form id="source-form" autocomplete="off">
         <label for="source-name">Source name <span class="hint">(optional)</span></label><input id="source-name" type="text" placeholder="My TV library" autocomplete="off" maxlength="80">
         <label for="source-kind">Source type</label>
@@ -86,6 +87,7 @@
         <label class="settings-row" for="pref-autonext"><span>Play next episode automatically</span><select id="pref-autonext"><option value="false">Off</option><option value="true">On · 10 second countdown</option></select></label>
         <label class="settings-row" for="pref-clock"><span>Guide clock time zone</span><select id="pref-clock"></select></label>
         <button id="settings-backup" class="settings-row"><span>Backup and restore</span><small>Move saved sources and viewing progress</small></button>
+        <button id="settings-downloads" class="settings-row"><span>Downloads</span><small>Watch saved movies and episodes offline</small></button>
         <button id="settings-manage" class="settings-row"><span>Manage viewing data</span><small>Review favorites, watched marks and history</small></button>
         <button id="settings-account" class="settings-row"><span>Account status</span><small>Subscription and connection limits</small></button>
         <button id="settings-diagnostics" class="settings-row"><span>Device &amp; playback diagnostics</span><small>Check support and review playback events</small></button>
@@ -95,6 +97,15 @@
         <button id="settings-about" class="settings-row"><span>About Lanternfin TV</span><small>Version, credits, and playback support</small></button>
       </div>
       <p id="settings-note" class="hint" role="status"></p><p id="library-note" class="hint"></p><button id="settings-back">Back to home</button>
+    </section>
+    <section id="downloads" class="settings-view" hidden>
+      <button id="downloads-back" class="subtle">← Back</button><p class="eyebrow">TAKE A LITTLE OFFLINE</p><h1>Downloads</h1>
+      <p id="downloads-support" class="hint"></p>
+      <div class="download-summary"><span id="downloads-count">0 saved entries</span><span id="downloads-size">0 MiB saved</span><span>2 GiB per file · 4 GiB library limit</span></div>
+      <div id="downloads-review" class="manage-confirmation" hidden><p class="eyebrow">SAVE ON THIS TV</p><h2 id="downloads-title"></h2><p class="hint">Download this file for offline viewing? Use content your provider allows you to save. Video and its title stay in this app’s private TV storage. Samsung’s transfer service receives the source address and any required headers. Downloads pause when the app leaves the foreground; resume manually when you return.</p><p class="hint">Protected streams and HLS/DASH playlists are unavailable. Available TV space may be lower than the limits above. Downloads are not included in backups.</p><div class="actions"><button id="downloads-cancel">Keep streaming</button><button id="downloads-start" class="primary">Download to this TV</button></div></div>
+      <div id="downloads-removal" class="manage-confirmation" hidden><h2 id="downloads-remove-title"></h2><p class="hint">This removes the local video and its offline viewing progress. You can download it again from your provider.</p><div class="actions"><button id="downloads-keep">Keep download</button><button id="downloads-remove">Remove from TV</button></div></div>
+      <div id="downloads-empty" class="downloads-empty"><h2>Your next watch, ready here.</h2><p class="hint">Open a movie and choose Download, or hold OK on an episode for more options. Saved videos appear here even without opening a source.</p></div>
+      <p id="downloads-status" class="hint" role="status"></p><div id="downloads-list"></div><button id="downloads-refresh">Check transfers</button>
     </section>
     <section id="backup" class="settings-view" hidden>
       <p class="eyebrow">YOUR LIBRARY, WITH YOU</p><h1>Backup and restore</h1>
@@ -148,7 +159,7 @@
         <div class="detail-content"><img id="detail-poster" class="detail-poster" alt="" hidden>
           <div class="detail-copy"><p id="detail-kind" class="eyebrow"></p><h1 id="detail-title"></h1><p id="detail-meta" class="muted"></p><p id="detail-description" tabindex="0"></p><p id="detail-credits" class="hint"></p>
             <div id="detail-versions" hidden><label for="detail-version">Language version</label><select id="detail-version"></select><p class="hint">Grouped by matching provider titles and language tags. Each version keeps its own favorites and progress; audio tracks depend on the stream.</p></div>
-            <div class="actions"><button id="detail-play" class="primary">▶ Play</button><button id="detail-favorite" aria-pressed="false">☆ Add favorite</button><button id="detail-retry" hidden>Retry details</button></div>
+            <div class="actions"><button id="detail-play" class="primary">▶ Play</button><button id="detail-favorite" aria-pressed="false">☆ Add favorite</button><button id="detail-download">Download</button><button id="detail-retry" hidden>Retry details</button></div>
             <p id="detail-status" class="hint" role="status"></p>
           </div>
         </div>
@@ -161,7 +172,7 @@
       <div id="controls" class="play-controls"><p id="playback-kind" class="eyebrow">NOW WATCHING</p><h1 id="playing-title"></h1><p id="player-status" role="status"></p><div id="seek-controls" hidden><label for="seek-position" class="sr-only">Playback position</label><input id="seek-position" type="range" min="0" max="100" step="1" value="0" aria-valuetext="0:00"></div><p id="playback-time" class="hint"></p><p id="episode-context-note" class="hint" role="status"></p><div id="playback-guide" hidden><h2 id="playing-programme"></h2><progress id="playing-programme-progress" aria-label="Programme progress"></progress><p id="playing-next" class="hint"></p></div><div class="actions"><button id="channel-previous" hidden>Previous channel</button><button id="channel-next" hidden>Next channel</button><button id="play-series" hidden>Series details</button><button id="play-next" hidden>Next episode</button><button id="cancel-next" hidden>Cancel next episode</button><button id="toggle" class="primary">Pause</button><button id="rewind">Back 10 seconds</button><button id="forward">Forward 10 seconds</button><button id="favorite" aria-pressed="false">☆ Add favorite</button><button id="retry" hidden>Retry stream</button><button id="tracks-open">Playback settings</button><button id="hide-controls">Hide controls</button><button id="stop">Back to streams</button></div><p class="hint">Arrows show controls · Channel +/− or numbers switch live channels · Back returns to your streams.</p></div>
     </section>
     <div id="track-menu" class="track-menu" role="dialog" aria-modal="true" aria-labelledby="tracks-title" hidden><h2 id="tracks-title">Playback settings</h2><p class="hint">Picture, language and playback options for this stream.</p><label for="audio-track">Audio</label><select id="audio-track"></select><label for="subtitle-track">Subtitles</label><select id="subtitle-track"></select><label for="quality-track">Video quality</label><select id="quality-track"></select><label for="aspect-mode">Picture size</label><select id="aspect-mode"></select><label for="playback-speed">Playback speed</label><select id="playback-speed"></select><p id="track-status" class="hint" role="status"></p><button id="tracks-close" class="primary">Done</button></div>
-    <div id="card-menu" class="card-menu" role="dialog" aria-modal="true" aria-labelledby="card-menu-title" hidden><h2 id="card-menu-title"></h2><button id="card-menu-play">Watch</button><button id="card-menu-favorite">Add favorite</button><button id="card-menu-watched" hidden>Mark as watched</button><button id="card-menu-history" hidden>Remove from recently watched</button><p id="card-menu-note" class="hint" role="status"></p><button id="card-menu-close">Back</button></div>
+    <div id="card-menu" class="card-menu" role="dialog" aria-modal="true" aria-labelledby="card-menu-title" hidden><h2 id="card-menu-title"></h2><button id="card-menu-play">Watch</button><button id="card-menu-favorite">Add favorite</button><button id="card-menu-watched" hidden>Mark as watched</button><button id="card-menu-download" hidden>Download</button><button id="card-menu-history" hidden>Remove from recently watched</button><p id="card-menu-note" class="hint" role="status"></p><button id="card-menu-close">Back</button></div>
     <section id="resume" class="info-panel" hidden><p class="eyebrow">PICK UP WHERE YOU LEFT OFF</p><h1 id="resume-title"></h1><p id="resume-description"></p><div class="actions"><button id="resume-continue" class="primary">Continue watching</button><button id="resume-start">Start over</button><button id="resume-back">Back to streams</button></div></section>
     <section id="about" class="info-panel" hidden>
       <p class="eyebrow">AN INDEPENDENT FORK</p><h1>A little light for your screen.</h1>

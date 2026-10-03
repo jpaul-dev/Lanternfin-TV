@@ -3,6 +3,7 @@ import { browserHeaderProblem, needsAdaptivePlayer, type Media } from './media'
 import { wrapLicense, unwrapLicense } from './license-format'
 import { transportPlayer, transportType, loadTransportRuntime } from './transport-player'
 import { safeStats, type PlayerStats } from './diagnostics'
+import { localDownload } from './downloads'
 
 type Request = { headers: Record<string, string>; body?: ArrayBuffer | ArrayBufferView | string | null }
 type AdaptiveTrack = { id?: number; active: boolean; language: string; label?: string; roles?: string[]; channelsCount?: number; codecs?: string; spatialAudio?: boolean }
@@ -175,6 +176,7 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
       current.stop()
       const token = ++generation, previous = current
       const media: Media = typeof input === 'string' ? { url: input } : input
+      if (localDownload(media) && !samsung) { report('error', 'Offline playback requires the Samsung native player.'); return }
       live = media.mediaKind === 'live'
       try { video.playbackRate = 1 } catch { /* Fixed-speed devices can still play normally. */ }
       video.style.objectFit = 'contain'

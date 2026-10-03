@@ -4,6 +4,8 @@ import { ScreenSaver, bindLifecycle, type AppCommon } from './lifecycle'
 import { PlaybackDiagnostics, capabilities, buildInfo, type DiagnosticReport } from './diagnostics'
 import { diagnosticsUI } from './diagnostics-ui'
 import { libraryUI } from './library-ui'
+import { TVDownloads, localDownload, type DownloadPlatform } from './downloads'
+import { downloadsUI } from './downloads-ui'
 import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
@@ -33,14 +35,15 @@ declare const __TV_TARGET__: 'webos' | 'tizen' | 'browser'
 declare global {
   interface Window {
     webapis?: { avplay?: AVPlay; appcommon?: AppCommon }
-    tizen?: { tvinputdevice?: { registerKey(key: string): void }; application?: { getCurrentApplication(): { exit(): void } } }
+    tizen?: Partial<DownloadPlatform> & { tvinputdevice?: { registerKey(key: string): void }; application?: { getCurrentApplication(): { exit(): void } } }
   }
 }
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
 const input = (id: string) => $<HTMLInputElement>(id)
 const select = (id: string) => $<HTMLSelectElement>(id)
 const button = (id: string) => $<HTMLButtonElement>(id)
-type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail' | 'programme' | 'account' | 'backup' | 'diagnostics' | 'manage'
+type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail' | 'programme' | 'account' | 'backup' | 'diagnostics' | 'manage' | 'downloads'
+let downloadsReturn: 'setup' | 'catalog' | 'settings' | 'detail' = 'setup'
 let screen: Screen = 'setup', previousScreen: Screen = 'setup'
 let backupReturn: 'settings' | 'setup' | 'manage' = 'settings'
 let manageReturn: 'settings' | 'catalog' = 'settings'
@@ -59,7 +62,7 @@ let providerCategories: Partial<Record<MediaKind, Category[]>> = {}, providerLoa
 let detailInfo: TitleDetails | undefined, detailLoading: AbortController | undefined, episodePage = 0
 let detailVariants: Channel[] = [], catalogVariants = new WeakMap<Channel, VariantGroup>()
 let homeGeneration = 0
-let playbackReturn: 'catalog' | 'detail' | 'programme' = 'catalog'
+let playbackReturn: 'catalog' | 'detail' | 'programme' | 'downloads' = 'catalog'
 let providerIndex: ProviderIndex | undefined, indexTimer: ReturnType<typeof setTimeout> | undefined
 let browseCategory: Category | undefined, guide: TVGuide | undefined, guideChannel: Channel | undefined
 let guideLoading: AbortController | undefined, guideTimer: ReturnType<typeof setTimeout> | undefined, guideItems: Programme[] = []
@@ -92,7 +95,12 @@ applyPreferences(preferences)
 const backups = backupUI($('backup'), () => localStorage, count => { try { sessionStorage.setItem('lanternfin.restored', String(count)) } catch {}; window.location.reload() })
 const diagnostics = diagnosticsUI($('diagnostics'), (): DiagnosticReport => ({ schema: 1, app: buildInfo(__TV_TARGET__), capabilities: capabilities(document.querySelector('video') || document.createElement('video')), samsungPlayer: !!window.webapis?.avplay, screenSaver: screenSaver.status, playback: playbackDiagnostics.snapshot() }), () => playbackDiagnostics.clear())
 const libraryManager = libraryUI($('manage'), () => { void refreshCards() })
+const downloads = new TVDownloads(__TV_TARGET__ === 'tizen' ? window.tizen as DownloadPlatform : undefined)
+const downloadView = downloadsUI($('downloads'), downloads, (channel, position) => { playbackReturn = 'downloads'; startWatching(channel, position) })
+downloads.load()
+if (away) downloads.suspend()
 function show(next: Screen) {
+  if (screen === 'downloads' && next !== 'downloads') downloadView.close()
   if (screen === 'backup' && next !== 'backup') backups.close()
   if (screen === 'diagnostics' && next !== 'diagnostics') diagnostics.close()
   if (screen === 'manage' && next !== 'manage') libraryManager.close()
@@ -101,11 +109,12 @@ function show(next: Screen) {
   $('card-menu').hidden = true
   if (next !== 'catalog') cancelGuide()
   if (next !== 'catalog') cancelHomeRows()
-  if (!['detail', 'playback', 'resume'].includes(next)) cancelDetails()
+  if (!['detail', 'playback', 'resume', 'downloads'].includes(next)) cancelDetails()
   screen = next
+  syncNav()
   document.documentElement.dataset.screen = next
-  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage']) $(id).hidden = id !== next
-  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account', 'backup', 'diagnostics', 'manage'].includes(next)
+  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads']) $(id).hidden = id !== next
+  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account', 'backup', 'diagnostics', 'manage', 'downloads'].includes(next)
   document.documentElement.classList.toggle('in-library', !$('tv-nav').hidden)
   $('player-surface').hidden = next !== 'playback'
   document.documentElement.classList.toggle('watching', next === 'playback')
@@ -381,7 +390,7 @@ function startWatching(channel: Channel, position = 0) {
 }
 async function loadEpisodeContext(channel: Channel) {
   $('episode-context-note').textContent = ''
-  if (!activeSource || channel.mediaKind !== 'episode') { episodeContext.clear(); return }
+  if (!activeSource || localDownload(channel) || channel.mediaKind !== 'episode') { episodeContext.clear(); return }
   try {
     const pending = episodeContext.load(activeSource, channel, detailInfo?.episodes)
     updatePlaybackContext()
@@ -392,8 +401,9 @@ async function loadEpisodeContext(channel: Channel) {
 $('play-series').onclick = () => { const parent = currentChannel && parentSeries(currentChannel); if (parent) { stopWatching(); void openTitle(parent) } }
 function updatePlaybackContext() {
   const live = currentChannel?.mediaKind === 'live'
-  $('playback-kind').textContent = live ? `LIVE TV · CHANNEL ${liveQueue.number}` : 'NOW WATCHING'
-  button('stop').textContent = playbackReturn === 'detail' ? 'Back to details' : playbackReturn === 'programme' ? 'Back to programme' : 'Back to streams'
+  $('playback-kind').textContent = currentChannel && localDownload(currentChannel) ? 'WATCHING OFFLINE' : live ? `LIVE TV · CHANNEL ${liveQueue.number}` : 'NOW WATCHING'
+  button('stop').textContent = playbackReturn === 'downloads' ? 'Back to downloads' : playbackReturn === 'detail' ? 'Back to details' : playbackReturn === 'programme' ? 'Back to programme' : 'Back to streams'
+  $('favorite').hidden = !!currentChannel && !!localDownload(currentChannel)
   $('channel-previous').hidden = $('channel-next').hidden = !live || liveQueue.length < 2
   $('rewind').hidden = $('forward').hidden = !!live
   $('play-series').hidden = !currentChannel || !parentSeries(currentChannel)
@@ -456,6 +466,7 @@ function saveProgress(ended = false) {
   if (!ended) playbackDiagnostics.sample(player?.diagnostics?.())
   const timeline = player?.timeline()
   if (!ended && timeline && Number.isFinite(timeline.position) && timeline.position > 0) lastTimeline = timeline
+  if (localDownload(currentChannel)) { downloads.progress(currentChannel, lastTimeline.position, lastTimeline.duration, ended || state === 'ended'); lastSaved = Date.now(); return }
   try { library?.record(currentChannel, lastTimeline.position, lastTimeline.duration, ended || state === 'ended'); rememberLibraryChannel(currentChannel); lastSaved = Date.now() }
   catch { $('library-note').textContent = 'TV storage is unavailable. Changes are kept for this session.' }
 }
@@ -465,6 +476,7 @@ function stopWatching() {
   cancelZap(); playbackGuideLoading?.abort(); playbackGuideLoading = undefined
   saveProgress(); currentChannel = undefined
   clearTimeout(controlsTimer); player?.stop()
+  if (playbackReturn === 'downloads') { downloadView.open(); show('downloads'); return }
   if (playbackReturn === 'programme' && selectedProgramme) { show('programme'); button('programme-back').focus(); return }
   if (playbackReturn === 'detail' && detailInfo) { renderDetails(); show('detail'); button('detail-play').focus(); return }
   render(); show('catalog')
@@ -512,6 +524,7 @@ function back() {
   else if (screen === 'backup') returnFromBackup()
   else if (screen === 'diagnostics') show(diagnosticsReturn)
   else if (screen === 'manage') { if (!libraryManager.back()) show(manageReturn) }
+  else if (screen === 'downloads') { if (!downloadView.back()) show(downloadsReturn) }
   else if (screen === 'catalog' && providerLoading) { cancelProviderLoad(); notice('Loading cancelled.') }
   else if (screen === 'catalog' && browseView !== 'home') goHome()
   else if (screen === 'catalog') show('exit')
@@ -599,6 +612,7 @@ function openCardMenu(card: HTMLElement) {
   button('card-menu-favorite').textContent = library?.isFavorite(contextChannel) ? 'Remove favorite' : 'Add favorite'
   $('card-menu-history').hidden = !library?.lastPlayed(contextChannel)
   $('card-menu-watched').hidden = !['movie', 'episode'].includes(contextChannel.mediaKind || '')
+  $('card-menu-download').hidden = !['movie', 'episode'].includes(contextChannel.mediaKind || '')
   button('card-menu-watched').textContent = library?.isWatched(contextChannel) ? 'Mark as unwatched' : 'Mark as watched'
   $('card-menu-note').textContent = ''; $('card-menu').hidden = false; button('card-menu-play').focus()
 }
@@ -616,6 +630,7 @@ async function refreshCards() {
 }
 $('card-menu-close').onclick = closeCardMenu
 $('card-menu-play').onclick = () => { const channel = contextChannel; closeCardMenu(); if (channel) { lastFocusedCard = contextCard; watch(channel) } }
+$('card-menu-download').onclick = () => { const channel = contextChannel; closeCardMenu(); if (channel) openDownloads(channel) }
 for (const [id, history] of [['card-menu-favorite', false], ['card-menu-history', true]] as const) $(id).onclick = async () => {
   if (!contextChannel) return
   try { if (history) library?.removeRecent(contextChannel); else library?.toggleFavorite(contextChannel); rememberLibraryChannel(contextChannel); await refreshCards(); closeCardMenu() }
@@ -629,6 +644,7 @@ $('card-menu-watched').onclick = async () => {
 document.addEventListener('change', () => { nativeSelectOpen = false })
 document.addEventListener('focusin', () => { nativeSelectOpen = false; if (heldCard && !holdOpened && heldCard !== document.activeElement) { clearTimeout(holdTimer); heldCard = undefined } })
 bindLifecycle(document, window, () => {
+  downloads.suspend()
   away = true; screenSaver.release()
   suspendedIndex = providerIndex?.progress.running ? providerIndex : undefined
   providerIndex?.pause(); renderIndexStatus()
@@ -644,6 +660,7 @@ bindLifecycle(document, window, () => {
   if (screen === 'playback') { stopWatching(); notice('Playback stopped while the app was away. Select a stream to continue.') }
   else if (interrupted) notice('Loading stopped while the app was away. Select the source or category again to continue.')
 }, () => {
+  downloads.foreground()
   away = false; screenSaver.release()
   syncGuideDays()
   const index = suspendedIndex; suspendedIndex = undefined
@@ -653,7 +670,7 @@ bindLifecycle(document, window, () => {
     else { void filter(false); if (browseView === 'live' && guideChannel) selectGuide(guideChannel) }
   }
 })
-window.addEventListener('offline', () => { if (screen === 'playback') { saveProgress(); player?.stop(); report('error', 'The TV is offline. Reconnect to your network, then choose Retry stream.') } })
+window.addEventListener('offline', () => { if (screen === 'playback' && !(currentChannel && localDownload(currentChannel))) { saveProgress(); player?.stop(); report('error', 'The TV is offline. Reconnect to your network, then choose Retry stream.') } })
 for (const key of ['MediaPlay', 'MediaPause', 'MediaPlayPause', 'MediaStop', 'MediaRewind', 'MediaFastForward', 'MediaTrackNext', 'ChannelUp', 'ChannelDown', 'Info', ...'0123456789']) {
   try { window.tizen?.tvinputdevice?.registerKey(key) } catch { /* not every remote has every key */ }
 }
@@ -778,7 +795,7 @@ function browseLayout(title: string) {
 }
 function syncNav() {
   for (const element of Array.from($('tv-nav').querySelectorAll('button'))) {
-    const selected = screen === 'settings' ? element.id === 'nav-settings' : element.id === `nav-${browseView}` && libraryView === 'all'
+    const selected = screen === 'downloads' ? element.id === 'nav-downloads' : screen === 'settings' ? element.id === 'nav-settings' : element.id === `nav-${browseView}` && libraryView === 'all'
     if (selected) element.setAttribute('aria-current', 'page'); else element.removeAttribute('aria-current')
   }
 }
@@ -920,6 +937,7 @@ function renderDetails() {
   $('detail-versions').hidden = !detailVariants.length
   for (const [index, variant] of detailVariants.entries()) versions.add(new Option(variant.name, String(index), false, variant === info.channel))
   $('detail-title').textContent = info.channel.name; $('detail-kind').textContent = series ? 'SERIES' : 'MOVIE'
+  $('detail-download').hidden = series
   $('detail-meta').textContent = info.metadata.join(' · ')
   $('detail-description').textContent = info.description || 'No description is available for this title.'
   $('detail-credits').textContent = [info.director ? `Director: ${info.director}` : '', info.cast ? `Cast: ${info.cast}` : ''].filter(Boolean).join(' · ')
@@ -953,6 +971,7 @@ function returnFromDetails() {
   else { render(); ($('channels').querySelectorAll<HTMLElement>('button')[lastChannel] || button('view-all')).focus(); if (libraryView !== 'all') void filter() }
 }
 $('detail-back').onclick = returnFromDetails
+$('detail-download').onclick = () => { if (detailInfo) openDownloads(detailInfo.channel) }
 $('detail-play').onclick = () => {
   const episodes = detailInfo?.episodes?.filter(episode => episode.group === select('detail-season').value) || []
   const resumable = episodes.filter(episode => library?.lastPlayed(episode)?.position).sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
@@ -987,6 +1006,14 @@ async function showAccount() {
 $('settings-account').onclick = showAccount; $('account-retry').onclick = showAccount; $('account-back').onclick = () => show('settings')
 $('nav-settings').onclick = () => { cancelProviderLoad(); show('settings'); syncNav() }
 $('settings-back').onclick = goHome
+function openDownloads(channel?: Channel) {
+  cancelProviderLoad()
+  downloadsReturn = screen === 'setup' ? 'setup' : screen === 'settings' ? 'settings' : screen === 'detail' ? 'detail' : 'catalog'
+  downloadView.open(channel); show('downloads')
+  if (channel && !$('downloads-review').hidden) $('downloads-cancel').focus()
+}
+for (const id of ['setup-downloads', 'nav-downloads', 'settings-downloads']) $(id).onclick = () => openDownloads()
+$('downloads-back').onclick = () => { if (!downloadView.back()) show(downloadsReturn) }
 for (const [id, from] of [['settings-backup', 'settings'], ['setup-backup', 'setup']] as const) $(id).onclick = () => { backupReturn = from; backups.open(); button('backup-back').textContent = from === 'setup' ? 'Back to sources' : 'Back to settings'; show('backup') }
 function returnFromBackup() { if (backupReturn === 'manage') openLibraryManager(manageReturn); else show(backupReturn) }
 $('backup-back').onclick = returnFromBackup

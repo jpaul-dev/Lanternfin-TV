@@ -1,6 +1,7 @@
 /** Small local SVG outlines keep the Android-style rail consistent across TV fonts. */
 export function navigationIcons(root: HTMLElement) {
   const paths: Record<string, string> = {
+    'nav-downloads': 'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',
     'nav-home': 'M3 10 12 3 21 10M5 9v12h5v-7h4v7h5V9',
     'nav-live': 'M8 3l4 4 4-4M3 8h18v13H3z',
     'nav-movie': 'M4 3h16v18H4zM8 3v18M16 3v18M4 8h4m-4 8h4m8-8h4m-4 8h4',
