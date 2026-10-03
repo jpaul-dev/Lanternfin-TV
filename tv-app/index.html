@@ -28,8 +28,9 @@
     </nav>
     <header><div class="brand"><img src="icon.png" alt="" width="56" height="56"><span>Lanternfin <b>TV</b></span></div><span id="platform" class="badge">TV development build</span></header>
     <section id="setup" class="panel">
-      <div class="intro"><p class="eyebrow">YOUR STREAMS. YOUR SCREEN.</p><h1>Settle in.</h1><p>Connect your own playlist and watch directly on your TV.</p><p class="muted">No casting device needed. No channels are included.</p></div>
+      <div class="intro"><p class="eyebrow">YOUR STREAMS. YOUR SCREEN.</p><h1>Settle in.</h1><p>Connect your own playlist and watch directly on your TV.</p><p class="muted">No casting device needed. No channels are included.</p><div id="saved-sources" hidden><h2>Your saved sources</h2><div id="profile-list"></div><button id="profile-new" type="button">Add another source</button></div></div>
       <form id="source-form" autocomplete="off">
+        <label for="source-name">Source name <span class="hint">(optional)</span></label><input id="source-name" type="text" placeholder="My TV library" autocomplete="off" maxlength="80">
         <label for="source-kind">Source type</label>
         <select id="source-kind"><option value="playlist">M3U playlist</option><option value="xtream">Xtream account</option><option value="direct">Direct stream</option></select>
         <label id="url-label" for="source-url">Playlist address</label>
@@ -40,7 +41,7 @@
         </div>
         <label class="check"><input id="remember" type="checkbox">Remember this source on this TV</label>
         <p class="hint">Save this source, favorites, and viewing progress. Saved addresses and passwords are not encrypted; leave this off on a shared TV.</p>
-        <div class="actions"><button id="connect" class="primary" type="submit">Open my streams</button><button id="cancel-load" type="button" hidden>Cancel</button><button id="return-catalog" type="button" hidden>Back to my streams</button><button id="forget" type="button" hidden>Forget saved source</button></div>
+        <div class="actions"><button id="connect" class="primary" type="submit">Open my streams</button><button id="cancel-load" type="button" hidden>Cancel</button><button id="return-catalog" type="button" hidden>Back to my streams</button><button id="forget" type="button" hidden>Forget all saved sources</button></div>
       </form>
     </section>
     <section id="catalog" hidden>
@@ -75,6 +76,7 @@
         <label class="settings-row" for="pref-motion"><span>Reduce animation</span><select id="pref-motion"><option value="false">Off</option><option value="true">On</option></select></label>
         <label class="settings-row" for="pref-audio"><span>Preferred audio language</span><select id="pref-audio"></select></label>
         <label class="settings-row" for="pref-subtitles"><span>Preferred subtitles</span><select id="pref-subtitles"></select></label>
+        <label class="settings-row" for="pref-autonext"><span>Play next episode automatically</span><select id="pref-autonext"><option value="false">Off</option><option value="true">On · 10 second countdown</option></select></label>
         <label class="settings-row" for="pref-clock"><span>Guide clock time zone</span><select id="pref-clock"></select></label>
         <button id="settings-refresh" class="settings-row"><span>Refresh library</span><small>Reload your provider catalog</small></button>
         <button id="settings-reset" class="settings-row"><span>Reset preferences</span><small>Restore appearance and language defaults</small></button>
@@ -96,9 +98,11 @@
       <div id="detail-episodes" hidden><div class="episode-heading"><h2>Episodes</h2><div><label for="detail-season">Season</label><select id="detail-season"></select></div></div><div id="episode-grid" class="grid"></div><div class="pagination"><button id="episode-previous">Previous episodes</button><span id="episode-page"></span><button id="episode-next">More episodes</button></div></div>
     </section>
     <section id="playback" hidden>
-      <div id="controls" class="play-controls"><p class="eyebrow">NOW WATCHING</p><h1 id="playing-title"></h1><p id="player-status" role="status"></p><p id="playback-time" class="hint"></p><div class="actions"><button id="toggle" class="primary">Pause</button><button id="rewind">Back 10 seconds</button><button id="forward">Forward 10 seconds</button><button id="favorite" aria-pressed="false">☆ Add favorite</button><button id="retry" hidden>Retry stream</button><button id="tracks-open">Audio &amp; subtitles</button><button id="hide-controls">Hide controls</button><button id="stop">Back to streams</button></div><p class="hint">Press an arrow to show controls. Back returns to your streams.</p></div>
+      <div id="zap-number" role="status" hidden></div>
+      <div id="controls" class="play-controls"><p id="playback-kind" class="eyebrow">NOW WATCHING</p><h1 id="playing-title"></h1><p id="player-status" role="status"></p><p id="playback-time" class="hint"></p><div id="playback-guide" hidden><h2 id="playing-programme"></h2><progress id="playing-programme-progress" aria-label="Programme progress"></progress><p id="playing-next" class="hint"></p></div><div class="actions"><button id="channel-previous" hidden>Previous channel</button><button id="channel-next" hidden>Next channel</button><button id="play-next" hidden>Next episode</button><button id="cancel-next" hidden>Cancel next episode</button><button id="toggle" class="primary">Pause</button><button id="rewind">Back 10 seconds</button><button id="forward">Forward 10 seconds</button><button id="favorite" aria-pressed="false">☆ Add favorite</button><button id="retry" hidden>Retry stream</button><button id="tracks-open">Audio &amp; subtitles</button><button id="hide-controls">Hide controls</button><button id="stop">Back to streams</button></div><p class="hint">Arrows show controls · Channel +/− or numbers switch live channels · Back returns to your streams.</p></div>
     </section>
     <div id="track-menu" class="track-menu" role="dialog" aria-modal="true" aria-labelledby="tracks-title" hidden><h2 id="tracks-title">Audio &amp; subtitles</h2><p class="hint">Available languages come from this stream.</p><label for="audio-track">Audio</label><select id="audio-track"></select><label for="subtitle-track">Subtitles</label><select id="subtitle-track"></select><p id="track-status" class="hint" role="status"></p><button id="tracks-close" class="primary">Done</button></div>
+    <div id="card-menu" class="card-menu" role="dialog" aria-modal="true" aria-labelledby="card-menu-title" hidden><h2 id="card-menu-title"></h2><button id="card-menu-play">Watch</button><button id="card-menu-favorite">Add favorite</button><button id="card-menu-history" hidden>Remove from recently watched</button><p id="card-menu-note" class="hint" role="status"></p><button id="card-menu-close">Back</button></div>
     <section id="resume" class="info-panel" hidden><p class="eyebrow">PICK UP WHERE YOU LEFT OFF</p><h1 id="resume-title"></h1><p id="resume-description"></p><div class="actions"><button id="resume-continue" class="primary">Continue watching</button><button id="resume-start">Start over</button><button id="resume-back">Back to streams</button></div></section>
     <section id="about" class="info-panel" hidden>
       <p class="eyebrow">AN INDEPENDENT FORK</p><h1>A little light for your screen.</h1>
@@ -112,7 +116,7 @@
     </section>
     <section id="exit" class="info-panel" hidden><h1>All done for now?</h1><p>Exit Lanternfin TV?</p><div class="actions"><button id="stay" class="primary">Keep watching</button><button id="leave">Exit app</button></div></section>
     <p id="notice" role="status" aria-live="polite"></p>
-    <footer><span>Arrows to move · OK to select · Back to return</span><button id="about-open">About Lanternfin TV</button></footer>
+    <footer><span>Arrows to move · OK to select · Hold OK for options · Back to return</span><button id="about-open">About Lanternfin TV</button></footer>
   </main>
 </body>
 </html>

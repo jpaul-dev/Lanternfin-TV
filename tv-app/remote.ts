@@ -26,6 +26,6 @@ export function moveFocus(direction: Direction, root: HTMLElement): void {
 }
 
 export function keyAction(key: string, code: number): string {
-  const actions: Record<number, string> = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 461: 'back', 10009: 'back', 27: 'back', 415: 'play', 19: 'pause', 10252: 'toggle', 413: 'stop', 412: 'rewind', 417: 'forward' }
-  return actions[code] || ({ ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Escape: 'back', MediaPlayPause: 'toggle', MediaStop: 'stop' } as Record<string, string>)[key] || ''
+  const actions: Record<number, string> = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 461: 'back', 10009: 'back', 27: 'back', 415: 'play', 19: 'pause', 10252: 'toggle', 413: 'stop', 412: 'rewind', 417: 'forward', 427: 'channel-up', 428: 'channel-down', 457: 'info', 10233: 'next-episode' }
+  return actions[code] || ({ ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Escape: 'back', GoBack: 'back', BrowserBack: 'back', MediaPlayPause: 'toggle', MediaStop: 'stop', ChannelUp: 'channel-up', ChannelDown: 'channel-down', PageUp: 'channel-up', PageDown: 'channel-down', Info: 'info', MediaTrackNext: 'next-episode' } as Record<string, string>)[key] || ''
 }

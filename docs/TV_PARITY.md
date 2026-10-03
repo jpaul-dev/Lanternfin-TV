@@ -4,15 +4,15 @@ This is the implementation checklist for the standalone TV ports. Reference: the
 
 | Area | Portable implementation | Remaining software work |
 | --- | --- | --- |
-| Shell / Home | Compact icon rail, dark canvas, pink focus, artwork hero, live/movie/series/favorite/recent rails | Continue-watching progress, card actions, closer empty/loading states |
-| Live TV | Category column, channel list, now/next programme panel, favorites | Channel up/down and numeric tuning, playback programme OSD, catch-up, richer guide navigation |
-| Movies / Series | Artwork grids, details, credits, season/episode browsing, resume | Sort/filter options, last-season restoration, next episode, detail enrichment where provider data is absent |
+| Shell / Home | Compact icon rail, dark canvas, pink focus, artwork hero, live/movie/series/favorite/recent rails, continue-watching progress and card actions | Closer empty/loading states |
+| Live TV | Category column, channel list, now/next programme panel, favorites, channel up/down, number tuning, playback programme OSD | Catch-up, richer guide navigation |
+| Movies / Series | Artwork grids, details, credits, season/episode browsing, resume, last-season restoration, next episode and optional countdown | Sort/filter options, detail enrichment where provider data is absent |
 | Search | Cancellable M3U search and whole-provider Xtream index, explicit partial status | Persistent index, content-kind filters, improved large-library browsing |
-| Sources | M3U, Xtream and direct URL, explicit Remember, cancel/refresh/forget | Multiple named sources, guide override, source switching, richer account status |
-| Library | Favorites, last 100 watched, VOD progress, saved Xtream references | Card menus, continue-watching rail, hiding/removing individual entries |
+| Sources | M3U, Xtream and direct URL, explicit Remember, cancel/refresh/forget, up to 20 named sources, source switching | Guide override, richer account status |
+| Library | Favorites, last 100 watched, VOD progress, saved Xtream references, continue-watching rail, card menus and individual history removal | Hide-watched filter |
 | Guide | Xtream fallbacks and original streaming XMLTV worker; bounded cache, refresh | Gzip fallback on older engines, manual feed override, day navigation / catch-up |
-| Playback | Shaka HLS/DASH and DRM configuration, Samsung native path, safe HTML fallback, seek, retry, track menu | OSD parity, next episode, supported quality/aspect controls, improved live tuning |
-| Settings | Theme, accent, size, margins, reduced motion, guide clock, language preferences | Localization, other applicable Android options and diagnostics |
+| Playback | Shaka HLS/DASH and DRM configuration, Samsung native path, safe HTML fallback, seek, retry, track menu, now/next OSD and episode continuation | Further OSD parity, supported quality/aspect controls |
+| Settings | Theme, accent, size, margins, reduced motion, guide clock, language preferences, optional automatic next episode | Localization, other applicable Android options and diagnostics |
 | Downloads / offline | Not implemented | Investigate platform storage, codec/DRM persistence and developer/store permissions before selecting a supported design |
 | Casting / receiver | Deliberately absent from the standalone install | Optional future feature only; not required to watch |
 | Updates / distribution | Reproducible source builds, LG IPK, unsigned Samsung WGT, setup companion | Store/signing workflow, update design, final name/trademark and dependency review |

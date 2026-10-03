@@ -55,6 +55,13 @@ it('does not recreate deleted records after disabling persistence', () => {
 it('formats a readable movie position', () => {
   expect(durationLabel(3661)).toBe('1:01:01'); expect(durationLabel(84)).toBe('1:24'); expect(durationLabel(Infinity)).toBe('0:00')
 })
+it('restores the last season and removes only the chosen history entry', () => {
+  const library = new TVLibrary(localStorage, source), other = { ...channel, url: 'https://example.com/another.mp4' }
+  library.setSeason(channel, 'Season 2'); library.record(channel, 80, 600); library.record(other, 90, 600); library.toggleFavorite(channel)
+  const restored = new TVLibrary(localStorage, source)
+  expect(restored.season(channel)).toBe('Season 2'); restored.removeRecent(channel)
+  expect(restored.lastPlayed(channel)).toBeUndefined(); expect(restored.lastPlayed(other)?.position).toBe(90); expect(restored.isFavorite(channel)).toBe(true)
+})
 it('restores provider favorites and resume items without reloading their categories or storing credentials', () => {
   const account: Source = { kind: 'xtream', url: 'https://provider.example/sub', username: 'my-user', password: 'my-password' }
   const movie = { name: 'A saved movie', group: 'Drama', mediaKind: 'movie' as const, providerId: '25', url: mediaUrl(account, 'movie', '25', 'mkv') }

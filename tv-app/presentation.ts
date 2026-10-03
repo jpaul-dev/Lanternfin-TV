@@ -2,10 +2,13 @@
 // packaged TV apps: no Astro navigation, desktop bridge, or unsupported CSS.
 import type { Channel } from './catalog'
 import { channelId, type TVLibrary } from './library'
+const cardChannels = new WeakMap<HTMLElement, Channel>()
+export function cardChannel(element: HTMLElement) { return cardChannels.get(element) }
 export function channelCard(channel: Channel, activate: () => void, library?: TVLibrary): HTMLButtonElement {
   const card = document.createElement('button'); card.className = 'channel'; card.type = 'button'
   card.dataset.kind = channel.mediaKind || 'live'
   card.dataset.channel = channelId(channel)
+  cardChannels.set(card, channel)
   const art = document.createElement('span'); art.className = 'card-art'; art.setAttribute('aria-hidden', 'true')
   const fallback = document.createElement('span'); fallback.className = 'art-fallback'; fallback.textContent = channel.name.slice(0, 2).toUpperCase(); art.append(fallback)
   if (channel.logo) {
@@ -14,6 +17,8 @@ export function channelCard(channel: Channel, activate: () => void, library?: TV
   }
   const name = document.createElement('span'); name.className = 'card-title'; name.textContent = (library?.isFavorite(channel) ? '★ ' : '') + channel.name
   const meta = document.createElement('small'); meta.textContent = channel.group
+  const recent = library?.lastPlayed(channel)
+  if (recent?.position && recent.duration) { const progress = document.createElement('progress'); progress.max = recent.duration; progress.value = recent.position; progress.className = 'card-progress'; progress.setAttribute('aria-label', 'Viewing progress'); art.append(progress) }
   card.append(art, name, meta); card.onclick = activate
   return card
 }
@@ -34,7 +39,7 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
     if (++index % 512 === 0 && performance.now() - started >= 12) { await new Promise<void>(resolve => setTimeout(resolve, 0)); if (token !== rowGeneration) return; started = performance.now() }
   }
   recent.sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
-  for (const [title, entries] of [['Recently watched', recent.slice(0, 12)], ['Your favorites', favorites], ['Live TV', live], ['Movies', movies], ['Series & episodes', series]] as const) {
+  for (const [title, entries] of [['Continue watching', recent.filter(channel => !!library?.lastPlayed(channel)?.position).slice(0, 12)], ['Recently watched', recent.slice(0, 12)], ['Your favorites', favorites], ['Live TV', live], ['Movies', movies], ['Series & episodes', series]] as const) {
     if (!entries.length) continue
     const section = document.createElement('section'); section.className = 'home-row'
     const heading = document.createElement('h2'); heading.textContent = title

@@ -26,6 +26,7 @@ export const channelId = (channel: Channel) => {
 export class TVLibrary {
   readonly favorites = new Set<string>()
   readonly recent = new Map<string, Recent>()
+  private readonly seasons = new Map<string, string>()
   private readonly references = new Map<string, ProviderReference>()
   private readonly key: string
   constructor(private storage: Storage | null, private source: Source) {
@@ -40,6 +41,7 @@ export class TVLibrary {
         if (item.position > item.duration || item.at > Date.now() + 86400000) continue
         this.recent.set(item.id, { id: item.id, at: item.at, position: item.position, duration: item.duration })
       }
+      if (Array.isArray(data.seasons)) for (const entry of data.seasons.slice(0, 1000)) { if (Array.isArray(entry) && validId(entry[0]) && typeof entry[1] === 'string' && entry[1].length <= 100) this.seasons.set(entry[0], entry[1]) }
       if (source.kind === 'xtream' && Array.isArray(data.references)) for (const item of data.references.slice(0, MAX_FAVORITES + MAX_RECENT)) {
         const reference = readProviderReference(item)
         if (!reference) continue
@@ -68,12 +70,15 @@ export class TVLibrary {
     this.remember(channel); this.save()
   }
   clearHistory() { this.recent.clear(); this.save() }
+  removeRecent(channel: Channel) { this.recent.delete(channelId(channel)); this.save() }
+  season(channel: Channel) { return this.seasons.get(channelId(channel)) }
+  setSeason(channel: Channel, season: string) { this.seasons.delete(channelId(channel)); this.seasons.set(channelId(channel), season.slice(0, 100)); while (this.seasons.size > 1000) this.seasons.delete(this.seasons.keys().next().value!); this.save() }
   setStorage(storage: Storage | null) { this.storage = storage; this.save() }
   bookmarkedChannels(): Channel[] { return [...this.references.values()].map(reference => referenceChannel(this.source, reference)) }
   private remember(channel: Channel) { const reference = channelReference(this.source, channel); if (reference) this.references.set(channelId(channel), reference) }
   private save() {
     for (const id of this.references.keys()) if (!this.favorites.has(id) && !this.recent.has(id)) this.references.delete(id)
-    this.storage?.setItem(this.key, JSON.stringify({ favorites: [...this.favorites], recent: [...this.recent.values()].reverse(), references: [...this.references.values()] }))
+    this.storage?.setItem(this.key, JSON.stringify({ favorites: [...this.favorites], recent: [...this.recent.values()].reverse(), references: [...this.references.values()], seasons: [...this.seasons] }))
   }
 }
 
@@ -82,6 +87,7 @@ export function forgetLibraries(storage: Storage) {
   for (let index = 0; index < storage.length; index++) { const key = storage.key(index); if (key?.startsWith(PREFIX)) keys.push(key) }
   for (const key of keys) storage.removeItem(key)
 }
+export function forgetLibrary(storage: Storage, source: Source) { storage.removeItem(PREFIX + libraryId(JSON.stringify(source))) }
 
 export function durationLabel(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
