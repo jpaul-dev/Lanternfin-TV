@@ -3,6 +3,7 @@ import type { Channel, Source } from './catalog'
 import { maybeB64ToUtf8 } from '../src/scripts/lib/b64-utf8'
 import { XMLTVGuide } from './xmltv'
 import { guideOffset, channelGuideShift } from './guide-offset'
+import { boundedEpgWindow } from '../src/scripts/lib/epg-constants'
 
 export type Programme = { start: number; stop: number; title: string; description: string; archive?: boolean; catchupId?: string; guideShiftMinutes?: number }
 export type GuideWindow = { fromMs: number; toMs: number }
@@ -13,13 +14,15 @@ const cleanText = (value: unknown, max: number) => {
 }
 /** Uses the same timestamp and base64 conventions as the Android short-EPG client. */
 export function programmes(value: unknown, now = Date.now(), window?: GuideWindow): Programme[] {
+  const range = window && boundedEpgWindow(window, now)
+  if (range && range.fromMs >= range.toMs) return []
   if (!Array.isArray(value)) return []
   const result: Programme[] = [], seen = new Set<string>()
   for (const row of value.slice(0, 5000)) {
     if (!row || typeof row !== 'object') continue
     const start = Number(row.start_timestamp ?? row.start) * 1000, stop = Number(row.stop_timestamp ?? row.stop ?? row.end_timestamp ?? row.end) * 1000
-    if (!Number.isFinite(start) || !Number.isFinite(stop) || stop <= start || stop < now - 7 * 86400000 || start > now + 7 * 86400000) continue
-    if (window && (stop <= window.fromMs || start >= window.toMs)) continue
+    if (!Number.isFinite(start) || !Number.isFinite(stop) || stop <= start) continue
+    if (range ? stop <= range.fromMs || start >= range.toMs : stop < now - 7 * 86400000 || start > now + 7 * 86400000) continue
     const title = cleanText(row.title ?? row.title_raw, 300) || 'Untitled programme', key = `${start}:${stop}:${title}`
     if (seen.has(key)) continue
     seen.add(key); result.push({ start, stop, title, description: cleanText(row.description ?? row.description_raw, 4000), ...(row.has_archive !== undefined ? { archive: Number(row.has_archive) === 1 } : {}) })

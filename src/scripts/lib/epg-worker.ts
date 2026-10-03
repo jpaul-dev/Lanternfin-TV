@@ -2,7 +2,7 @@
 // the main thread. Workers have no DOMParser (a Window-only API), so this walks
 // the markup with a small scanner; tests assert parity with epg-data.js.
 
-import { EPG_PAST_WINDOW_MS } from "@/scripts/lib/epg-constants.ts"
+import { boundedEpgWindow, EPG_PAST_WINDOW_MS } from "@/scripts/lib/epg-constants.ts"
 import { isTrustedWorkerMessage } from "@/scripts/lib/worker-origin.ts"
 
 type Programme = { start: number; stop: number; title: string; desc: string; catchupId?: string }
@@ -513,16 +513,20 @@ function sortAndDedupeProgrammes(out: Programme[]): Programme[] {
   return out
 }
 
+/** A selected day can extend past the default snapshot, especially after schedule correction. */
+function channelWindow(window?: EpgWindow): EpgWindow {
+  const now = Date.now()
+  if (window === undefined) return { fromMs: now - EPG_PAST_WINDOW_MS, toMs: now + 36 * 60 * 60 * 1000 }
+  // Only this channel is extracted; the whole-feed snapshot keeps its smaller horizon.
+  return boundedEpgWindow(window, now)
+}
+
 /** Full programme list for one channel, scanned from an (already-sanitized-or-not) xml string. */
 export function extractChannelProgrammes(xml: string, tvgId: string, window?: EpgWindow): Programme[] {
+  const { fromMs: lo, toMs: hi } = channelWindow(window)
+  if (lo >= hi) return []
   const sanitized = prepareXml(xml)
   const target = tvgId.toLowerCase()
-  let lo = Date.now() - EPG_PAST_WINDOW_MS
-  let hi = Date.now() + 36 * 60 * 60 * 1000
-  if (window) {
-    lo = Math.max(lo, window.fromMs)
-    hi = Math.min(hi, window.toMs)
-  }
 
   const out: Programme[] = []
   forEachElement(sanitized, "programme", (attrs, inner) => {
@@ -859,13 +863,9 @@ async function streamExtractChannelProgrammes(
   tvgId: string,
   window?: EpgWindow
 ): Promise<Programme[]> {
+  const { fromMs: lo, toMs: hi } = channelWindow(window)
+  if (lo >= hi) return []
   const target = tvgId.toLowerCase()
-  let lo = Date.now() - EPG_PAST_WINDOW_MS
-  let hi = Date.now() + 36 * 60 * 60 * 1000
-  if (window) {
-    lo = Math.max(lo, window.fromMs)
-    hi = Math.min(hi, window.toMs)
-  }
 
   const out: Programme[] = []
   const scan: IncrementalScanState = { carry: "", insideComment: false }

@@ -54,7 +54,7 @@ createServer(async (request, response) => {
     }
     if (fixtures && pathname === '/_test/guide.xml') {
       const now = Math.floor(Date.now() / 3600000) * 3600000, stamp = value => new Date(value).toISOString().replace(/[-:T]/g, '').slice(0, 14) + ' +0000'
-      const programmes = Array.from({ length: 50 }, (_, channel) => `<channel id="demo-${channel}"><display-name>Test stream ${channel + 1}</display-name></channel>` + Array.from({ length: 8 }, (_, hour) => `<programme channel="demo-${channel}" start="${stamp(now + hour * 3600000)}" stop="${stamp(now + (hour + 1) * 3600000)}"><title>XMLTV programme ${hour + 1}</title><desc>Local XMLTV demonstration for channel ${channel + 1}.</desc></programme>`).join('')).join('')
+      const programmes = Array.from({ length: 50 }, (_, channel) => `<channel id="demo-${channel}"><display-name>Test stream ${channel + 1}</display-name></channel>` + Array.from({ length: 360 }, (_, index) => { const hour = index - 240; return `<programme channel="demo-${channel}" start="${stamp(now + hour * 3600000)}" stop="${stamp(now + (hour + 1) * 3600000)}"><title>XMLTV programme ${hour + 1}</title><desc>Local XMLTV demonstration for channel ${channel + 1}. Generated hourly listings cover previous and future days.</desc></programme>` }).join('')).join('')
       response.writeHead(200, { 'Content-Type': 'application/xml', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }); response.end(`<tv>${programmes}</tv>`); return
     }
     if (fixtures && pathname === '/_test/variants.m3u') {

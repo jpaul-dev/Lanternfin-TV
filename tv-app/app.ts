@@ -873,7 +873,9 @@ function renderGuide() {
   const slot = nowNext(guideItems), window = selectedGuideWindow()
   currentGuideSlot = slot.current?.start
   const upcoming = guideItems.filter(item => !window ? item.stop > Date.now() : item.stop > window.fromMs && item.start < window.toMs)
-  $('guide-status').textContent = slot.current ? `On now · ${timeRange(slot.current, preferences.guideClock)}` : upcoming.length ? 'Coming up' : 'No programme guide for this channel.'
+  if (slot.current) $('guide-status').textContent = `On now · ${timeRange(slot.current, preferences.guideClock)}`
+  else if (window) $('guide-status').textContent = upcoming.length ? `${upcoming.length} programme${upcoming.length === 1 ? '' : 's'} · ${guideDate(window.fromMs, preferences.guideClock)}` : 'No listings for this date.'
+  else $('guide-status').textContent = upcoming.length ? 'Coming up' : 'No programme guide for this channel.'
   $('guide-description').textContent = slot.current?.description || ''
   const list = $('guide-programmes'), scroll = list.scrollTop, focused = list.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.programme : undefined; list.replaceChildren()
   guidePage = Math.min(guidePage, Math.max(0, Math.ceil(upcoming.length / 24) - 1))
