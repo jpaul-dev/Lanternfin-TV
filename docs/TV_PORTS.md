@@ -97,7 +97,7 @@ The TV runtime bundle contains only this UI, the playback adapters, and the exis
 
 Verified source build: [`808fb81c5ce0780d6b83781c61866ac6b9f14c35`](https://github.com/jpaul-dev/Lanternfin-TV/tree/808fb81c5ce0780d6b83781c61866ac6b9f14c35). [GitHub Actions run 37095626858](https://github.com/jpaul-dev/Lanternfin-TV/actions/runs/37095626858) passed all **150 test files / 3,020 tests**, TV type checks, all three target builds, LG packaging, and unsigned Samsung packaging. This includes 30 new port tests. Browser inspection at 1280×720 confirmed setup and Xtream forms fit, source navigation reaches the Remember option, search and pagination work, markup in stream names stays inert, and Back restores focus after playback failure. All hashed assets inside both local packages matched the clean source build. A local Windows Defender scan with remediation disabled found no threats; this is not a guarantee of safety.
 
-Local package SHA-256 (the IPK built on CI may differ because the vendor archiver includes build timestamps):
+Original `808fb81` local package SHA-256 (the IPK built on CI may differ because the vendor archiver includes build timestamps). The setup companion subsequently rebuilt the LG package from `97e8c27`; see [its validation record](TV_SETUP.md#development-and-validation) and the checksum beside the current package. The original local packages are preserved under `artifacts/tv-preview-before-setup-97e8c27/`:
 
 | Package | SHA-256 |
 | --- | --- |
