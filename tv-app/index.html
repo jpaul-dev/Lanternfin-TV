@@ -80,6 +80,8 @@
         <label class="settings-row" for="pref-motion"><span>Reduce animation</span><select id="pref-motion"><option value="false">Off</option><option value="true">On</option></select></label>
         <label class="settings-row" for="pref-audio"><span>Preferred audio language</span><select id="pref-audio"></select></label>
         <label class="settings-row" for="pref-subtitles"><span>Preferred subtitles</span><select id="pref-subtitles"></select></label>
+        <label class="settings-row" for="pref-grouping"><span>Group language versions</span><select id="pref-grouping"><option value="false">Off</option><option value="true">On · movies and series</option></select></label>
+        <label class="settings-row" for="pref-content"><span>Preferred content language</span><select id="pref-content"></select></label>
         <label class="settings-row" for="pref-autonext"><span>Play next episode automatically</span><select id="pref-autonext"><option value="false">Off</option><option value="true">On · 10 second countdown</option></select></label>
         <label class="settings-row" for="pref-clock"><span>Guide clock time zone</span><select id="pref-clock"></select></label>
         <button id="settings-backup" class="settings-row"><span>Backup and restore</span><small>Move saved sources and viewing progress</small></button>
@@ -144,6 +146,7 @@
         <img id="detail-backdrop" class="detail-backdrop" alt="" hidden><div class="detail-shade"></div>
         <div class="detail-content"><img id="detail-poster" class="detail-poster" alt="" hidden>
           <div class="detail-copy"><p id="detail-kind" class="eyebrow"></p><h1 id="detail-title"></h1><p id="detail-meta" class="muted"></p><p id="detail-description" tabindex="0"></p><p id="detail-credits" class="hint"></p>
+            <div id="detail-versions" hidden><label for="detail-version">Language version</label><select id="detail-version"></select><p class="hint">Grouped by matching provider titles and language tags. Each version keeps its own favorites and progress; audio tracks depend on the stream.</p></div>
             <div class="actions"><button id="detail-play" class="primary">▶ Play</button><button id="detail-favorite" aria-pressed="false">☆ Add favorite</button><button id="detail-retry" hidden>Retry details</button></div>
             <p id="detail-status" class="hint" role="status"></p>
           </div>

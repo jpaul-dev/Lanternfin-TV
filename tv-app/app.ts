@@ -10,11 +10,12 @@ import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfi
 import { keyAction, moveFocus, atPageEdge, pageEntry, type Direction } from './remote'
 import { type AVPlay, type Player, type State, type Aspect } from './player'
 import { tvPlayer } from './adaptive-player'
-import { channelCard, cardChannel, homeRows, cancelHomeRows } from './presentation'
+import { channelCard, cardChannel, cardVersions, homeRows, cancelHomeRows } from './presentation'
 import { loadCategories, loadCategory, basicDetails, loadTitleDetails, type TitleDetails, type Category, type MediaKind } from './xtream'
 import { searchCatalog } from './search'
 import { sortCatalog } from './sort'
 import { providerLanguage, providerLanguageLabel, watchedFilter } from './browse-filters'
+import { groupVariants, type VariantGroup } from './variants'
 import { TVLibrary, durationLabel, forgetLibraries, forgetLibrary } from './library'
 import { channelId } from './library'
 import { ProviderIndex } from './provider-index'
@@ -55,6 +56,8 @@ let nativeSelectOpen = false
 let browseView: 'home' | 'all' | 'search' | MediaKind = 'home'
 let providerCategories: Partial<Record<MediaKind, Category[]>> = {}, providerLoading: AbortController | undefined
 let detailInfo: TitleDetails | undefined, detailLoading: AbortController | undefined, episodePage = 0
+let detailVariants: Channel[] = [], catalogVariants = new WeakMap<Channel, VariantGroup>()
+let homeGeneration = 0
 let playbackReturn: 'catalog' | 'detail' | 'programme' = 'catalog'
 let providerIndex: ProviderIndex | undefined, indexTimer: ReturnType<typeof setTimeout> | undefined
 let browseCategory: Category | undefined, guide: TVGuide | undefined, guideChannel: Channel | undefined
@@ -152,7 +155,7 @@ $('source-form').addEventListener('submit', async event => {
     })
     if (loading !== controller) return
     channels = catalog.channels; page = 0; input('search').value = ''; libraryView = 'all'; browseView = 'home'
-    providerCategories = initialCategories ? { live: initialCategories } : {}; detailInfo = undefined
+    providerCategories = initialCategories ? { live: initialCategories } : {}; detailInfo = undefined; detailVariants = []; catalogVariants = new WeakMap()
     let storageMessage = '', persisted = false
     try { if (input('remember').checked) { rememberProfile(localStorage, source, input('source-name').value, editingSource, { guideUrl: override, keepLibrary: useCache }); if (editingSource && sourceId(editingSource) !== sourceId(source)) { forgetLibrary(localStorage, editingSource); void catalogCache.forget(editingSource).catch(() => { notice('The previous saved catalog could not be removed. Use Clear saved catalogs in Settings.') }) }; persisted = true }; if (!input('remember').checked) { removeProfile(localStorage, source); forgetLibrary(localStorage, source); storeSource(localStorage, null) }; editingSource = source; renderProfiles() }
     catch (error) { storageMessage = ` ${error instanceof Error && error.message.startsWith('You can save') ? error.message : 'Your TV could not update saved settings. This session will still work.'}` }
@@ -219,8 +222,11 @@ async function filter(resetPage = true) {
       return !language || language === tag
     }
     const pool = activeSource?.kind === 'xtream' && (libraryView !== 'all' || ['search', 'all'].includes(browseView)) ? libraryPool() : channels
-    const matches = await sortCatalog(await searchCatalog(pool, input('search').value, select('group').value, controller.signal, include), browseView === 'live' ? 'provider' : select('sort-order').value, controller.signal)
+    let matches = await sortCatalog(await searchCatalog(pool, input('search').value, select('group').value, controller.signal, include), browseView === 'live' ? 'provider' : select('sort-order').value, controller.signal)
+    let variants = new WeakMap<Channel, VariantGroup>()
+    if (preferences.groupLanguages && libraryView === 'all' && browseView !== 'live') { const grouped = await groupVariants(matches, contentLanguage(), controller.signal); matches = grouped.channels; variants = grouped.groups }
     if (searching !== controller) return
+    catalogVariants = variants
     const languageSelect = select('language-filter'); languageSelect.replaceChildren(new Option('All languages', ''))
     if (language) tags.add(language)
     for (const tag of [...tags].sort((a, b) => providerLanguageLabel(a).localeCompare(providerLanguageLabel(b)))) languageSelect.add(new Option(providerLanguageLabel(tag), tag))
@@ -237,7 +243,8 @@ function render() {
   const live = browseView === 'live' && libraryView === 'all'
   grid.classList.toggle('live-rows', live)
   filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).forEach((channel, index) => {
-    const item = channelCard(channel, () => { lastChannel = index; lastFocusedCard = item; watch(channel) }, library)
+    const versions = catalogVariants.get(channel)?.members
+    const item = channelCard(channel, () => { lastChannel = index; lastFocusedCard = item; watch(channel, versions) }, library, versions)
     if (live) { const number = document.createElement('span'); number.className = 'channel-number'; number.textContent = String(page * PAGE_SIZE + index + 1); item.prepend(number); item.onfocus = () => selectGuide(channel) }
     grid.append(item)
   })
@@ -307,8 +314,9 @@ function report(next: State, detail?: string) {
   else if (['error', 'idle'].includes(next)) cancelNextEpisode()
   if (screen === 'playback') { controls(); if (['error', 'ended'].includes(next)) button('stop').focus() }
 }
-function watch(channel: Channel) {
-  if (channel.mediaKind === 'series' || channel.mediaKind === 'movie') { void openTitle(channel); return }
+function watch(channel: Channel, versions?: Channel[]) {
+  if (!versions && document.activeElement instanceof HTMLElement && cardChannel(document.activeElement) === channel) versions = cardVersions(document.activeElement)
+  if (channel.mediaKind === 'series' || channel.mediaKind === 'movie') { void openTitle(channel, versions); return }
   playChannel(channel)
 }
 
@@ -601,7 +609,7 @@ function closeCardMenu() {
 }
 async function refreshCards() {
   if (screen === 'detail') renderDetails()
-  else if (browseView === 'home') await homeRows($('home-rows'), activeSource?.kind === 'xtream' ? libraryPool() : channels, library, watch)
+  else if (browseView === 'home') await homeRows($('home-rows'), activeSource?.kind === 'xtream' ? libraryPool() : channels, library, watch, preferences.groupLanguages ? contentLanguage() : undefined)
   else await filter(false)
 }
 $('card-menu-close').onclick = closeCardMenu
@@ -773,16 +781,24 @@ function syncNav() {
   }
 }
 function renderHome() {
-  void homeRows($('home-rows'), activeSource?.kind === 'xtream' ? libraryPool() : channels, library, channel => { lastFocusedCard = document.activeElement as HTMLElement; watch(channel) })
+  const token = ++homeGeneration
+  const rows = homeRows($('home-rows'), activeSource?.kind === 'xtream' ? libraryPool() : channels, library, (channel, versions) => { lastFocusedCard = document.activeElement as HTMLElement; watch(channel, versions) }, preferences.groupLanguages ? contentLanguage() : undefined)
   const pool = providerIndex?.items.length ? providerIndex.items : channels
   const featured = [...knownLibraryChannels.values()].find(channel => library?.isFavorite(channel)) || pool.find(channel => channel.mediaKind === 'movie' && channel.logo) || pool.find(channel => channel.logo) || pool[0]
+  renderFeatured(featured)
+  void rows.then(groups => {
+    if (token !== homeGeneration || screen !== 'catalog' || browseView !== 'home' || !featured || library?.isFavorite(featured)) return
+    const group = groups?.get(featured); if (group) renderFeatured(group.selected, group.members)
+  })
+}
+function renderFeatured(featured?: Channel, versions?: Channel[]) {
   $('hero-title').textContent = featured?.name || 'Your evening starts here.'
   $('hero-meta').textContent = featured ? `${featured.group} · ${featured.mediaKind === 'movie' ? 'Movie' : featured.mediaKind === 'series' ? 'Series' : 'From your library'}` : 'Live television, movies, and series. All in one place.'
   $('hero-kicker').textContent = featured ? 'FROM YOUR LIBRARY' : 'MAKE YOURSELF AT HOME'
   const art = $<HTMLImageElement>('hero-art'); art.hidden = !featured?.logo
   if (featured?.logo) { art.src = featured.logo; art.referrerPolicy = 'no-referrer'; art.onerror = () => { art.hidden = true } } else art.removeAttribute('src')
   button('hero-play').textContent = featured ? featured.mediaKind === 'series' ? 'View episodes' : '▶ Watch now' : 'Browse Live TV'
-  button('hero-play').onclick = () => featured ? watch(featured) : void browse('live')
+  button('hero-play').onclick = () => featured ? watch(featured, versions) : void browse('live')
 }
 function rememberLibraryChannel(channel: Channel) {
   if (activeSource?.kind !== 'xtream') return
@@ -880,9 +896,10 @@ async function openCategory(kind: MediaKind, category: Category) {
   finally { if (providerLoading === controller) { providerLoading = undefined; $('cancel-category').hidden = true } }
 }
 function cancelDetails() { detailLoading?.abort(); detailLoading = undefined }
-async function openTitle(channel: Channel) {
+async function openTitle(channel: Channel, versions?: Channel[]) {
   if (!activeSource) return
   cancelProviderLoad(); cancelDetails(); searching?.abort()
+  detailVariants = versions?.includes(channel) && versions.length > 1 ? versions : []
   detailInfo = basicDetails(channel); episodePage = 0; select('detail-season').replaceChildren()
   renderDetails(); show('detail'); button('detail-play').focus()
   const controller = new AbortController(); detailLoading = controller
@@ -897,6 +914,9 @@ async function openTitle(channel: Channel) {
 function renderDetails() {
   if (!detailInfo) return
   const info = detailInfo, series = info.channel.mediaKind === 'series'
+  const versions = select('detail-version'); versions.replaceChildren()
+  $('detail-versions').hidden = !detailVariants.length
+  for (const [index, variant] of detailVariants.entries()) versions.add(new Option(variant.name, String(index), false, variant === info.channel))
   $('detail-title').textContent = info.channel.name; $('detail-kind').textContent = series ? 'SERIES' : 'MOVIE'
   $('detail-meta').textContent = info.metadata.join(' · ')
   $('detail-description').textContent = info.description || 'No description is available for this title.'
@@ -937,7 +957,8 @@ $('detail-play').onclick = () => {
   const channel = detailInfo?.channel.mediaKind === 'series' ? resumable[0] || episodes.find(episode => !library?.isWatched(episode)) || episodes[0] : detailInfo?.channel; if (channel) playChannel(channel)
 }
 $('detail-favorite').onclick = () => { if (!detailInfo) return; try { library?.toggleFavorite(detailInfo.channel); rememberLibraryChannel(detailInfo.channel); renderDetails() } catch (error) { $('detail-status').textContent = (error as Error).message } }
-$('detail-retry').onclick = () => { if (detailInfo) void openTitle(detailInfo.channel) }
+$('detail-retry').onclick = () => { if (detailInfo) void openTitle(detailInfo.channel, detailVariants) }
+select('detail-version').onchange = () => { const selected = detailVariants[Number(select('detail-version').value)]; if (selected) void openTitle(selected, detailVariants) }
 select('detail-season').onchange = () => { episodePage = 0; if (detailInfo) try { library?.setSeason(detailInfo.channel, select('detail-season').value) } catch { $('detail-status').textContent = 'Season selection applies for this session.' }; renderEpisodes() }
 for (const [id, delta] of [['episode-previous', -1], ['episode-next', 1]] as const) $(id).onclick = () => { episodePage += delta; renderEpisodes(); $('episode-grid').querySelector<HTMLElement>('button')?.focus() }
 $('nav-home').onclick = goHome
@@ -984,7 +1005,7 @@ $('settings-clear-cache').onclick = async () => { cacheSaving?.abort(); try { aw
 $('settings-refresh').onclick = () => button('refresh-catalog').click()
 $('settings-reset').onclick = () => { preferences = { ...DEFAULTS }; syncPreferences(); persistPreferences() }
 function syncPreferences() {
-  for (const [id, value] of Object.entries({ theme: preferences.theme, accent: preferences.accent, scale: preferences.scale, overscan: preferences.overscan, motion: preferences.reducedMotion, audio: preferences.audio, subtitles: preferences.subtitles, clock: preferences.guideClock, autonext: preferences.autoNext })) select(`pref-${id}`).value = String(value)
+  for (const [id, value] of Object.entries({ theme: preferences.theme, accent: preferences.accent, scale: preferences.scale, overscan: preferences.overscan, motion: preferences.reducedMotion, audio: preferences.audio, subtitles: preferences.subtitles, clock: preferences.guideClock, autonext: preferences.autoNext, grouping: preferences.groupLanguages, content: preferences.contentLanguage })) select(`pref-${id}`).value = String(value)
 }
 function persistPreferences() {
   applyPreferences(preferences)
@@ -995,15 +1016,16 @@ function persistPreferences() {
 for (const accent of Object.keys(ACCENTS)) select('pref-accent').add(new Option(accent[0].toUpperCase() + accent.slice(1), accent))
 for (let value = 0; value <= 8; value++) select('pref-overscan').add(new Option(value ? `${value}%` : 'Off', String(value)))
 select('pref-subtitles').add(new Option('Off', 'off'))
-for (const [code, label] of Object.entries(LANGUAGES)) { select('pref-audio').add(new Option(label, code)); select('pref-subtitles').add(new Option(label, code)) }
+for (const [code, label] of Object.entries(LANGUAGES)) { select('pref-audio').add(new Option(label, code)); select('pref-subtitles').add(new Option(label, code)); select('pref-content').add(new Option(label, code)) }
 select('pref-clock').add(new Option('Device time zone', 'auto'))
 for (let offset = -720; offset <= 840; offset += 30) select('pref-clock').add(new Option(`UTC${offset < 0 ? '−' : '+'}${String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0')}:${String(Math.abs(offset) % 60).padStart(2, '0')}`, String(offset)))
 for (const option of select('pref-clock').options) if (option.value !== 'auto') select('replay-clock').add(new Option(option.text, option.value))
 for (const element of $('settings').querySelectorAll<HTMLSelectElement>('select')) element.onchange = () => {
-  preferences = normalizePreferences({ theme: select('pref-theme').value, accent: select('pref-accent').value, scale: Number(select('pref-scale').value), overscan: Number(select('pref-overscan').value), reducedMotion: select('pref-motion').value === 'true', audio: select('pref-audio').value, subtitles: select('pref-subtitles').value, guideClock: select('pref-clock').value, autoNext: select('pref-autonext').value === 'true' })
+  preferences = normalizePreferences({ theme: select('pref-theme').value, accent: select('pref-accent').value, scale: Number(select('pref-scale').value), overscan: Number(select('pref-overscan').value), reducedMotion: select('pref-motion').value === 'true', audio: select('pref-audio').value, subtitles: select('pref-subtitles').value, guideClock: select('pref-clock').value, autoNext: select('pref-autonext').value === 'true', groupLanguages: select('pref-grouping').value === 'true', contentLanguage: select('pref-content').value })
   persistPreferences()
 }
 syncPreferences()
+function contentLanguage() { return preferences.contentLanguage === 'auto' ? navigator.language || 'en' : preferences.contentLanguage }
 window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change', () => applyPreferences(preferences))
 function applyTrackPreferences() {
   const tracks = player?.tracks?.() || [], audioLanguage = preferences.audio === 'auto' ? navigator.language : preferences.audio
