@@ -1,4 +1,5 @@
 import './app.css'
+import { backupUI } from './backup-ui'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
 import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, sourceId, type SourceProfile } from './profiles'
@@ -33,8 +34,9 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const input = (id: string) => $<HTMLInputElement>(id)
 const select = (id: string) => $<HTMLSelectElement>(id)
 const button = (id: string) => $<HTMLButtonElement>(id)
-type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail' | 'programme' | 'account'
+type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail' | 'programme' | 'account' | 'backup'
 let screen: Screen = 'setup', previousScreen: Screen = 'setup'
+let backupReturn: 'settings' | 'setup' = 'settings'
 let channels: Channel[] = [], filtered: Channel[] = [], page = 0, lastChannel = 0
 let state: State = 'idle', player: Player | undefined, loading: AbortController | undefined
 let controlsTimer: ReturnType<typeof setTimeout> | undefined
@@ -72,7 +74,9 @@ navigationIcons($('tv-nav'))
 try { preferenceStorage = localStorage; preferences = readPreferences(localStorage) } catch { /* Session settings still work. */ }
 applyPreferences(preferences)
 
+const backups = backupUI($('backup'), () => localStorage, count => { try { sessionStorage.setItem('lanternfin.restored', String(count)) } catch {}; window.location.reload() })
 function show(next: Screen) {
+  if (screen === 'backup' && next !== 'backup') backups.close()
   if (next !== 'account') { accountLoading?.abort(); accountLoading = undefined }
   if (next !== 'programme') { replayLoading?.abort(); replayLoading = undefined }
   $('card-menu').hidden = true
@@ -81,15 +85,15 @@ function show(next: Screen) {
   if (!['detail', 'playback', 'resume'].includes(next)) cancelDetails()
   screen = next
   document.documentElement.dataset.screen = next
-  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account']) $(id).hidden = id !== next
-  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account'].includes(next)
+  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup']) $(id).hidden = id !== next
+  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account', 'backup'].includes(next)
   document.documentElement.classList.toggle('in-library', !$('tv-nav').hidden)
   $('player-surface').hidden = next !== 'playback'
   document.documentElement.classList.toggle('watching', next === 'playback')
   if (next !== 'playback') $('track-menu').hidden = true
   notice('')
   if (next === 'setup') renderProfiles()
-  const focus = [...$(next).querySelectorAll<HTMLElement>('button:not(:disabled), input, select')].find(element => !element.closest('[hidden]'))
+  const focus = next === 'setup' ? $('profile-list').querySelector<HTMLElement>('.profile-open') || input('source-name') : [...$(next).querySelectorAll<HTMLElement>('button:not(:disabled), input, select')].find(element => !element.closest('[hidden]'))
   focus?.focus()
 }
 function sourceKind() {
@@ -476,6 +480,7 @@ function back() {
   else if (screen === 'about') show(previousScreen)
   else if (screen === 'settings') goHome()
   else if (screen === 'account') show('settings')
+  else if (screen === 'backup') show(backupReturn)
   else if (screen === 'catalog' && providerLoading) { cancelProviderLoad(); notice('Loading cancelled.') }
   else if (screen === 'catalog' && browseView !== 'home') goHome()
   else if (screen === 'catalog') show('exit')
@@ -545,6 +550,7 @@ document.addEventListener('keydown', event => {
   }
   if (!['left', 'right', 'up', 'down'].includes(action)) return
   // Preserve cursor editing and native TV select menus / on-screen keyboards.
+  if (active instanceof HTMLTextAreaElement && !active.readOnly && (['left', 'right'].includes(action) || action === 'up' && active.selectionStart > 0 || action === 'down' && active.selectionEnd < active.value.length)) return
   if (active instanceof HTMLInputElement && active.type !== 'checkbox' && ['left', 'right'].includes(action)) return
   event.preventDefault(); moveFocus(action as Direction, $('app'))
 })
@@ -916,6 +922,8 @@ async function showAccount() {
 $('settings-account').onclick = showAccount; $('account-retry').onclick = showAccount; $('account-back').onclick = () => show('settings')
 $('nav-settings').onclick = () => { cancelProviderLoad(); show('settings'); syncNav() }
 $('settings-back').onclick = goHome
+for (const [id, from] of [['settings-backup', 'settings'], ['setup-backup', 'setup']] as const) $(id).onclick = () => { backupReturn = from; backups.open(); button('backup-back').textContent = from === 'setup' ? 'Back to sources' : 'Back to settings'; show('backup') }
+$('backup-back').onclick = () => show(backupReturn)
 $('settings-source').onclick = () => show('setup')
 $('settings-clear-cache').onclick = async () => { cacheSaving?.abort(); try { await catalogCache.forget(); $('settings-note').textContent = 'Saved catalogs cleared. Sources, favorites and playback progress are retained. The next library refresh can save a new catalog.' } catch { $('settings-note').textContent = 'Saved catalogs could not be cleared. Try clearing app data in TV settings.' } }
 $('settings-refresh').onclick = () => button('refresh-catalog').click()
@@ -998,3 +1006,4 @@ try {
   if (saved) fillProfile(readProfiles(localStorage).find(profile => profile.id === sourceId(saved)) || { id: sourceId(saved), name: '', source: saved })
 } catch { /* session-only mode still works when storage is unavailable */ }
 sourceKind(); show('setup')
+try { const restored = sessionStorage.getItem('lanternfin.restored'); sessionStorage.removeItem('lanternfin.restored'); if (restored && /^\d{1,2}$/.test(restored)) notice(`Restored ${Number(restored)} sources. Open a source to continue.`) } catch {}

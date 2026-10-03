@@ -28,7 +28,7 @@
     </nav>
     <header><div class="brand"><img src="icon.png" alt="" width="56" height="56"><span>Lanternfin <b>TV</b></span></div><span id="platform" class="badge">TV development build</span></header>
     <section id="setup" class="panel">
-      <div class="intro"><p class="eyebrow">YOUR STREAMS. YOUR SCREEN.</p><h1>Settle in.</h1><p>Connect your own playlist and watch directly on your TV.</p><p class="muted">No casting device needed. No channels are included.</p><div id="saved-sources" hidden><h2>Your saved sources</h2><div id="profile-list"></div><button id="profile-new" type="button">Add another source</button></div></div>
+      <div class="intro"><p class="eyebrow">YOUR STREAMS. YOUR SCREEN.</p><h1>Settle in.</h1><p>Connect your own playlist and watch directly on your TV.</p><p class="muted">No casting device needed. No channels are included.</p><div id="saved-sources" hidden><h2>Your saved sources</h2><div id="profile-list"></div><button id="profile-new" type="button">Add another source</button></div><button id="setup-backup" type="button" class="subtle">Backup and restore</button></div>
       <form id="source-form" autocomplete="off">
         <label for="source-name">Source name <span class="hint">(optional)</span></label><input id="source-name" type="text" placeholder="My TV library" autocomplete="off" maxlength="80">
         <label for="source-kind">Source type</label>
@@ -82,6 +82,7 @@
         <label class="settings-row" for="pref-subtitles"><span>Preferred subtitles</span><select id="pref-subtitles"></select></label>
         <label class="settings-row" for="pref-autonext"><span>Play next episode automatically</span><select id="pref-autonext"><option value="false">Off</option><option value="true">On · 10 second countdown</option></select></label>
         <label class="settings-row" for="pref-clock"><span>Guide clock time zone</span><select id="pref-clock"></select></label>
+        <button id="settings-backup" class="settings-row"><span>Backup and restore</span><small>Move saved sources and viewing progress</small></button>
         <button id="settings-account" class="settings-row"><span>Account status</span><small>Subscription and connection limits</small></button>
         <button id="settings-refresh" class="settings-row"><span>Refresh library</span><small>Reload your provider catalog</small></button>
         <button id="settings-clear-cache" class="settings-row"><span>Clear saved catalogs</span><small>Keep sources and viewing progress</small></button>
@@ -89,6 +90,25 @@
         <button id="settings-about" class="settings-row"><span>About Lanternfin TV</span><small>Version, credits, and playback support</small></button>
       </div>
       <p id="settings-note" class="hint" role="status"></p><p id="library-note" class="hint"></p><button id="settings-back">Back to home</button>
+    </section>
+    <section id="backup" class="settings-view" hidden>
+      <p class="eyebrow">YOUR LIBRARY, WITH YOU</p><h1>Backup and restore</h1>
+      <p class="hint">Back up remembered sources, favorites, viewing progress and preferences. Catalog caches and video are not included. Backups stay on this device until you save or copy them.</p>
+      <div class="backup-columns">
+        <div class="backup-card"><h2>Create a backup</h2><p class="hint">Choose a separate passphrase of at least 12 characters. It encrypts the backup, including saved provider passwords. Keep it safe; it cannot be recovered.</p>
+          <label for="backup-passphrase">Backup passphrase</label><input id="backup-passphrase" type="password" minlength="12" maxlength="256" autocomplete="off">
+          <label for="backup-confirm">Repeat backup passphrase</label><input id="backup-confirm" type="password" minlength="12" maxlength="256" autocomplete="off">
+          <button id="backup-export" class="primary">Create encrypted backup</button>
+          <div id="backup-created" hidden><div class="actions"><button id="backup-download">Save file</button><button id="backup-copy">Copy encrypted text</button></div><button id="backup-show-text" class="subtle" aria-expanded="false" aria-controls="backup-text">Show encrypted text</button><div id="backup-text" hidden><label for="backup-output">Encrypted backup text</label><textarea id="backup-output" readonly rows="3" spellcheck="false"></textarea></div></div>
+        </div>
+        <div class="backup-card"><h2>Restore a backup</h2><p class="hint">Choose a backup file where supported, or paste encrypted backup text with a keyboard. Restored sources are saved to this TV’s unencrypted app storage.</p>
+          <label for="backup-file">Backup file</label><input id="backup-file" type="file" accept=".lftv,.json,application/json">
+          <label for="backup-input">Paste encrypted backup text</label><textarea id="backup-input" rows="3" maxlength="12582912" spellcheck="false" autocomplete="off"></textarea>
+          <label for="restore-passphrase">Saved backup passphrase</label><input id="restore-passphrase" type="password" minlength="12" maxlength="256" autocomplete="off">
+          <button id="backup-decrypt">Review backup</button>
+          <div id="backup-review" hidden><p id="backup-summary"></p><label class="check"><input id="backup-library" type="checkbox" checked>Merge favorites and viewing progress</label><label class="check"><input id="backup-preferences" type="checkbox">Use the backup’s preferences</label><p class="hint">Existing sources keep their names and settings. Favorites and watched marks combine; the latest 100 history entries remain. Current season choices take priority. The app reopens after restore.</p><button id="backup-restore" class="primary">Restore to this TV</button></div>
+        </div>
+      </div><p id="backup-status" role="status" class="hint"></p><button id="backup-back">Back to settings</button>
     </section>
     <section id="detail" hidden>
       <button id="detail-back" class="subtle">← Back to library</button>

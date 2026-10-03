@@ -43,7 +43,7 @@ export class TVLibrary {
         this.recent.set(item.id, { id: item.id, at: item.at, position: item.position, duration: item.duration, ...(item.completed === true ? { completed: true } : {}) })
         if (item.completed === true) this.watched.add(item.id)
       }
-      if (Array.isArray(data.watched)) for (const id of data.watched.slice(-10000)) if (validId(id)) this.watched.add(id)
+      if (Array.isArray(data.watched)) for (const id of data.watched.slice(-10000)) if (validId(id)) this.addWatched(id)
       if (Array.isArray(data.seasons)) for (const entry of data.seasons.slice(0, 1000)) { if (Array.isArray(entry) && validId(entry[0]) && typeof entry[1] === 'string' && entry[1].length <= 100) this.seasons.set(entry[0], entry[1]) }
       if (source.kind === 'xtream' && Array.isArray(data.references)) for (const item of data.references.slice(0, MAX_FAVORITES + MAX_RECENT)) {
         const reference = readProviderReference(item)
@@ -88,10 +88,24 @@ export class TVLibrary {
   setSeason(channel: Channel, season: string) { this.seasons.delete(channelId(channel)); this.seasons.set(channelId(channel), season.slice(0, 100)); while (this.seasons.size > 1000) this.seasons.delete(this.seasons.keys().next().value!); this.save() }
   setStorage(storage: Storage | null) { this.storage = storage; this.save() }
   bookmarkedChannels(): Channel[] { return [...this.references.values()].map(reference => referenceChannel(this.source, reference)) }
+  snapshot() { return { favorites: [...this.favorites], recent: [...this.recent.values()].reverse(), references: [...this.references.values()], seasons: [...this.seasons], watched: [...this.watched] } }
+  merge(other: TVLibrary) {
+    if (JSON.stringify(this.source) !== JSON.stringify(other.source)) throw new Error('Library source mismatch.')
+    const favorites = new Set([...this.favorites, ...other.favorites]), watched = new Set([...this.watched, ...other.watched])
+    if (favorites.size > MAX_FAVORITES || watched.size > 10000) throw new Error('Combined library exceeds the favorites or watched limit. Restore sources without library data, or reduce those lists first.')
+    for (const id of favorites) this.favorites.add(id)
+    for (const id of watched) this.watched.add(id)
+    for (const [id, item] of other.recent) if (!this.recent.has(id) || this.recent.get(id)!.at < item.at) this.recent.set(id, { ...item })
+    const recent = [...this.recent.values()].sort((a, b) => a.at - b.at).slice(-MAX_RECENT)
+    this.recent.clear(); for (const item of recent) this.recent.set(item.id, item)
+    for (const [id, reference] of other.references) if (!this.references.has(id)) this.references.set(id, reference)
+    for (const [id, season] of other.seasons) if (!this.seasons.has(id) && this.seasons.size < 1000) this.seasons.set(id, season)
+    this.save()
+  }
   private remember(channel: Channel) { const reference = channelReference(this.source, channel); if (reference) this.references.set(channelId(channel), reference) }
   private save() {
     for (const id of this.references.keys()) if (!this.favorites.has(id) && !this.recent.has(id)) this.references.delete(id)
-    this.storage?.setItem(this.key, JSON.stringify({ favorites: [...this.favorites], recent: [...this.recent.values()].reverse(), references: [...this.references.values()], seasons: [...this.seasons], watched: [...this.watched] }))
+    this.storage?.setItem(this.key, JSON.stringify(this.snapshot()))
   }
 }
 
