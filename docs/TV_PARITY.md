@@ -4,7 +4,7 @@ This is the implementation checklist for the standalone TV ports. Reference: the
 
 | Area | Portable implementation | Remaining software work |
 | --- | --- | --- |
-| Shell / Home | Compact icon rail, dark canvas, pink focus, artwork hero, live/movie/series/favorite/watchlist/recent rails, continue-watching progress and card actions; stable refresh focus/scroll and actionable empty states | Further home customization |
+| Shell / Home | Compact icon rail, dark canvas, pink focus, artwork hero, live/movie/series/favorite/watchlist/recent rails, continue-watching progress and card actions; stable refresh focus/scroll, actionable empty states and user-ordered/hidden Home rows | Custom provider-category rails and richer recommendations |
 | Live TV | Category column, channel list, now/next programme panel, favorites, channel up/down, number tuning, playback programme OSD, programme details and archive replay | Broader archive-provider/device validation |
 | Movies / Series | Artwork grids, details, credits, season/episode browsing, resume, last-season restoration, next episode after cold resume and optional countdown, title sorting/language filtering, optional language grouping with version picker and preferred content language, remote pages | Detail enrichment where provider data is absent |
 | Search | Cancellable M3U search and whole-provider Xtream index, explicit partial status, opt-in bounded catalog cache, content-kind/language/watched filters and page jumps | Device-scale performance and navigation validation |

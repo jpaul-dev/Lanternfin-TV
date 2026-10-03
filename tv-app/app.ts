@@ -7,6 +7,7 @@ import { libraryUI } from './library-ui'
 import { TVDownloads, localDownload, type DownloadPlatform } from './downloads'
 import { downloadsUI } from './downloads-ui'
 import { updatesUI } from './updates-ui'
+import { homeLayoutUI } from './home-layout'
 import { canSeek, scrubOSD } from './playback-osd'
 import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
@@ -44,7 +45,8 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const input = (id: string) => $<HTMLInputElement>(id)
 const select = (id: string) => $<HTMLSelectElement>(id)
 const button = (id: string) => $<HTMLButtonElement>(id)
-type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail' | 'programme' | 'account' | 'backup' | 'diagnostics' | 'manage' | 'downloads' | 'updates'
+const SCREENS = ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout'] as const
+type Screen = typeof SCREENS[number]
 let updatesReturn: 'settings' | 'about' = 'settings'
 let downloadsReturn: 'setup' | 'catalog' | 'settings' | 'detail' = 'setup'
 let screen: Screen = 'setup', previousScreen: Screen = 'setup'
@@ -122,8 +124,8 @@ function show(next: Screen) {
   screen = next
   syncNav()
   document.documentElement.dataset.screen = next
-  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates']) $(id).hidden = id !== next
-  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates'].includes(next)
+  for (const id of SCREENS) $(id).hidden = id !== next
+  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout'].includes(next)
   document.documentElement.classList.toggle('in-library', !$('tv-nav').hidden)
   $('player-surface').hidden = next !== 'playback'
   document.documentElement.classList.toggle('watching', next === 'playback')
@@ -577,6 +579,7 @@ function back() {
   else if (screen === 'detail') returnFromDetails()
   else if (screen === 'programme') returnFromProgramme()
   else if (screen === 'about') show(previousScreen)
+  else if (screen === 'layout') { show('settings'); button('settings-home').focus() }
   else if (screen === 'settings') goHome()
   else if (screen === 'account') show('settings')
   else if (screen === 'backup') returnFromBackup()
@@ -688,7 +691,7 @@ function closeCardMenu() {
 }
 async function refreshCards() {
   if (screen === 'detail') renderDetails()
-  else if (browseView === 'home') await homeRows($('home-rows'), activeSource?.kind === 'xtream' ? libraryPool() : channels, library, watch, preferences.groupLanguages ? contentLanguage() : undefined)
+  else if (browseView === 'home') await homeRows($('home-rows'), activeSource?.kind === 'xtream' ? libraryPool() : channels, library, watch, preferences.groupLanguages ? contentLanguage() : undefined, preferences.homeRows)
   else await filter(false)
 }
 $('card-menu-close').onclick = closeCardMenu
@@ -866,13 +869,13 @@ function browseLayout(title: string) {
 }
 function syncNav() {
   for (const element of Array.from($('tv-nav').querySelectorAll('button'))) {
-    const selected = screen === 'downloads' ? element.id === 'nav-downloads' : ['settings', 'updates'].includes(screen) ? element.id === 'nav-settings' : element.id === `nav-${browseView}` && libraryView === 'all'
+    const selected = screen === 'downloads' ? element.id === 'nav-downloads' : ['settings', 'updates', 'layout'].includes(screen) ? element.id === 'nav-settings' : element.id === `nav-${browseView}` && libraryView === 'all'
     if (selected) element.setAttribute('aria-current', 'page'); else element.removeAttribute('aria-current')
   }
 }
 function renderHome() {
   const token = ++homeGeneration
-  const rows = homeRows($('home-rows'), activeSource?.kind === 'xtream' ? libraryPool() : channels, library, (channel, versions) => { lastFocusedCard = document.activeElement as HTMLElement; watch(channel, versions) }, preferences.groupLanguages ? contentLanguage() : undefined)
+  const rows = homeRows($('home-rows'), activeSource?.kind === 'xtream' ? libraryPool() : channels, library, (channel, versions) => { lastFocusedCard = document.activeElement as HTMLElement; watch(channel, versions) }, preferences.groupLanguages ? contentLanguage() : undefined, preferences.homeRows)
   const pool = providerIndex?.items.length ? providerIndex.items : channels
   const featured = [...knownLibraryChannels.values()].find(channel => library?.isFavorite(channel)) || pool.find(channel => channel.mediaKind === 'movie' && channel.logo) || pool.find(channel => channel.logo) || pool[0]
   renderFeatured(featured)
@@ -1086,6 +1089,12 @@ async function showAccount() {
 $('settings-account').onclick = showAccount; $('account-retry').onclick = showAccount; $('account-back').onclick = () => show('settings')
 $('nav-settings').onclick = () => { cancelProviderLoad(); show('settings'); syncNav() }
 $('settings-back').onclick = goHome
+const layoutEditor = homeLayoutUI($('layout'), rows => {
+  const next = normalizePreferences({ ...preferences, homeRows: rows })
+  savePreferences(preferenceStorage, next); preferences = next
+  $('settings-note').textContent = preferenceStorage ? 'Home layout saved.' : 'Home layout applies for this session.'
+}, () => { show('settings'); button('settings-home').focus() })
+$('settings-home').onclick = () => { layoutEditor.open(preferences.homeRows); show('layout') }
 function openDownloads(channel?: Channel) {
   cancelProviderLoad()
   downloadsReturn = screen === 'setup' ? 'setup' : screen === 'settings' ? 'settings' : screen === 'detail' ? 'detail' : 'catalog'

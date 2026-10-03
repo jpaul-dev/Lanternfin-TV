@@ -72,10 +72,12 @@
       </div>
       </div>
     </section>
+    <section id="layout" class="settings-view" hidden><p class="eyebrow">MAKE YOURSELF AT HOME</p><h1>Home screen</h1><p class="hint">Choose the rows you want and move them into your preferred order. Empty rows stay hidden until there is something to show. Your library and viewing progress are kept.</p><div id="layout-rows"></div><p id="layout-status" class="hint" role="status"></p><div class="actions"><button id="layout-save" class="primary">Save layout</button><button id="layout-reset">Use default rows</button><button id="layout-back">Cancel</button></div></section>
     <section id="account" class="settings-view" hidden><p class="eyebrow">YOUR PROVIDER</p><h1>Account status</h1><p id="account-status" role="status"></p><dl id="account-values"></dl><div class="actions"><button id="account-back" class="primary">Back to settings</button><button id="account-retry">Refresh status</button></div></section>
     <section id="settings" class="settings-view" hidden><h1>Settings</h1>
       <div class="settings-list">
         <button id="settings-source" class="settings-row"><span>Playlists</span><small>Manage your source</small></button>
+        <button id="settings-home" class="settings-row"><span>Home screen</span><small>Choose and reorder your rows</small></button>
         <label class="settings-row" for="pref-language"><span>Interface language</span><select id="pref-language"></select></label>
         <label class="settings-row" for="pref-theme"><span>Theme</span><select id="pref-theme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Follow device</option></select></label>
         <label class="settings-row" for="pref-accent"><span>Accent color</span><select id="pref-accent"></select></label>

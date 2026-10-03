@@ -334,3 +334,10 @@ Each source can hold 2,000 watchlist IDs. Xtream stores bounded account-derived 
 Reviewed bulk cleanup includes Watchlist, with the existing guarded Undo. Encrypted backup review displays its count and merges it only when library import is selected. Older backups without this field remain readable. Combined favorites, watchlist and history references are capped at 4,100, with the existing 2 MiB per-source serialized library ceiling and 8 MiB decoded backup ceiling. Older app builds do not understand this new field; keep a current-build backup before downgrading.
 
 The regression suite passed **192 files / 3,243 tests** before the final newest-first change; targeted tests then passed including the added duplicate/order regression. Browser checks added a fixture movie from details and displayed it in Watchlist. Coverage includes independent source state, reload, reference privacy, unsupported content, entry limits, failed writes, selected-area cleanup/Undo, legacy backups, invalid imports, merge and the real app's remote-menu empty state.
+
+
+### Home row customization (2026-10-03)
+
+Settings → Home screen edits the seven available row types: continue watching, watchlist, recent, favorites, live, movies and series. Checkboxes control visibility; Move up/down controls order and preserve remote focus. Edits remain a draft until Save; Back/Cancel discards them. Default rows restores the draft for review. An empty selection is allowed: the featured title and browsing shortcuts remain available. This controls existing row types, not custom provider-category rails or cross-source content.
+
+The bounded identifier list is stored with app preferences and included only when backup preference import is selected. Invalid/duplicate/oversized lists use defaults, old preferences retain all rows, and a failed save preserves the previous layout. The seven-row editor remains scrollable at larger interface sizes. Browser validation moved Movies to the top, saved and verified the rendered Home order. The full regression suite and TV type checks pass: **193 files / 3,248 tests**.

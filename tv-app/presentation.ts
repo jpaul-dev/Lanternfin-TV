@@ -4,6 +4,7 @@ import type { Channel } from './catalog'
 import { channelId, type TVLibrary } from './library'
 import { groupVariants } from './variants'
 import { tr } from './i18n'
+import { HOME_ROWS, DEFAULT_HOME_ROWS, type HomeRow } from './home-layout'
 const cardChannels = new WeakMap<HTMLElement, Channel>()
 const cardVariantGroups = new WeakMap<HTMLElement, Channel[]>()
 export function cardChannel(element: HTMLElement) { return cardChannels.get(element) }
@@ -34,7 +35,7 @@ let rowGeneration = 0
 let grouping: AbortController | undefined
 let activeRows: HTMLElement | undefined
 export function cancelHomeRows() { rowGeneration++; grouping?.abort(); activeRows?.setAttribute('aria-busy', 'false') }
-export async function homeRows(root: HTMLElement, channels: Channel[], library: TVLibrary | undefined, activate: (channel: Channel, versions?: Channel[]) => void, language?: string) {
+export async function homeRows(root: HTMLElement, channels: Channel[], library: TVLibrary | undefined, activate: (channel: Channel, versions?: Channel[]) => void, language?: string, layout: readonly HomeRow[] = DEFAULT_HOME_ROWS) {
   grouping?.abort(); const controller = new AbortController(); grouping = controller
   const token = ++rowGeneration
   activeRows = root; root.setAttribute('aria-busy', 'true'); root.dataset.loading = tr('Loading…')
@@ -61,7 +62,9 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
   recent.sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
   watchlist.sort((a, b) => watchlistOrder.get(channelId(a))! - watchlistOrder.get(channelId(b))!); watchlist.length = Math.min(12, watchlist.length)
   const fragment = document.createDocumentFragment()
-  for (const [title, entries] of [['Continue watching', recent.filter(channel => !!library?.lastPlayed(channel)?.position).slice(0, 12)], ['Watchlist', watchlist], ['Recently watched', recent.slice(0, 12)], ['Your favorites', favorites], ['Live TV', live], ['Movies', movies], ['Series & episodes', series]] as const) {
+  const rows = { continue: recent.filter(channel => !!library?.lastPlayed(channel)?.position).slice(0, 12), watchlist, recent: recent.slice(0, 12), favorites, live, movies, series }
+  for (const id of layout) {
+    const title = HOME_ROWS[id], entries = rows[id]
     if (!entries.length) continue
     const section = document.createElement('section'); section.className = 'home-row'; section.dataset.row = title
     const heading = document.createElement('h2'); heading.textContent = tr(title)
