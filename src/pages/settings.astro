@@ -1,5 +1,6 @@
 ---
 import Layout from "@/layouts/Layout.astro"
+import { getTvdbProxyUrl } from "@/scripts/lib/fork-services.js"
 import {
   IconRefresh,
   IconTrash,
@@ -1320,7 +1321,7 @@ const navStructure: NavSection[] = [
             <h3 data-i18n="settings.tmdb.title" class="text-base font-semibold">Metadata enrichment</h3>
           </div>
           <p data-i18n="settings.tmdb.helper" class="settings-surface__helper text-xs text-fg-3">
-            TheTVDB works out of the box for posters, cast, and episode details. Add a TMDb key to also unlock trailers and similar titles.
+            Optional artwork and programme details. TMDb requires your own API key. TheTVDB is only available when a metadata service is configured for this build.
           </p>
           <div class="settings-rows">
 
@@ -1329,7 +1330,7 @@ const navStructure: NavSection[] = [
               <div class="settings-row__text">
                 <h3 data-i18n="settings.tvdb.enable" class="text-sm font-medium leading-snug">TheTVDB metadata</h3>
                 <p data-i18n="settings.tmdb.tvdbPrivacy" class="text-xs text-fg-3">
-                  Titles you open are sent to TheTVDB through our proxy to look up artwork and episode details. No account or key is needed.
+                  When enabled, title searches are sent to the configured metadata service and TheTVDB. This alpha has no metadata service configured.
                 </p>
               </div>
               <div class="settings-row__control">
@@ -1339,7 +1340,7 @@ const navStructure: NavSection[] = [
                   role="radiogroup"
                   aria-label="TheTVDB metadata"
                   data-i18n-attr="aria-label:settings.tvdb.enable">
-                  <button type="button" data-tvdb="on"  aria-pressed="false" data-i18n="settings.tmdb.on"  class="tvdb-enabled-btn btn">On</button>
+                  <button type="button" disabled={!getTvdbProxyUrl()} data-tvdb="on"  aria-pressed="false" data-i18n="settings.tmdb.on"  class="tvdb-enabled-btn btn">On</button>
                   <button type="button" data-tvdb="off" aria-pressed="false" data-i18n="settings.tmdb.off" class="tvdb-enabled-btn btn">Off</button>
                 </div>
               </div>
@@ -2222,9 +2223,9 @@ const navStructure: NavSection[] = [
 
           <div data-settings-item class="settings-row mt-1 border-t border-line-soft pt-4">
             <div class="settings-row__text">
-              <h3 data-i18n="settings.help.discordTitle" class="text-sm font-medium leading-snug">Discord community</h3>
-              <p data-i18n="settings.help.discordHelper" class="text-xs text-fg-3">
-                Questions, feedback, and beta chat - come say hi.
+              <h3  class="text-sm font-medium leading-snug">Original project community</h3>
+              <p  class="text-xs text-fg-3">
+                The original project maintains this Discord community. Use this fork’s GitHub issues for Lanternfin TV support.
               </p>
             </div>
             <div class="settings-row__control">
