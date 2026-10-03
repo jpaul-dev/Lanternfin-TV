@@ -1,7 +1,9 @@
 import { htmlPlayer, samsungPlayer, type AVPlay, type Player, type Report } from './player'
 import { browserHeaderProblem, needsAdaptivePlayer, type Media } from './media'
+import { wrapLicense, unwrapLicense } from './license-format'
+import { transportPlayer, transportType, loadTransportRuntime } from './transport-player'
 
-type Request = { headers: Record<string, string> }
+type Request = { headers: Record<string, string>; body?: ArrayBuffer | ArrayBufferView | string | null }
 type AdaptiveTrack = { id?: number; active: boolean; language: string; label?: string; roles?: string[]; channelsCount?: number; codecs?: string; spatialAudio?: boolean }
 type VideoTrack = { active: boolean; width?: number; height?: number; bandwidth?: number; frameRate?: number; codecs?: string; hdr?: string; language?: string; label?: string; roles?: string[]; pixelAspectRatio?: string; colorGamut?: string; videoLayout?: string; mimeType?: string }
 const videoKey = (track: VideoTrack) => JSON.stringify([track.width, track.height, track.bandwidth, track.frameRate, track.codecs, track.hdr, track.language, track.label, track.roles, track.pixelAspectRatio, track.colorGamut, track.videoLayout, track.mimeType])
@@ -10,12 +12,12 @@ const trackLabel = (track: AdaptiveTrack) => [track.label || track.language || '
 type Engine = {
   attach(video: HTMLVideoElement): Promise<void>; load(url: string, position?: number, mime?: string): Promise<void>; destroy(): Promise<void>
   configure(config: object): boolean; addEventListener(name: string, callback: (event: any) => void): void
-  getNetworkingEngine(): { registerRequestFilter(filter: (type: number, request: Request) => void): void }
+  getNetworkingEngine(): { registerRequestFilter(filter: (type: number, request: Request) => void): void; registerResponseFilter?(filter: (type: number, response: { data: ArrayBuffer | ArrayBufferView | string }) => void): void }
   getAudioTracks?(): AdaptiveTrack[]; getTextTracks?(): AdaptiveTrack[]
   selectAudioTrack?(track: AdaptiveTrack, safeMargin?: number): void; selectTextTrack?(track: AdaptiveTrack | null): void
   getVideoTracks?(): VideoTrack[]; selectVideoTrack?(track: VideoTrack, clearBuffer?: boolean, safeMargin?: number): void
 }
-type Shaka = { Player: { new(): Engine; isBrowserSupported(): boolean }; polyfill: { installAll(): void }; net: { NetworkingEngine: { RequestType: { LICENSE: number; MANIFEST: number; SEGMENT: number } } } }
+type Shaka = { Player: { new(): Engine; isBrowserSupported(): boolean }; polyfill: { installAll(): void }; net: { NetworkingEngine: { RequestType: { LICENSE: number; MANIFEST: number; SEGMENT: number; KEY?: number } } } }
 let runtime: Promise<Shaka> | undefined
 function loadRuntime(): Promise<Shaka> {
   if (!runtime) runtime = new Promise<Shaka>((resolve, reject) => {
@@ -70,11 +72,17 @@ export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka
           if (drm && !navigator.requestMediaKeySystemAccess) { fail('DRM is unavailable in this environment. LG’s simulator does not support DRM; test this stream on a physical TV.'); return }
           current.configure({ streaming: { bufferingGoal: 20, rebufferingGoal: 2, preferNativeHls: false }, ...(drm ? { drm: { ...(drm.licenseUrl ? { servers: { [drm.system]: drm.licenseUrl } } : {}), ...(drm.clearKeys ? { clearKeys: drm.clearKeys } : {}) } } : {}) })
           const types = shaka.net.NetworkingEngine.RequestType
-          current.getNetworkingEngine().registerRequestFilter((type, request) => {
+          const network = current.getNetworkingEngine()
+          network.registerRequestFilter((type, request) => {
             // Never send media authorization headers to a license server or vice versa.
-            const values = type === types.LICENSE ? drm?.headers : type === types.MANIFEST || type === types.SEGMENT ? options?.headers : undefined
+            const values = type === types.LICENSE ? drm?.headers : type === types.MANIFEST || type === types.SEGMENT || type === types.KEY ? options?.headers : undefined
             if (values) Object.assign(request.headers, values)
+            if (type === types.LICENSE && drm?.format?.request) request.body = wrapLicense(request.body, drm.format.request)
           })
+          if (drm?.format?.response) {
+            if (!network.registerResponseFilter) { fail('This player cannot process the provider license response format.'); return }
+            network.registerResponseFilter((type, response) => { if (type === types.LICENSE) response.data = unwrapLicense(response.data, drm.format!.response!) })
+          }
           const wait = () => { clearTimeout(timer); timer = setTimeout(() => fail('The stream stopped responding. Check your connection and retry.'), 60000) }
           const events: Record<string, () => void> = {
             playing: () => { clearTimeout(timer); report('playing') }, pause: () => { clearTimeout(timer); report('paused') },
@@ -138,9 +146,11 @@ export function canUseNativeHls(media: Media, video: HTMLVideoElement): boolean 
   return !media.playback?.drm && !media.playback?.problem && !Object.keys(media.playback?.headers || {}).length &&
     (/\.m3u8(?:\?|$)/i.test(media.url) || media.playback?.manifestType === 'hls') && !!video.canPlayType('application/vnd.apple.mpegurl')
 }
-export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api: AVPlay; surface: HTMLElement }, getShaka = loadRuntime): Player {
+export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api: AVPlay; surface: HTMLElement }, getShaka = loadRuntime, getTransport = loadTransportRuntime): Player {
   const html = htmlPlayer(video, report), samsung = native && samsungPlayer(native.api, report)
+  const transport = transportPlayer(video, report, getTransport)
   let current: Player = html, generation = 0, mediaForFallback: Media | undefined, fallbackPosition = 0
+  let live = false
   const adaptive = adaptivePlayer(video, (state, detail) => {
     if (state === 'error' && current === adaptive && mediaForFallback && canUseNativeHls(mediaForFallback, video)) {
       const media = mediaForFallback, position = fallbackPosition, token = generation
@@ -154,13 +164,15 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
       current.stop()
       const token = ++generation, previous = current
       const media: Media = typeof input === 'string' ? { url: input } : input
+      live = media.mediaKind === 'live'
+      try { video.playbackRate = 1 } catch { /* Fixed-speed devices can still play normally. */ }
       video.style.objectFit = 'contain'
       mediaForFallback = media; fallbackPosition = position || 0
       const nativeHeaders = Object.keys(media.playback?.headers || {}).every(name => ['user-agent', 'cookie'].includes(name.toLowerCase()))
       const useNative = !!samsung && !media.playback?.drm && !media.playback?.problem && nativeHeaders
       const begin = () => {
         if (token !== generation) return
-        current = useNative ? samsung! : needsAdaptivePlayer(media) ? adaptive : html
+        current = useNative ? samsung! : transportType(media) ? transport : needsAdaptivePlayer(media) ? adaptive : html
         video.hidden = useNative; if (native) native.surface.hidden = !useNative
         current.play(media, position)
       }
@@ -169,6 +181,9 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
     stop() { generation++; current.stop() }, pause() { current.pause() }, resume() { current.resume() }, seek(delta) { current.seek(delta) }, timeline() { return current.timeline() },
     tracks() { return current.tracks?.() || [] }, selectTrack(kind, id) { return current.selectTrack?.(kind, id) || false },
     qualities() { return current.qualities?.() || [] }, selectQuality(id) { return current.selectQuality?.(id) || false },
+    speeds() { return current === samsung ? samsung.speeds!() : !live && Number.isFinite(video.duration) && video.duration > 1 ? [.5, .75, 1, 1.25, 1.5, 2] : [] },
+    speed() { return current === samsung ? samsung.speed!() : video.playbackRate || 1 },
+    setSpeed(rate) { if (current === samsung) return samsung.setSpeed!(rate); if (!this.speeds?.().includes(rate)) return false; try { video.playbackRate = rate; return video.playbackRate === rate } catch { return false } },
     aspects() { return current === samsung ? samsung.aspects!() : ['fit', 'zoom', 'stretch'] },
     setAspect(aspect) { if (current === samsung) return samsung.setAspect!(aspect); if (!['fit', 'zoom', 'stretch'].includes(aspect)) return false; video.style.objectFit = aspect === 'fit' ? 'contain' : aspect === 'zoom' ? 'cover' : 'fill'; return true },
   }

@@ -5,13 +5,14 @@ export type Report = (state: State, detail?: string) => void
 export type PlayerTrack = { id: string; kind: 'audio' | 'subtitle'; label: string; language?: string; active: boolean; disabled?: boolean }
 export type Aspect = 'fit' | 'zoom' | 'stretch'
 export type VideoQuality = { id: string; label: string; active: boolean }
-export interface Player { play(url: string | Media, position?: number): void; pause(): void; resume(): void; seek(delta: number): void; stop(): void; timeline(): { position: number; duration: number }; tracks?(): PlayerTrack[]; selectTrack?(kind: PlayerTrack['kind'], id: string): boolean; qualities?(): VideoQuality[]; selectQuality?(id: string): boolean; aspects?(): Aspect[]; setAspect?(aspect: Aspect): boolean }
+export interface Player { play(url: string | Media, position?: number): void; pause(): void; resume(): void; seek(delta: number): void; stop(): void; timeline(): { position: number; duration: number }; tracks?(): PlayerTrack[]; selectTrack?(kind: PlayerTrack['kind'], id: string): boolean; qualities?(): VideoQuality[]; selectQuality?(id: string): boolean; aspects?(): Aspect[]; setAspect?(aspect: Aspect): boolean; speeds?(): number[]; speed?(): number; setSpeed?(rate: number): boolean }
 type NativeTrack = { type: string; index: number; extra_info?: string }
 export interface AVPlay {
   open(url: string): void; close(): void; stop(): void; play(): void; pause(): void
   getState(): string; getDuration(): number; getCurrentTime(): number
   setDisplayRect(x: number, y: number, width: number, height: number): void
   setDisplayMethod(method: string): void
+  setSpeed?(rate: number): void
   setStreamingProperty?(name: string, value: string): void
   getTotalTrackInfo?(): NativeTrack[]; getCurrentStreamInfo?(): NativeTrack[]
   setSelectTrack?(type: 'AUDIO' | 'TEXT', index: number): void; setSilentSubtitle?(hidden: boolean): void
@@ -23,9 +24,9 @@ const PLAYBACK_ERROR = 'This stream could not play. Check your network and provi
 
 export function samsungPlayer(api: AVPlay, report: Report): Player {
   let generation = 0, timer: ReturnType<typeof setTimeout> | undefined, seeking = false
-  let subtitlesHidden = true, dash = false
+  let subtitlesHidden = true, dash = false, speed = 1, live = false
   const close = () => {
-    generation++; seeking = false; clearTimeout(timer)
+    generation++; seeking = false; speed = 1; clearTimeout(timer)
     try { if (['READY', 'PLAYING', 'PAUSED'].includes(api.getState())) api.stop() } catch { /* close still releases the decoder */ }
     try { api.close() } catch { /* NONE is already closed */ }
   }
@@ -36,6 +37,7 @@ export function samsungPlayer(api: AVPlay, report: Report): Player {
       const token = generation
       try {
         const media = typeof url === 'string' ? { url } : url
+        live = media.mediaKind === 'live'
         if (media.playback?.drm || media.playback?.problem) throw new Error('Use the adaptive player for DRM.')
         api.open(httpUrl(media.url))
         dash = /\.mpd(?:\?|$)/i.test(media.url) || ['mpd', 'dash'].includes(media.playback?.manifestType || '')
@@ -85,6 +87,9 @@ export function samsungPlayer(api: AVPlay, report: Report): Player {
       } catch { seeking = false }
     },
     stop() { close(); report('idle') },
+    speeds() { try { return !live && api.setSpeed && ['READY', 'PLAYING', 'PAUSED'].includes(api.getState()) && Number.isFinite(api.getDuration()) && api.getDuration() > 1000 ? [1, 2] : [] } catch { return [] } },
+    speed() { return speed },
+    setSpeed(rate) { try { if (!this.speeds?.().includes(rate)) return false; api.setSpeed!(rate); speed = rate; return true } catch { return false } },
     aspects() { return ['fit', 'stretch'] },
     setAspect(aspect) {
       if (!['fit', 'stretch'].includes(aspect) || !['IDLE', 'READY', 'PLAYING', 'PAUSED'].includes(api.getState())) return false

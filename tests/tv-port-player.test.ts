@@ -16,6 +16,17 @@ function fixture() {
 }
 afterEach(() => vi.useRealTimers())
 describe('Samsung native player lifecycle', () => {
+  it('offers native VOD speed choices only when ready and reports unsupported rates', () => {
+    const { api, player, pending } = fixture(); api.setSpeed = vi.fn()
+    expect(player.speeds!()).toEqual([])
+    player.play({ url: 'https://example.com/movie.mp4', mediaKind: 'movie' }); pending[0].success()
+    expect(player.speeds!()).toEqual([1, 2]); expect(player.setSpeed!(1.5)).toBe(false)
+    expect(player.setSpeed!(2)).toBe(true); expect(player.speed!()).toBe(2)
+    vi.mocked(api.setSpeed).mockImplementation(() => { throw new Error('not supported') })
+    expect(player.setSpeed!(1)).toBe(false); expect(player.speed!()).toBe(2)
+    player.play({ url: 'https://example.com/live.ts', mediaKind: 'live' }); pending[1].success()
+    expect(player.speed!()).toBe(1); expect(player.speeds!()).toEqual([]); player.stop()
+  })
   it('offers only documented native picture modes and respects decoder state', () => {
     const { api, player, pending } = fixture()
     expect(player.setAspect!('stretch')).toBe(false)

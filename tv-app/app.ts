@@ -955,9 +955,13 @@ function refreshPictureOptions() {
   const aspect = select('aspect-mode'); aspect.replaceChildren()
   for (const value of player?.aspects?.() || []) aspect.add(new Option(({ fit: 'Fit · keep entire picture', zoom: 'Zoom · fill and crop', stretch: 'Stretch · fill screen' })[value], value, false, currentAspect === value))
   aspect.disabled = !aspect.options.length
+  const speed = select('playback-speed'), speeds = player?.speeds?.() || []; speed.replaceChildren(); speed.disabled = !speeds.length
+  if (!speeds.length) speed.add(new Option('Normal · fixed for this stream', '1'))
+  for (const rate of speeds) speed.add(new Option(rate === 1 ? 'Normal · 1×' : `${rate}×`, String(rate), false, rate === player?.speed?.()))
 }
 select('quality-track').onchange = () => { const success = player?.selectQuality?.(select('quality-track').value); $('track-status').textContent = success ? 'Quality selected. The picture will update as the buffer changes.' : 'This quality is no longer available. Try Automatic.'; if (!success) refreshPictureOptions() }
 select('aspect-mode').onchange = () => { const aspect = select('aspect-mode').value as Aspect; if (player?.setAspect?.(aspect)) { currentAspect = aspect; $('track-status').textContent = 'Picture size applied.' } else { refreshPictureOptions(); $('track-status').textContent = 'This picture size is unavailable on the current player.' } }
+select('playback-speed').onchange = () => { const success = player?.setSpeed?.(Number(select('playback-speed').value)); refreshPictureOptions(); $('track-status').textContent = success ? 'Playback speed applied. Audio behavior depends on the TV and stream.' : 'This speed is unavailable for the current TV or stream.' }
 function closeTracks() { $('track-menu').hidden = true; controls(); button('tracks-open').focus() }
 $('tracks-open').onclick = () => { $('track-menu').hidden = false; refreshTracks(); clearTimeout(controlsTimer); ($('track-menu').querySelector<HTMLElement>('select:not(:disabled)') || button('tracks-close')).focus() }
 $('tracks-close').onclick = closeTracks

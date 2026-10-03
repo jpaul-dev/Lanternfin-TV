@@ -26,12 +26,12 @@ The port preserves M3U `#KODIPROP` license settings, `#EXTVLCOPT` User-Agent/Ref
 | --- | --- |
 | HLS / DASH | Shaka, using MSE when available; native Samsung path for compatible unprotected streams. Unprotected HLS can fall back to native HTML playback when available, after releasing Shaka. DRM/header requirements are never dropped to trigger fallback |
 | Widevine / PlayReady | Shaka EME configuration with provider license URL; requires a compatible CDM, codec and valid provider access; not yet verified on physical TVs |
-| ClearKey | Explicit 32-character hexadecimal KID/key pairs passed to Shaka; not a DRM bypass |
+| ClearKey | Up to 64 explicit, distinct 32-character hexadecimal KID/key pairs passed to Shaka; not a DRM bypass |
 | License authorization headers | Sent only on license requests, separate from media credentials |
-| Media authorization headers | Sent on Shaka manifest/segment requests; provider must permit cross-origin requests. Direct MP4 header injection is unsupported on this path |
+| Media authorization headers | Sent on Shaka manifest, segment and encryption-key requests; provider must permit cross-origin requests. Direct MP4 header injection is unsupported on this path |
 | User-Agent / Cookie | Samsung AVPlay native streaming properties; real-TV verification pending |
 | Referer, Origin and other browser-controlled headers | Explicit unsupported message; never silently ignored. A provider-compatible URL or separately designed, opt-in local relay is needed |
-| Kodi license payload/response transforms | Only raw challenge requests accepted; nontrivial transformations explicitly reported as unsupported |
+| Kodi license payload/response transforms | Raw/default `R`, bounded `b{SSM}` base64, `B{SSM}` URL-encoded base64 and `D{SSM}` decimal request templates; raw, base64 `B`, top-level JSON `Jfield`/`JBfield` responses. Session/key/PSSH/URL placeholders, nested fields and HDCP policy extraction need a provider-specific integration and are explicitly rejected |
 | LG simulator | UI and unprotected playback only; LG documents no DRM or mediaOption support |
 
 [Shaka’s platform matrix](https://github.com/shaka-project/shaka-player#platform-and-browser-support-matrix) includes Samsung; webOS is community supported. [Shaka’s DRM configuration](https://shaka-project.github.io/shaka-player/docs/api/tutorial-drm-config.html) and [license header guide](https://shaka-project.github.io/shaka-player/docs/api/tutorial-license-server-auth.html) describe the integration. [LG’s DRM matrix](https://webostv.developer.lge.com/develop/specifications/streaming-protocol-drm) supports PlayReady and Widevine on real TVs, while the [simulator limitations](https://webostv.developer.lge.com/develop/tools/simulator-introduction) explicitly exclude DRM. Samsung’s [AVPlay reference](https://developer.samsung.com/smarttv/develop/api-references/samsung-product-api-references/avplay-api.html) documents the native streaming properties.
@@ -213,3 +213,14 @@ Remembered Xtream sources can separately opt into **Keep the catalog for faster 
 Opening a fresh cache labels the library as saved and immediately makes all its categories searchable. Refresh bypasses the cache. Storage failures or rejected caches fall back to ordinary provider loading. Clear saved catalogs preserves source settings and viewing progress. Removing a source, turning Remember off, or Forget all removes the corresponding cache and cancels writes that could recreate it.
 
 Validation: **171 files / 3,160 tests**, TV type checks, and a real browser cold reload of the 30-title test-provider cache. The UI reported Saved library after restart and confirmed clearing saved catalogs. Database tests cover chunk restoration, per-account isolation, six-hour expiry, invalid/incomplete metadata, cancellation, and forgetting during a pending write. fake-indexeddb 6.2.5 is a test-only dependency and is not bundled on TVs. IndexedDB quotas/availability on physical TVs remain to be measured; failure does not prevent session use.
+
+
+### Transport playback and license formats (2026-10-03)
+
+The portable player now bundles mpegts.js 1.8.0 locally for unencrypted MPEG-TS, M2TS and FLV streams when MSE is available. It preserves permitted media headers, disables library URL logging, limits retained video buffers, and cancels pending startup on navigation. Samsung still prefers its compatible native player. Transmuxing cannot supply an unsupported decoder or decrypt protected transport files. See the [mpegts.js API](https://github.com/xqq/mpegts.js/blob/master/docs/api.md).
+
+Kodi's ordinary `|R` license response is accepted. The documented base64/decimal request and single-field JSON response subset is implemented with bounded input and no script evaluation. Unsupported session/key placeholders or HDCP extraction are rejected rather than silently ignored. Media credentials also reach Shaka's encryption-key requests; license credentials remain separate. See [Kodi's legacy DRM format](https://github.com/xbmc/inputstream.adaptive/wiki/Integration-DRM-(old)) and [Shaka license wrapping](https://shaka-project.github.io/shaka-player/docs/api/tutorial-license-wrapping.html).
+
+Playback settings now exposes 0.5–2× speed for finite HTML/MSE video and 1×/2× for compatible Samsung native VOD. Live channels keep normal speed; each new stream resets speed. Samsung rates and audio behavior depend on the protocol/device and failures are reported.
+
+Validation: TV type checks and the full suite passed **173 files / 3,172 tests**. The browser decoded and paused a public 10-second MPEG-TS segment from Mux's Big Buck Bunny sample and accepted 1.5× speed. Controlled tests cover delayed startup, stale errors, teardown failures, timeouts, forbidden-header/DRM rejection, native speeds and license wrappers. This does not validate real provider DRM, continuous live TS streams, or native TV playback.

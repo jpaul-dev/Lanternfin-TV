@@ -1,7 +1,8 @@
 /** Provider metadata stays in memory. Never include URLs, keys or header values in diagnostics. */
-export type DRM = { system: string; licenseUrl?: string; headers?: Record<string, string>; clearKeys?: Record<string, string> }
+import { licenseFormat, type LicenseFormat } from './license-format'
+export type DRM = { system: string; licenseUrl?: string; headers?: Record<string, string>; clearKeys?: Record<string, string>; format?: LicenseFormat }
 export type PlaybackOptions = { headers?: Record<string, string>; drm?: DRM; manifestType?: string; problem?: string }
-export type Media = { url: string; playback?: PlaybackOptions }
+export type Media = { url: string; mediaKind?: 'live' | 'movie' | 'series' | 'episode'; playback?: PlaybackOptions }
 export function webAddress(value: string, base?: string): string {
   const url = new URL(value, base)
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Invalid media address.')
@@ -30,14 +31,17 @@ export function providerMedia(entry: { url: string; userAgent?: string | null; r
       const raw = (entry.drmScheme || '').toLowerCase()
       const system = /widevine/.test(raw) ? 'com.widevine.alpha' : /playready/.test(raw) ? 'com.microsoft.playready' : /clearkey/.test(raw) ? 'org.w3.clearkey' : raw || 'unknown'
       const drm: DRM = { system }; options.drm = drm
-      if (entry.licenseKey && system === 'org.w3.clearkey' && /^[a-f\d]{32}:[a-f\d]{32}$/i.test(entry.licenseKey)) {
-        const [id, key] = entry.licenseKey.split(':'); drm.clearKeys = { [id]: key }
+      if (entry.licenseKey && system === 'org.w3.clearkey' && /^[a-f\d]{32}:[a-f\d]{32}(?:,[a-f\d]{32}:[a-f\d]{32}){0,63}$/i.test(entry.licenseKey)) {
+        const pairs = entry.licenseKey.split(',').map(pair => pair.toLowerCase().split(':'))
+        if (new Set(pairs.map(([id]) => id)).size !== pairs.length) throw new Error('Duplicate key identifiers')
+        drm.clearKeys = Object.fromEntries(pairs)
       } else if (entry.licenseKey) {
         const [url, header, body, response, ...rest] = entry.licenseKey.split('|')
+        if (/\{|%7b/i.test(url)) throw new Error('License URL placeholders require provider integration')
         drm.licenseUrl = webAddress(url, base)
         if (header) drm.headers = headers(header)
-        // Kodi's payload/response transformations are provider-specific; don't guess them.
-        if ((body && body !== 'R{SSM}') || response || rest.length) options.problem = 'This provider uses a custom license request or response format that is not supported yet.'
+        try { if (rest.length) throw new Error(); const format = licenseFormat(body, response); if (format.request || format.response) drm.format = format }
+        catch { options.problem = 'This provider uses a custom license format outside the supported raw, base64 or single-field JSON formats. Formats requiring session IDs, key IDs or HDCP policy extraction need a provider-specific integration.' }
       }
     }
   } catch { options.problem = 'This entry has an invalid or unsupported header or license configuration.' }

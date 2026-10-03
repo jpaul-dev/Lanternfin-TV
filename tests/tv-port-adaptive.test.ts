@@ -9,7 +9,7 @@ function harness(pending = false) {
   let rejectLoad: (error: object) => void = () => {}
   const engine = { attach: vi.fn().mockResolvedValue(undefined), load: vi.fn(() => pending ? new Promise<void>((_, reject) => { rejectLoad = reject }) : Promise.resolve()), destroy: vi.fn(async () => { rejectLoad({ code: 7000 }) }), configure: vi.fn(() => true), addEventListener: vi.fn(), getNetworkingEngine: () => ({ registerRequestFilter: (fn: typeof filter) => { filter = fn } }) }
   const Constructor = Object.assign(function () { return engine }, { isBrowserSupported: () => true })
-  const runtime = { Player: Constructor, polyfill: { installAll() {} }, net: { NetworkingEngine: { RequestType: { LICENSE: 2, MANIFEST: 0, SEGMENT: 1 } } } }
+  const runtime = { Player: Constructor, polyfill: { installAll() {} }, net: { NetworkingEngine: { RequestType: { LICENSE: 2, MANIFEST: 0, SEGMENT: 1, KEY: 6 } } } }
   const report = vi.fn(), player = adaptivePlayer(document.createElement('video'), report, async () => runtime as any)
   return { engine, player, report, runtime, apply: (type: number) => { const request = { headers: {} }; filter(type, request); return request.headers } }
 }
@@ -26,7 +26,7 @@ it('filters headers by request purpose, preserving media authentication only on 
   vi.useFakeTimers(); const h = harness()
   h.player.play({ url: 'https://example.com/a.mpd', playback: { headers: { Authorization: 'media' } } })
   await settle()
-  expect(h.apply(0)).toEqual({ Authorization: 'media' }); expect(h.apply(1)).toEqual({ Authorization: 'media' }); expect(h.apply(2)).toEqual({})
+  expect(h.apply(0)).toEqual({ Authorization: 'media' }); expect(h.apply(1)).toEqual({ Authorization: 'media' }); expect(h.apply(6)).toEqual({ Authorization: 'media' }); expect(h.apply(2)).toEqual({}); expect(h.apply(5)).toEqual({})
   h.player.stop(); await settle(); vi.clearAllTimers()
 })
 it('destroys a pending load on stop without waiting for that load to finish', async () => {
@@ -86,4 +86,16 @@ it('changes video quality independently from audio and restores automatic adapta
   expect(h.player.selectQuality!('unknown')).toBe(false)
   expect(h.player.selectQuality!('auto')).toBe(true); expect(h.engine.configure).toHaveBeenLastCalledWith({ abr: { enabled: true } })
   h.player.stop(); await settle(); expect(h.player.qualities!()).toEqual([]); vi.clearAllTimers()
+})
+it('wraps only license requests and responses, keeping manifests and keys unchanged', async () => {
+  vi.useFakeTimers(); vi.stubGlobal('navigator', { requestMediaKeySystemAccess: vi.fn() }); const h = harness()
+  let outgoing!: (type: number, request: any) => void, incoming!: (type: number, response: any) => void
+  Object.assign(h.engine, { getNetworkingEngine: () => ({ registerRequestFilter: (fn: typeof outgoing) => { outgoing = fn }, registerResponseFilter: (fn: typeof incoming) => { incoming = fn } }) })
+  h.player.play({ url: 'https://example.com/a.mpd', playback: { headers: { Authorization: 'media' }, drm: { system: 'com.widevine.alpha', licenseUrl: 'https://license.example', headers: { Authorization: 'license' }, format: { request: '{"challenge":"b{SSM}"}', response: 'JBlicense' } } } }); await settle()
+  const original = new Uint8Array([0, 255]), request = { headers: {}, body: original }
+  outgoing(2, request); expect(request.headers).toEqual({ Authorization: 'license' }); expect(JSON.parse(new TextDecoder().decode(request.body))).toEqual({ challenge: 'AP8=' })
+  const response = { data: '{"license":"AP8="}' }; incoming(2, response); expect(response.data).toEqual(original)
+  const key = { headers: {}, body: original }; outgoing(6, key); expect(key.body).toBe(original); expect(key.headers).toEqual({ Authorization: 'media' })
+  const manifest = { data: '<MPD/>' }; incoming(0, manifest); expect(manifest.data).toBe('<MPD/>')
+  h.player.stop(); await settle(); vi.clearAllTimers()
 })

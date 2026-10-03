@@ -8,18 +8,24 @@ describe('provider playback metadata', () => {
     expect(entry).toMatchObject({ logo: 'https://provider.example/poster.jpg', mediaKind: 'movie', playback: { headers: { authorization: 'Bearer media' }, drm: { system: 'com.widevine.alpha', licenseUrl: 'https://license.example/get', headers: { authorization: 'Bearer license' } } } })
     expect(entry.playback?.problem).toBeUndefined()
   })
-  it('does not guess custom license transformations or discard the channel', () => {
+  it('accepts documented license wrappers and preserves unsupported configurations with a clear reason', () => {
     const result = providerMedia({ url: 'a.mpd', drmScheme: 'widevine', licenseKey: 'https://license.example/|Token=x|B{SSM}|JBlicense' }, base)
-    expect(result.playback?.problem).toContain('custom license')
+    expect(result.playback?.problem).toBeUndefined(); expect(result.playback?.drm?.format).toEqual({ request: 'B{SSM}', response: 'JBlicense' })
+    expect(providerMedia({ url: 'a.mpd', drmScheme: 'widevine', licenseKey: 'https://license.example/||R{SSM}|R' }, base).playback?.problem).toBeUndefined()
+    expect(providerMedia({ url: 'a.mpd', drmScheme: 'widevine', licenseKey: 'https://license.example/||b{SSM}+R{SID}|JBlicense;hdcp' }, base).playback?.problem).toContain('custom license')
   })
   it('rejects header injection and unsafe license URLs without exposing their contents', () => {
     const result = providerMedia({ url: 'a.mpd|Authorization=secret%0d%0aX-Evil%3Atrue' }, base)
     expect(result.playback?.problem).toContain('invalid'); expect(result.playback?.problem).not.toContain('secret')
     expect(providerMedia({ url: 'a.mpd', drmScheme: 'widevine', licenseKey: 'javascript:secret' }, base).playback?.problem).toContain('invalid')
+    expect(providerMedia({ url: 'a.mpd', drmScheme: 'widevine', licenseKey: 'https://license.example/?challenge=B%7BSSM%7D' }, base).playback?.problem).toContain('unsupported')
   })
   it('supports explicitly supplied ClearKey values and labels restricted headers', () => {
     const result = providerMedia({ url: 'a.mpd', drmScheme: 'clearkey', licenseKey: `${'a'.repeat(32)}:${'b'.repeat(32)}` }, base)
     expect(result.playback?.drm?.clearKeys).toEqual({ ['a'.repeat(32)]: 'b'.repeat(32) })
+    const pair = `${'a'.repeat(32)}:${'b'.repeat(32)}`
+    expect(providerMedia({ url: 'a.mpd', drmScheme: 'clearkey', licenseKey: `${pair},${pair}` }, base).playback?.problem).toContain('invalid')
+    expect(Object.keys(providerMedia({ url: 'a.mpd', drmScheme: 'clearkey', licenseKey: `${pair},${'c'.repeat(32)}:${'d'.repeat(32)}` }, base).playback!.drm!.clearKeys!)).toHaveLength(2)
     expect(browserHeaderProblem({ Referer: 'secret', 'User-Agent': 'secret' })).toContain('Referer, User-Agent')
     expect(browserHeaderProblem({ Authorization: 'secret' })).toBeUndefined()
   })

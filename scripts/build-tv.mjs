@@ -31,6 +31,8 @@ await copyFile(resolve(root, 'LICENSE'), resolve(out, 'LICENSE'))
 // Bundle the pinned engine; playback never fetches executable code from a CDN.
 await copyFile(resolve(root, 'node_modules/shaka-player/dist/shaka-player.compiled.js'), resolve(out, 'shaka-player.compiled.js'))
 await copyFile(resolve(root, 'node_modules/shaka-player/LICENSE'), resolve(out, 'LICENSE-Shaka.txt'))
+await copyFile(resolve(root, 'node_modules/mpegts.js/dist/mpegts.js'), resolve(out, 'mpegts.js'))
+await copyFile(resolve(root, 'node_modules/mpegts.js/LICENSE'), resolve(out, 'LICENSE-mpegts.txt'))
 await copyFile(resolve(root, 'node_modules/@fontsource-variable/geist/LICENSE'), resolve(out, 'LICENSE-Geist.txt'))
 await copyFile(resolve(root, 'node_modules/fflate/LICENSE'), resolve(out, 'LICENSE-fflate.txt'))
 await copyFile(resolve(root, 'tv-app/icons', target === 'webos' ? '80.png' : '117.png'), resolve(out, 'icon.png'))

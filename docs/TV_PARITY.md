@@ -11,7 +11,7 @@ This is the implementation checklist for the standalone TV ports. Reference: the
 | Sources | M3U, Xtream and direct URL, explicit Remember, cancel/refresh/forget, up to 20 named sources, source switching, per-source XMLTV override and account status | Backup/restore workflow |
 | Library | Favorites, last 100 watched, VOD progress, saved Xtream references, continue-watching rail, card menus individual history removal and 10,000 independent watched marks | Watched-list management |
 | Guide | Xtream fallbacks and original streaming XMLTV worker; bounded cache, refresh, guide dates, manual feed override and bounded gzip fallback | Broader provider guide validation |
-| Playback | Shaka HLS/DASH and DRM configuration, Samsung native path, safe HTML fallback, seek, retry, track menu, now/next OSD, episode continuation, seek bar, quality and picture size | Further OSD parity, supported speed controls |
+| Playback | Shaka HLS/DASH and bounded DRM license wrappers, MPEG-TS/FLV transmuxing, Samsung native path, safe HTML fallback, seek, retry, track menu, now/next OSD, episode continuation, seek bar, quality, picture size and supported VOD speeds | Further OSD parity and device/provider validation |
 | Settings | Theme, accent, size, margins, reduced motion, guide clock, language preferences, optional automatic next episode | Localization, other applicable Android options and diagnostics |
 | Downloads / offline | Not implemented | Investigate platform storage, codec/DRM persistence and developer/store permissions before selecting a supported design |
 | Casting / receiver | Deliberately absent from the standalone install | Optional future feature only; not required to watch |
