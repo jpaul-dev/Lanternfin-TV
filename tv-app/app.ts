@@ -23,7 +23,7 @@ import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfi
 import { keyAction, moveFocus, atPageEdge, pageEntry, type Direction } from './remote'
 import { type AVPlay, type Player, type State, type Aspect } from './player'
 import { tvPlayer } from './adaptive-player'
-import { channelCard, cardChannel, cardVersions, homeRows, cancelHomeRows } from './presentation'
+import { channelCard, episodeRow, cardChannel, cardVersions, homeRows, cancelHomeRows } from './presentation'
 import { loadCategories, loadCategory, basicDetails, loadTitleDetails, type TitleDetails, type Category, type MediaKind } from './xtream'
 import { searchCatalog } from './search'
 import { sortCatalog } from './sort'
@@ -587,6 +587,7 @@ function saveProgress(ended = false) {
   catch { $('library-note').textContent = 'TV storage is unavailable. Changes are kept for this session.' }
 }
 function stopWatching() {
+  const stopped = currentChannel
   resetSubtitles()
   episodeContext.cancel()
   cancelNextEpisode()
@@ -596,7 +597,13 @@ function stopWatching() {
   clearTimeout(controlsTimer); player?.stop()
   if (playbackReturn === 'downloads') { downloadView.open(); show('downloads'); return }
   if (playbackReturn === 'programme' && selectedProgramme) { show('programme'); button('programme-back').focus(); return }
-  if (playbackReturn === 'detail' && detailInfo) { renderDetails(); show('detail'); button('detail-play').focus(); return }
+  if (playbackReturn === 'detail' && detailInfo) {
+    const episode = stopped?.mediaKind === 'episode' ? detailInfo.episodes?.find(item => channelId(item) === channelId(stopped)) : undefined
+    if (episode) { select('detail-season').value = episode.group; episodePage = Math.floor(detailInfo.episodes!.filter(item => item.group === episode.group).indexOf(episode) / PAGE_SIZE) }
+    renderDetails(); show('detail')
+    const target = episode ? $('episode-grid').querySelector<HTMLElement>(`[data-channel="${channelId(episode)}"]`) : undefined
+    ;(target || button('detail-play')).focus(); target?.scrollIntoView?.({ block: 'nearest' }); return
+  }
   show('catalog')
   if (browseView === 'home') { renderHome(); $('hero-play').focus() }
   else if (!catalogReturnVisit) { render(); ($('channels').querySelectorAll<HTMLElement>('button')[lastChannel] || button('change-source')).focus() }
@@ -709,6 +716,13 @@ document.addEventListener('keydown', event => {
     if (direction === 'up' || direction === 'down') {
       const next = page + (direction === 'down' ? 1 : -1), explicit = action.startsWith('channel-')
       if ((explicit || atPageEdge(boxes, index, direction)) && next >= 0 && next * PAGE_SIZE < filtered.length) { event.preventDefault(); changePage(next, boxes[index].left + boxes[index].width / 2); return }
+    }
+  }
+  if (screen === 'detail' && active?.closest('#episode-grid')) {
+    const direction = action === 'channel-down' ? 'down' : action === 'channel-up' ? 'up' : action
+    const items = [...$('episode-grid').querySelectorAll<HTMLElement>('button')], index = items.indexOf(active as HTMLElement)
+    if ((direction === 'up' || direction === 'down') && (action.startsWith('channel-') || index === (direction === 'down' ? items.length - 1 : 0))) {
+      if (changeEpisodePage(episodePage + (direction === 'down' ? 1 : -1), direction)) { event.preventDefault(); return }
     }
   }
   if (screen === 'playback' && !$('controls').hidden && $('track-menu').hidden && active === input('seek-position') && ['left', 'right'].includes(action)) { event.preventDefault(); controls(); const field = input('seek-position'); field.value = String(Math.max(0, Math.min(Number(field.max), Number(field.value) + (action === 'left' ? -10 : 10)))); field.dispatchEvent(new Event('input')); field.dispatchEvent(new Event('change')); return }
@@ -1255,12 +1269,20 @@ function renderDetails() {
 }
 function renderEpisodes() {
   const episodes = (detailInfo?.episodes || []).filter(episode => episode.group === select('detail-season').value)
-  const grid = $('episode-grid'); grid.replaceChildren()
+  const grid = $('episode-grid'), focused = grid.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.channel : undefined; grid.replaceChildren()
   episodePage = Math.min(episodePage, Math.max(0, Math.ceil(episodes.length / PAGE_SIZE) - 1))
-  for (const episode of episodes.slice(episodePage * PAGE_SIZE, (episodePage + 1) * PAGE_SIZE)) grid.append(channelCard(episode, () => playChannel(episode), library))
+  for (const episode of episodes.slice(episodePage * PAGE_SIZE, (episodePage + 1) * PAGE_SIZE)) grid.append(episodeRow(episode, () => playChannel(episode), library))
   $('episode-page').textContent = episodes.length ? `Page ${episodePage + 1} of ${Math.ceil(episodes.length / PAGE_SIZE)}` : detailLoading ? 'Loading episodes…' : 'No episodes available'
   button('episode-previous').disabled = episodePage === 0; button('episode-next').disabled = (episodePage + 1) * PAGE_SIZE >= episodes.length
   if (detailInfo?.channel.mediaKind === 'series') { button('detail-play').disabled = !episodes.length; button('detail-play').textContent = episodes.some(episode => library?.lastPlayed(episode)?.position) ? '▶ Continue watching' : `▶ Play ${select('detail-season').value.toLowerCase() || 'series'}` }
+  if (focused) grid.querySelector<HTMLElement>(`[data-channel="${focused}"]`)?.focus({ preventScroll: true })
+}
+function changeEpisodePage(next: number, direction: 'up' | 'down') {
+  const count = detailInfo?.episodes?.filter(episode => episode.group === select('detail-season').value).length || 0
+  if (next < 0 || next * PAGE_SIZE >= count || next === episodePage) return false
+  episodePage = next; renderEpisodes()
+  const rows = [...$('episode-grid').querySelectorAll<HTMLElement>('button')], target = rows[direction === 'down' ? 0 : rows.length - 1]
+  target?.focus(); target?.scrollIntoView?.({ block: 'nearest' }); return true
 }
 function returnFromDetails() {
   const previous = detailTrail.pop()
@@ -1291,7 +1313,7 @@ $('detail-favorite').onclick = () => { if (!detailInfo) return; try { library?.t
 $('detail-retry').onclick = () => { if (detailInfo) void openTitle(detailInfo.channel, detailVariants, 'replace') }
 select('detail-version').onchange = () => { const selected = detailVariants[Number(select('detail-version').value)]; if (selected) void openTitle(selected, detailVariants, 'replace') }
 select('detail-season').onchange = () => { episodePage = 0; if (detailInfo) try { library?.setSeason(detailInfo.channel, select('detail-season').value) } catch { $('detail-status').textContent = 'Season selection applies for this session.' }; renderEpisodes() }
-for (const [id, delta] of [['episode-previous', -1], ['episode-next', 1]] as const) $(id).onclick = () => { episodePage += delta; renderEpisodes(); $('episode-grid').querySelector<HTMLElement>('button')?.focus() }
+for (const [id, delta] of [['episode-previous', -1], ['episode-next', 1]] as const) $(id).onclick = () => { changeEpisodePage(episodePage + delta, delta < 0 ? 'up' : 'down') }
 $('nav-home').onclick = goHome
 for (const kind of ['live', 'movie', 'series', 'search'] as const) {
   $(`nav-${kind}`).onclick = () => void browse(kind)

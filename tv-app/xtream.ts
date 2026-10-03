@@ -1,6 +1,7 @@
 import { httpUrl, playlistUrl, validateSource, type Catalog, type Channel, type Source } from './catalog'
 import { providerTimestamp } from './provider-date'
 import { titleRating, titleYear } from './title-metadata'
+import { providerRuntime, runtimeLabel } from './provider-runtime'
 
 export type MediaKind = 'live' | 'movie' | 'series'
 export type Category = { id: string; name: string }
@@ -12,6 +13,8 @@ class ProviderError extends Error {}
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 const text = (value: unknown, fallback = '') => typeof value === 'string' ? value.slice(0, 200) : fallback
 function artwork(value: unknown): string | undefined { try { return typeof value === 'string' && value.length <= 2048 && value ? httpUrl(value) : undefined } catch { return undefined } }
+function detailText(max: number, ...values: unknown[]) { return values.find(value => typeof value === 'string' && value.trim())?.toString().slice(0, max) || '' }
+function detailArtwork(...values: unknown[]) { for (const value of values) { for (const item of Array.isArray(value) ? value.slice(0, 8) : [value]) { const safe = artwork(item); if (safe) return safe } } }
 function identifier(value: unknown): string {
   if (typeof value === 'number' && !Number.isSafeInteger(value)) throw new ProviderError('The provider returned an invalid item identifier.')
   const id = typeof value === 'number' || typeof value === 'string' ? String(value) : ''
@@ -112,7 +115,8 @@ function parseEpisodes(source: Source, series: Channel, response: Record<string,
       try {
         const id = identifier(row.id), season = Number(row.season ?? seasonKey), episode = Number(row.episode_num)
         if (!Number.isSafeInteger(season) || season < 0 || !Number.isSafeInteger(episode) || episode < 0) { skipped++; continue }
-        channels.push({ name: `S${season} E${episode} · ${text(row.title, series.name)}`, group: `Season ${season}`, url: mediaUrl(source, 'series', id, row.container_extension), mediaKind: 'episode', providerId: id, seriesId: series.providerId, seriesName: series.name, description: text(record(row.info).plot), logo: artwork(record(row.info).movie_image) || series.logo, season, episode })
+        const info = record(row.info), durationSeconds = providerRuntime(info.duration_secs, info.duration) ?? providerRuntime(row.duration_secs, row.duration)
+        channels.push({ name: `S${season} E${episode} · ${detailText(200, row.title, info.name, series.name)}`, group: `Season ${season}`, url: mediaUrl(source, 'series', id, row.container_extension), mediaKind: 'episode', providerId: id, seriesId: series.providerId, seriesName: series.name, description: detailText(600, info.plot, info.description, row.plot, row.description), logo: detailArtwork(info.movie_image, info.cover, row.movie_image, series.logo), ...(durationSeconds ? { durationSeconds } : {}), season, episode })
       } catch { skipped++ }
     }
   }
@@ -129,14 +133,14 @@ export async function loadTitleDetails(source: Source, channel: Channel, signal:
   if (source.kind !== 'xtream' || !channel.providerId || !['movie', 'series'].includes(channel.mediaKind || '')) return basicDetails(channel)
   const series = channel.mediaKind === 'series'
   const response = record(await request(source, series ? 'get_series_info' : 'get_vod_info', signal, { [series ? 'series_id' : 'vod_id']: identifier(channel.providerId) }, 8 * 1024 * 1024))
-  const info = record(response.info), details = basicDetails(channel)
-  const description = info.plot || info.description
-  details.description = typeof description === 'string' ? description.slice(0, 4000) : details.description
-  details.poster = artwork(info.movie_image || info.cover) || channel.logo
-  details.backdrop = artwork(Array.isArray(info.backdrop_path) ? info.backdrop_path[0] : info.backdrop_path)
-  details.cast = text(info.cast || info.actors); details.director = text(info.director)
-  const year = titleYear(info.releasedate || info.releaseDate || info.year) || channel.year
-  const rating = titleRating(info.rating, info.rating_5based) ?? channel.rating, duration = text(info.duration), genre = text(info.genre)
+  const info = record(response.info), data = series ? {} : record(response.movie_data), details = basicDetails(channel)
+  details.description = detailText(4000, info.plot, info.description, data.plot, data.description, details.description)
+  details.poster = detailArtwork(info.movie_image, info.cover, data.movie_image, data.cover, channel.logo)
+  details.backdrop = detailArtwork(info.backdrop_path, data.backdrop_path)
+  details.cast = detailText(200, info.cast, info.actors, data.cast, data.actors); details.director = detailText(200, info.director, data.director)
+  const year = [info.releasedate, info.releaseDate, info.year, data.releasedate, data.releaseDate, data.year, channel.year].map(titleYear).find(Boolean)
+  const rating = titleRating(info.rating, info.rating_5based) ?? titleRating(data.rating, data.rating_5based) ?? channel.rating
+  const duration = runtimeLabel(providerRuntime(info.duration_secs, info.duration) ?? providerRuntime(data.duration_secs, data.duration) ?? channel.durationSeconds) || detailText(64, info.duration, data.duration), genre = detailText(200, info.genre, data.genre)
   details.metadata = [year, genre || channel.group, duration, rating ? `${rating.toFixed(1)} / 10` : ''].filter(Boolean) as string[]
   if (series) details.episodes = parseEpisodes(source, channel, response).channels
   return details

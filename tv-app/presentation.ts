@@ -6,6 +6,7 @@ import { groupVariants } from './variants'
 import { tr } from './i18n'
 import { HOME_ROWS, DEFAULT_HOME_ROWS, type HomeRow } from './home-config'
 import { NewestTitles } from './discovery'
+import { runtimeLabel } from './provider-runtime'
 import { homeKind, type HomeCategory, type HomeRowId } from './source-home'
 import type { VariantGroup } from './variants'
 export type CategoryHomeRow = { category: HomeCategory; channels?: Channel[]; open: () => void }
@@ -34,6 +35,17 @@ export function channelCard(channel: Channel, activate: () => void, library?: TV
   if (recent?.position && recent.duration) { const progress = document.createElement('progress'); progress.max = recent.duration; progress.value = recent.position; progress.className = 'card-progress'; progress.setAttribute('aria-label', 'Viewing progress'); art.append(progress) }
   card.append(art, name, meta); card.onclick = activate
   return card
+}
+/** Android-style landscape episode rows retain the shared remote/menu identity. */
+export function episodeRow(episode: Channel, activate: () => void, library?: TVLibrary) {
+  const card = channelCard(episode, activate, library), copy = document.createElement('span')
+  card.classList.add('episode-row'); copy.className = 'episode-copy'
+  const name = card.querySelector<HTMLElement>('.card-title')!, meta = card.querySelector('small')!
+  const recent = library?.lastPlayed(episode)
+  meta.textContent = [runtimeLabel(episode.durationSeconds), recent?.position ? tr('Continue from {position}', { position: runtimeLabel(Math.floor(recent.position)) }) : '', library?.isWatched(episode) ? tr('Watched') : ''].filter(Boolean).join(' · ')
+  meta.hidden = !meta.textContent; copy.append(name, meta)
+  if (episode.description) { const plot = document.createElement('span'); plot.className = 'episode-description'; plot.textContent = episode.description.slice(0, 600); copy.append(plot) }
+  card.append(copy); return card
 }
 let rowGeneration = 0
 let grouping: AbortController | undefined

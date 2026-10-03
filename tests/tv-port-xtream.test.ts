@@ -41,6 +41,20 @@ it('normalizes title details while keeping descriptions inert and rejecting unsa
   const channel = { name: 'A movie', url: mediaUrl(source, 'movie', '42', 'mp4'), group: 'Movies', mediaKind: 'movie' as const, providerId: '42', logo: 'https://images.example/poster.jpg' }
   const details = await loadTitleDetails(source, channel, signal())
   expect(details.description).toBe('<script>inert text</script>'); expect(details.poster).toBe(channel.logo)
-  expect(details.backdrop).toBe('https://images.example/wide.jpg'); expect(details.metadata).toEqual(['2024', 'Drama', '01:30:00', '8.4 / 10'])
+  expect(details.backdrop).toBe('https://images.example/wide.jpg'); expect(details.metadata).toEqual(['2024', 'Drama', '1:30:00', '8.4 / 10'])
   expect(details.channel).toBe(channel)
+})
+it('recovers valid movie_data metadata when primary fields are absent or malformed', async () => {
+  respond({ info: { plot: {}, movie_image: 'javascript:bad', releasedate: 'invalid', rating: 'unknown', duration: '99:99:99' }, movie_data: { description: '<img src=x onerror=bad()>', cover: 'https://images.example/poster.jpg', backdrop_path: ['javascript:bad', 'https://images.example/wide.jpg'], releaseDate: '2025-05-10', rating_5based: '4.5', duration_secs: 5401, genre: 'Drama', actors: 'Cast', director: 'Director' } })
+  const details = await loadTitleDetails(source, { name: 'Movie', url: mediaUrl(source, 'movie', '1', 'mp4'), mediaKind: 'movie', providerId: '1', group: 'Movies' }, signal())
+  expect(details).toMatchObject({ description: '<img src=x onerror=bad()>', poster: 'https://images.example/poster.jpg', backdrop: 'https://images.example/wide.jpg', cast: 'Cast', director: 'Director' })
+  expect(details.metadata).toEqual(['2025', 'Drama', '1:30:01', '9.0 / 10'])
+})
+it('loads bounded episode runtime, synopsis and safe stills without inventing missing durations', async () => {
+  const series = { name: 'Show', url: '', mediaKind: 'series' as const, providerId: '5', group: 'Shows', logo: 'https://images.example/show.jpg' }
+  respond({ episodes: { 0: [{ id: 1, season: 0, episode_num: 1, title: 'Special', info: { duration_secs: 2510, plot: '<script>inert</script>', movie_image: 'https://images.example/special.jpg' } }], 1: [{ id: 2, episode_num: 1, title: 'Opening', duration: '43:10', plot: 'A'.repeat(1000), info: { movie_image: 'data:bad' } }, { id: 3, episode_num: 2, title: 'Missing', info: { duration_secs: -5, duration: '99:99:99', movie_image: 'javascript:bad' } }] } })
+  const result = await loadEpisodes(source, series, signal())
+  expect(result.channels[0]).toMatchObject({ name: 'S0 E1 · Special', durationSeconds: 2510, description: '<script>inert</script>', logo: 'https://images.example/special.jpg' })
+  expect(result.channels[1]).toMatchObject({ durationSeconds: 2590, logo: series.logo }); expect(result.channels[1].description).toHaveLength(600)
+  expect(result.channels[2].durationSeconds).toBeUndefined(); expect(result.channels[2].logo).toBe(series.logo)
 })
