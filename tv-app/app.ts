@@ -12,6 +12,7 @@ import { findHomeCategories, homeKind, type HomeCategory } from './source-home'
 import { canSeek, scrubOSD } from './playback-osd'
 import { subtitleUI, EXTERNAL_SUBTITLE } from './subtitle-ui'
 import { mp4SubtitleUI, MP4_SUBTITLE } from './mp4-subtitle-ui'
+import { TrackPreferences } from './track-preferences'
 import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
@@ -35,7 +36,7 @@ import { navigationIcons } from './icons'
 import { LiveQueue, nextEpisode } from './playback-queue'
 import { loadAccount } from './account'
 import { EpisodeContext, parentSeries } from './episode-context'
-import { ACCENTS, LANGUAGES, DEFAULTS, readPreferences, savePreferences, normalizePreferences, applyPreferences, languageMatch } from './preferences'
+import { ACCENTS, LANGUAGES, DEFAULTS, readPreferences, savePreferences, normalizePreferences, applyPreferences } from './preferences'
 
 declare const __TV_TARGET__: 'webos' | 'tizen' | 'browser'
 declare global {
@@ -74,7 +75,9 @@ let playbackReturn: 'catalog' | 'detail' | 'programme' | 'downloads' = 'catalog'
 let providerIndex: ProviderIndex | undefined, indexTimer: ReturnType<typeof setTimeout> | undefined
 let browseCategory: (Category & { kind: MediaKind }) | undefined, guide: TVGuide | undefined, guideChannel: Channel | undefined
 let guideLoading: AbortController | undefined, guideTimer: ReturnType<typeof setTimeout> | undefined, guideItems: Programme[] = []
-let preferences = readPreferences(null), preferenceStorage: Storage | null = null, trackPreferencesApplied = false
+let preferences = readPreferences(null), preferenceStorage: Storage | null = null
+const trackPreferences = new TrackPreferences()
+let trackSnapshot = '', trackMenuDirty = false
 let lastFocusedCard: HTMLElement | undefined
 let editingSource: Source | undefined, activeGuideUrl: string | undefined, accountLoading: AbortController | undefined
 const liveQueue = new LiveQueue(), episodeContext = new EpisodeContext()
@@ -104,7 +107,8 @@ const externalSubtitles = subtitleUI($('track-menu'), $('external-subtitles'), {
   position: () => player?.timeline().position || 0,
   controlsHeight: () => $('controls').hidden ? 0 : $('controls').getBoundingClientRect().height,
   silence: () => { try { return !!player?.selectTrack?.('subtitle', 'off') } catch { return false } },
-  changed: () => { embeddedSubtitles.deactivate(); refreshTracks() },
+  manual: () => { trackPreferences.manual('subtitle'); embeddedSubtitles.cancelAutomatic() },
+  changed: () => { embeddedSubtitles.deactivate(); queueTrackRefresh() },
 })
 const embeddedSubtitles = mp4SubtitleUI($('track-menu'), {
   media: () => currentChannel,
@@ -112,8 +116,9 @@ const embeddedSubtitles = mp4SubtitleUI($('track-menu'), {
   position: () => player?.timeline().position || 0,
   activeId: () => externalSubtitles.activeId,
   nativeTracks: () => !!player?.tracks?.().some(track => track.kind === 'subtitle'),
-  accept: (id, timeline, update) => externalSubtitles.embedded(id, timeline, update),
-  changed: () => refreshTracks(),
+  accept: (id, timeline, update) => { const success = externalSubtitles.embedded(id, timeline, update); if (success && !update) trackPreferences.subtitleApplied(); return success },
+  preferredLanguage: () => trackPreferences.subtitleLanguage(preferences, navigator.language),
+  changed: () => queueTrackRefresh(),
 })
 function resetSubtitles() { embeddedSubtitles.reset(); externalSubtitles.reset() }
 navigationIcons($('tv-nav'))
@@ -388,7 +393,7 @@ function report(next: State, detail?: string) {
   if (next === 'playing' && currentChannel) {
     hasPlayed = true
     saveProgress()
-    if (!trackPreferencesApplied) { trackPreferencesApplied = true; applyTrackPreferences() }
+    applyTrackPreferences()
   }
   if (next === 'ended' && currentChannel) { lastTimeline = { position: 0, duration: 0 }; saveProgress(true) }
   if (next === 'ended' && preferences.autoNext && nextEpisode(episodeContext.items, currentChannel)) scheduleNextEpisode()
@@ -440,6 +445,7 @@ function playChannel(channel: Channel) {
 }
 function startWatching(channel: Channel, position = 0) {
   resetSubtitles()
+  trackPreferences.reset(); trackSnapshot = ''; trackMenuDirty = false
   cancelNextEpisode()
   playbackDiagnostics.begin(channel, activeSource?.kind || 'unknown')
   if (__TV_TARGET__ === 'tizen' && !window.webapis?.avplay) { notice('Samsung AVPlay is unavailable. Install the signed TV package on a supported Samsung TV.'); return }
@@ -454,7 +460,7 @@ function startWatching(channel: Channel, position = 0) {
   if (screen !== 'playback' && channel.mediaKind === 'live') liveQueue.reset(browseView === 'live' && filtered.some(item => channelId(item) === channelId(channel)) ? filtered : libraryPool(), channel)
   cancelZap(); playbackGuideLoading?.abort(); playbackProgrammes = []
   currentAspect = 'fit'; $('seek-controls').hidden = true; input('seek-position').value = String(position)
-  currentChannel = channel; lastTimeline = { position, duration: library?.lastPlayed(channel)?.duration || 0 }; lastSaved = 0; trackPreferencesApplied = false; hasPlayed = false
+  currentChannel = channel; lastTimeline = { position, duration: library?.lastPlayed(channel)?.duration || 0 }; lastSaved = 0; hasPlayed = false
   if (channel.mediaKind === 'episode' && detailInfo?.channel.mediaKind === 'series' && channel.seriesId === detailInfo.channel.providerId) { select('detail-season').value = channel.group; try { library?.setSeason(detailInfo.channel, channel.group) } catch { /* Session season remains selected. */ } }
   const logo = $<HTMLImageElement>('playing-logo'); logo.hidden = true; logo.removeAttribute('src')
   logo.onload = () => { if (currentChannel === channel) logo.hidden = false }; logo.onerror = () => { logo.hidden = true }
@@ -579,6 +585,7 @@ $('resume-start').onclick = () => { if (pendingChannel) startWatching(pendingCha
 $('resume-back').onclick = () => { pendingChannel = undefined; show(playbackReturn) }
 setInterval(() => {
   if (screen !== 'playback') return
+  applyTrackPreferences()
   const timeline = player?.timeline()
   const seekable = canSeek(timeline, currentChannel?.mediaKind === 'live', state)
   button('forward').disabled = button('rewind').disabled = !seekable
@@ -1215,19 +1222,20 @@ void applyInterfaceLanguage()
 function contentLanguage() { return preferences.contentLanguage === 'auto' ? navigator.language || 'en' : preferences.contentLanguage }
 window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change', () => applyPreferences(preferences))
 function applyTrackPreferences() {
-  const tracks = player?.tracks?.() || [], audioLanguage = preferences.audio === 'auto' ? navigator.language : preferences.audio
-  const audio = tracks.find(track => track.kind === 'audio' && !track.disabled && languageMatch(track.language, audioLanguage))
-  if (audio) player?.selectTrack?.('audio', audio.id)
-  if (preferences.subtitles === 'off') player?.selectTrack?.('subtitle', 'off')
-  else {
-    const subtitle = tracks.find(track => track.kind === 'subtitle' && languageMatch(track.language, preferences.subtitles === 'auto' ? audioLanguage : preferences.subtitles))
-    if (subtitle) player?.selectTrack?.('subtitle', subtitle.id)
-  }
+  if (!player || !currentChannel || screen !== 'playback' || away || !['playing', 'paused'].includes(state)) return
+  const tracks = player.tracks?.() || [], snapshot = JSON.stringify(tracks)
+  if (snapshot !== trackSnapshot) { trackSnapshot = snapshot; trackMenuDirty = true }
+  if (trackPreferences.apply(player, preferences, navigator.language, tracks)) trackMenuDirty = true
+  if (trackPreferences.subtitleLanguage(preferences, navigator.language)) embeddedSubtitles.applyPreference()
+  else embeddedSubtitles.cancelAutomatic()
+  if (trackMenuDirty) queueTrackRefresh()
 }
+function queueTrackRefresh() { trackMenuDirty = true; if (!$('track-menu').hidden && !nativeSelectOpen) refreshTracks() }
 $('settings-about').onclick = () => { previousScreen = 'settings'; show('about') }
 $('categories-back').onclick = () => { if (['live', 'movie', 'series'].includes(browseView)) void browse(browseView as MediaKind) }
 $('cancel-category').onclick = () => { cancelProviderLoad(); notice('Loading cancelled.') }
 function refreshTracks() {
+  trackMenuDirty = false
   const tracks = [...player?.tracks?.() || [], ...embeddedSubtitles.tracks()]
   for (const kind of ['audio', 'subtitle'] as const) {
     const list = select(`${kind}-track`), available = tracks.filter(track => track.kind === kind)
@@ -1274,6 +1282,8 @@ $('tracks-open').onclick = () => { $('track-menu').hidden = false; refreshTracks
 $('tracks-close').onclick = closeTracks
 for (const kind of ['audio', 'subtitle'] as const) select(`${kind}-track`).onchange = () => {
   const id = select(`${kind}-track`).value
+  trackPreferences.manual(kind)
+  if (kind === 'subtitle') embeddedSubtitles.cancelAutomatic()
   if (kind === 'subtitle' && id.startsWith(MP4_SUBTITLE)) { externalSubtitles.close(); const selected = embeddedSubtitles.select(id); refreshTracks(); if (!selected) $('track-status').textContent = tr('This embedded subtitle track could not be selected.'); return }
   const success = kind === 'subtitle' && id === EXTERNAL_SUBTITLE ? externalSubtitles.select() : kind === 'subtitle' && id === 'off' && externalSubtitles.active ? true : player?.selectTrack?.(kind, id)
   if (success && kind === 'subtitle' && id !== EXTERNAL_SUBTITLE) externalSubtitles.deselect()

@@ -3,17 +3,20 @@ import { SubtitleError, type SubtitleTimeline } from './external-subtitles'
 import { languageName, type PlayerTrack } from './player'
 import type { Media } from './media'
 import { tr } from './i18n'
+import { languageScore } from './preferences'
 
 export const MP4_SUBTITLE = 'mp4-text-'
 export function mp4SubtitleUI(root: HTMLElement, options: {
   media(): Media | undefined; allowed(): boolean; position(): number; activeId(): string | undefined; nativeTracks(): boolean
   accept(id: string, timeline: SubtitleTimeline, update: boolean): boolean; changed(): void
+  preferredLanguage?(): string | undefined
 }, openSession = openMp4Subtitles) {
   const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#${id}`)!
   const scanButton = el<HTMLButtonElement>('mp4-scan'), cancelButton = el<HTMLButtonElement>('mp4-cancel'), retry = el<HTMLButtonElement>('mp4-retry'), note = el('mp4-status')
   let session: Mp4SubtitleSession | undefined, attempted = false, active: number | undefined, failed = false
   let retryTrack: number | undefined
-  let job: { controller: AbortController; kind: 'scan' | 'select' | 'prefetch'; from: number; to: number } | undefined
+  let job: { controller: AbortController; kind: 'scan' | 'select' | 'prefetch'; from: number; to: number; automatic?: string } | undefined
+  let automaticAttempted = false
   let interval: ReturnType<typeof setInterval> | undefined, coverage = { from: 0, to: 0 }
   const busy = () => !!job
   const render = () => {
@@ -26,20 +29,21 @@ export function mp4SubtitleUI(root: HTMLElement, options: {
     cancelButton.hidden = !job; retry.hidden = !failed || retryTrack === undefined
   }
   const cancel = (message = '') => { job?.controller.abort(); job = undefined; clearInterval(interval); interval = undefined; note.textContent = message; render() }
-  const startJob = (kind: 'scan' | 'select' | 'prefetch', position = 0) => {
+  const startJob = (kind: 'scan' | 'select' | 'prefetch', position = 0, automatic?: string) => {
     job?.controller.abort()
-    const current = { controller: new AbortController(), kind, from: Math.max(0, position - 5), to: position + 45 }; job = current
+    const current = { controller: new AbortController(), kind, from: Math.max(0, position - 5), to: position + 45, automatic }; job = current
     note.textContent = tr(kind === 'scan' ? 'Looking for embedded MP4 text tracks…' : 'Reading embedded subtitles near this playback position…'); render(); return current
   }
   const errorText = (error: unknown) => tr(error instanceof SubtitleError ? error.message : 'The embedded subtitles could not be read. Try another track or load a subtitle file.')
-  const load = async (id: number, update = false) => {
+  const load = async (id: number, update = false, automatic?: string) => {
     if (!session || !options.allowed()) return
     retryTrack = id
-    const current = startJob(update ? 'prefetch' : 'select', options.position()), chosen = session
+    const current = startJob(update ? 'prefetch' : 'select', options.position(), automatic), chosen = session
     try {
       const window = await chosen.read(id, options.position(), current.controller.signal)
       if (job !== current || current.controller.signal.aborted) return
-      if (options.position() < window.from || options.position() >= window.to) { job = undefined; void load(id, update); return }
+      if (automatic && options.preferredLanguage?.() !== automatic) { note.textContent = ''; return }
+      if (options.position() < window.from || options.position() >= window.to) { job = undefined; void load(id, update, automatic); return }
       if (!options.accept(MP4_SUBTITLE + id, window.timeline, update)) throw new SubtitleError('The current captions could not be changed. Resume playback and try again.')
       coverage = window; active = id; failed = false; options.changed()
       note.textContent = tr('Embedded MP4 text subtitles selected. Captions are read ahead as you watch; size and timing are adjustable.')
@@ -55,17 +59,27 @@ export function mp4SubtitleUI(root: HTMLElement, options: {
     if (job && (position < job.from || position >= job.to)) { job.controller.abort(); job = undefined }
     if (!job && (position < coverage.from || position >= coverage.to - 15)) void load(active, true)
   }
-  const scan = async () => {
+  const scan = async (automatic?: string) => {
     const media = options.media()
     if (!media || !options.allowed() || mp4SubtitleProblem(media) || busy()) return
-    attempted = true; const current = startJob('scan')
+    attempted = true; const current = startJob('scan', 0, automatic)
     try {
       const found = await openSession(media, current.controller.signal)
       if (job !== current || current.controller.signal.aborted) return
       session = found; options.changed()
       note.textContent = tr(found.tracks.length ? 'Embedded MP4 text tracks found. Choose one from Subtitles.' : 'No supported embedded MP4 text tracks found. You can load an external subtitle file.')
     } catch (error) { if (job === current && !current.controller.signal.aborted) note.textContent = errorText(error) }
-    finally { if (job === current) { job = undefined; render() } }
+    finally { if (job === current) { job = undefined; render(); applyPreference() } }
+  }
+  const applyPreference = () => {
+    const language = options.preferredLanguage?.()
+    if (!language || !options.allowed() || busy() || automaticAttempted) return
+    if (!attempted && !options.nativeTracks()) { void scan(language); return }
+    if (!session) return
+    let chosen: Mp4SubtitleSession['tracks'][number] | undefined, score = 0
+    for (const track of session.tracks) { const current = languageScore(track.language, language); if (current > score) { chosen = track; score = current } }
+    if (!chosen) return
+    automaticAttempted = true; void load(chosen.id, false, language)
   }
   scanButton.onclick = () => { void scan() }
   cancelButton.onclick = () => {
@@ -79,8 +93,10 @@ export function mp4SubtitleUI(root: HTMLElement, options: {
     tracks(): PlayerTrack[] { return session?.tracks.map(track => ({ id: MP4_SUBTITLE + track.id, kind: 'subtitle', language: track.language, label: `${languageName(track.language) || tr('Unknown language')} · MP4 ${track.id}`, active: options.activeId() === MP4_SUBTITLE + track.id })) || [] },
     select(id: string) { const track = session?.tracks.find(track => MP4_SUBTITLE + track.id === id); if (!track || !options.allowed()) return false; failed = false; void load(track.id); return true },
     open() { render(); if (!attempted && !options.nativeTracks()) void scan() },
-    close() { if (job && job.kind !== 'prefetch') { job.controller.abort(); job = undefined; note.textContent = tr('Subtitle reading cancelled.'); render() } },
+    applyPreference,
+    cancelAutomatic() { if (job?.automatic) { job.controller.abort(); job = undefined; note.textContent = ''; render() } },
+    close() { if (job && job.kind !== 'prefetch' && !job.automatic) { job.controller.abort(); job = undefined; note.textContent = tr('Subtitle reading cancelled.'); render() } },
     deactivate() { cancel(); active = undefined; retryTrack = undefined; failed = false; render() },
-    reset() { cancel(); session = undefined; attempted = false; active = undefined; retryTrack = undefined; failed = false; render() },
+    reset() { cancel(); session = undefined; attempted = false; automaticAttempted = false; active = undefined; retryTrack = undefined; failed = false; render() },
   }
 }

@@ -33,7 +33,13 @@ export function applyPreferences(preferences: Preferences, root = document.docum
   root.style.setProperty('--safe-x', `${preferences.overscan}vw`); root.style.setProperty('--safe-y', `${preferences.overscan}vh`)
 }
 const LANGUAGE_ALIASES: Record<string, string> = { eng: 'en', spa: 'es', fra: 'fr', fre: 'fr', deu: 'de', ger: 'de', ita: 'it', por: 'pt', nld: 'nl', dut: 'nl', pol: 'pl', tur: 'tr', rus: 'ru', ara: 'ar', hin: 'hi', jpn: 'ja', zho: 'zh', chi: 'zh' }
+function languageKey(value: string) { const [base, ...region] = value.trim().toLowerCase().split(/[-_]/); return [LANGUAGE_ALIASES[base] || base, ...region].join('-') }
+export function languageScore(actual: string | undefined, preferred: string): number {
+  if (!actual) return 0
+  const a = languageKey(actual), p = languageKey(preferred)
+  if (!a || !p || a === 'und' || p === 'und') return 0
+  return a === p ? 2 : a.split('-')[0] === p.split('-')[0] ? 1 : 0
+}
 export function languageMatch(actual: string | undefined, preferred: string) {
-  const primary = (value: string) => { const base = value.toLowerCase().split(/[-_]/)[0]; return LANGUAGE_ALIASES[base] || base }
-  return !!actual && primary(actual) === primary(preferred)
+  return languageScore(actual, preferred) > 0
 }

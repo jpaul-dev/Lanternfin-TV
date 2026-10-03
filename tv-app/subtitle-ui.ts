@@ -4,7 +4,7 @@ import { tr } from './i18n'
 
 export const EXTERNAL_SUBTITLE = 'external-file'
 export function subtitleUI(root: HTMLElement, overlay: HTMLElement, options: {
-  allowed(): boolean; position(): number; controlsHeight(): number; silence(): boolean; changed(): void
+  allowed(): boolean; position(): number; controlsHeight(): number; silence(): boolean; changed(): void; manual?(): void
 }) {
   const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#${id}`)!
   const url = el<HTMLInputElement>('subtitle-url'), file = el<HTMLInputElement>('subtitle-file')
@@ -45,6 +45,7 @@ export function subtitleUI(root: HTMLElement, overlay: HTMLElement, options: {
     if (!options.allowed()) { status.textContent = tr('Resume playback before loading subtitles for this video.'); return }
     const source = method.value === 'file' ? file.files?.[0] : url.value.trim()
     if (!source) { status.textContent = tr('Choose a subtitle file or enter its URL.'); return }
+    options.manual?.()
     const pending = new AbortController(); loading = pending; load.disabled = true; method.disabled = true
     status.textContent = tr('Loading subtitles…')
     try {

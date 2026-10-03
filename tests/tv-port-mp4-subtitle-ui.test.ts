@@ -7,13 +7,13 @@ import type { openMp4Subtitles, Mp4SubtitleSession } from '../tv-app/mp4-subtitl
 
 afterEach(() => vi.useRealTimers())
 const windowAt = (position: number) => ({ from: Math.max(0, position - 5), to: position + 45, timeline: new SubtitleTimeline([{ start: position, end: position + 45, text: String(position) }]) })
-function setup(read: Mp4SubtitleSession['read'], opener?: typeof openMp4Subtitles) {
+function setup(read: Mp4SubtitleSession['read'], opener?: typeof openMp4Subtitles, preferredLanguage?: () => string | undefined) {
   vi.useFakeTimers(); document.documentElement.innerHTML = readFileSync('tv-app/index.html', 'utf8')
   const root = document.getElementById('track-menu')!, note = () => document.getElementById('mp4-status')!.textContent
   let position = 0, active: string | undefined
   const accept = vi.fn((id: string) => { active = id; return true })
   const session = { tracks: [{ id: 1, language: 'eng', samples: [] }, { id: 2, language: 'fra', samples: [] }], read }
-  const ui = mp4SubtitleUI(root, { media: () => ({ url: 'https://video.example/movie.mp4' }), allowed: () => true, position: () => position, activeId: () => active, nativeTracks: () => false, accept, changed: vi.fn() }, opener || vi.fn(async () => session))
+  const ui = mp4SubtitleUI(root, { media: () => ({ url: 'https://video.example/movie.mp4' }), allowed: () => true, position: () => position, activeId: () => active, nativeTracks: () => false, accept, changed: vi.fn(), preferredLanguage }, opener || vi.fn(async () => session))
   return { ui, accept, note, setPosition: (value: number) => { position = value } }
 }
 
@@ -59,4 +59,53 @@ it('keeps the previous track reading ahead after a pending replacement is closed
   setPosition(31); await vi.advanceTimersByTimeAsync(1000)
   expect(accept).toHaveBeenCalledTimes(2); expect(accept).toHaveBeenLastCalledWith('mp4-text-1', expect.any(SubtitleTimeline), true)
   ui.reset(); expect(vi.getTimerCount()).toBe(0)
+})
+
+it('automatically selects the preferred embedded language without opening a menu and survives closing it', async () => {
+  let resolve: ((value: ReturnType<typeof windowAt>) => void) | undefined, signal: AbortSignal | undefined
+  const read = vi.fn((_id: number, _position: number, incoming: AbortSignal) => { signal = incoming; return new Promise<ReturnType<typeof windowAt>>(done => { resolve = done }) })
+  const { ui, accept } = setup(read, undefined, () => 'fr-FR')
+  ui.applyPreference(); await vi.advanceTimersByTimeAsync(0)
+  expect(read).toHaveBeenCalledWith(2, 0, expect.any(AbortSignal))
+  ui.close(); expect(signal?.aborted).toBe(false)
+  resolve!(windowAt(0)); await vi.advanceTimersByTimeAsync(0)
+  expect(accept).toHaveBeenCalledWith('mp4-text-2', expect.any(SubtitleTimeline), false)
+  ui.applyPreference(); await vi.advanceTimersByTimeAsync(0); expect(read).toHaveBeenCalledOnce()
+  ui.reset(); expect(vi.getTimerCount()).toBe(0)
+})
+
+it('cancels automatic work when a manual/native choice wins and rejects late completion', async () => {
+  let language: string | undefined = 'fr', resolve: ((value: ReturnType<typeof windowAt>) => void) | undefined, signal: AbortSignal | undefined
+  const read = vi.fn((_id: number, _position: number, incoming: AbortSignal) => { signal = incoming; return new Promise<ReturnType<typeof windowAt>>(done => { resolve = done }) })
+  const { ui, accept } = setup(read, undefined, () => language)
+  ui.applyPreference(); await vi.advanceTimersByTimeAsync(0)
+  language = undefined; ui.cancelAutomatic(); expect(signal?.aborted).toBe(true)
+  resolve!(windowAt(0)); await vi.advanceTimersByTimeAsync(0)
+  ui.applyPreference(); expect(accept).not.toHaveBeenCalled(); expect(read).toHaveBeenCalledOnce()
+  ui.reset()
+})
+
+it('checks the preference again before publishing and does not repeatedly fetch failed automatic captions', async () => {
+  let language: string | undefined = 'fr', resolve: ((value: ReturnType<typeof windowAt>) => void) | undefined
+  const read = vi.fn(() => new Promise<ReturnType<typeof windowAt>>(done => { resolve = done }))
+  const { ui, accept } = setup(read, undefined, () => language)
+  ui.applyPreference(); await vi.advanceTimersByTimeAsync(0)
+  language = undefined; resolve!(windowAt(0)); await vi.advanceTimersByTimeAsync(0)
+  expect(accept).not.toHaveBeenCalled(); ui.reset()
+  language = 'fr'; read.mockRejectedValue(new SubtitleError('The video server must support byte-range reads.'))
+  ui.applyPreference(); await vi.advanceTimersByTimeAsync(0)
+  ui.applyPreference(); ui.applyPreference(); await vi.advanceTimersByTimeAsync(0)
+  expect(read).toHaveBeenCalledTimes(2); expect(accept).not.toHaveBeenCalled()
+  ui.reset()
+})
+
+it('does not scan automatically when captions are Off or repeat a failed discovery', async () => {
+  let language: string | undefined
+  const read = vi.fn(async (_id: number, position: number) => windowAt(position))
+  const opener = vi.fn(async () => { throw new SubtitleError('The video server must support byte-range reads.') })
+  const { ui } = setup(read, opener, () => language)
+  ui.applyPreference(); await vi.advanceTimersByTimeAsync(0); expect(opener).not.toHaveBeenCalled()
+  language = 'en'; ui.applyPreference(); await vi.advanceTimersByTimeAsync(0)
+  ui.applyPreference(); ui.applyPreference(); await vi.advanceTimersByTimeAsync(0); expect(opener).toHaveBeenCalledOnce()
+  ui.reset()
 })
