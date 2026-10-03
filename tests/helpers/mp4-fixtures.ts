@@ -103,6 +103,14 @@ export function tx3gCluster(texts: string[]): Uint8Array[] {
   return texts.map((text) => tx3gSample(text))
 }
 
+export function wvttSample(...texts: string[]): Uint8Array {
+  return texts.length ? concatBytes(texts.map(text => box('vttc', box('payl', ascii(text))))) : box('vtte')
+}
+
+export function wvttSampleEntry(): Uint8Array {
+  return box('wvtt', zeros(6), uint16(1), box('vttC', ascii('WEBVTT\n')))
+}
+
 /** 6 reserved bytes + data_reference_index, then displayFlags, justifications, colour, box and style records. */
 export function tx3gSampleEntry(fourcc: string): Uint8Array {
   return box(
@@ -139,7 +147,7 @@ export function sampleTableBox(track: TrackFixture, sampleOffsets: number[]): Ui
   const samples = track.sampleClusters.flat()
   const sampleEntry =
     track.mediaType === "text"
-      ? tx3gSampleEntry(track.codecFourcc ?? "tx3g")
+      ? track.codecFourcc === 'wvtt' ? wvttSampleEntry() : tx3gSampleEntry(track.codecFourcc ?? "tx3g")
       : audioSampleEntry(track.codecFourcc ?? "mp4a")
   return box(
     "stbl",

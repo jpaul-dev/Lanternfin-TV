@@ -126,7 +126,7 @@ async function openSession(media: Media, signal: AbortSignal, parse: typeof pars
           stopped(signal); const range = ranges[next++], data = (await read(range.start, range.end - range.start, signal)).bytes
           for (const sample of range.samples) {
             let text: string
-            try { text = decodeMp4Text(data.subarray(sample.offset - range.start, sample.offset - range.start + sample.size)) }
+            try { text = decodeMp4Text(data.subarray(sample.offset - range.start, sample.offset - range.start + sample.size), sample.codec) }
             catch { throw new SubtitleError('This MP4 contains invalid or oversized text subtitle samples.') }
             staged.set(sample.key, text)
           }

@@ -1,5 +1,6 @@
-/** Bounded, non-fragmented ISO-BMFF tx3g tables. Audio/video sample tables are never expanded. */
-export type Mp4Sample = { offset: number; size: number; start: number; end: number }
+import { plainCaptionText } from './caption-text'
+/** Bounded, non-fragmented ISO-BMFF text tables. Audio/video tables are never expanded. */
+export type Mp4Sample = { offset: number; size: number; start: number; end: number; codec?: 'wvtt' }
 export type Mp4TextTrack = { id: number; language: string; samples: Mp4Sample[] }
 export const MP4_MOOV_BYTES = 32 * 1024 * 1024
 const MAX_SAMPLES = 20000, MAX_TIME = 604800
@@ -58,12 +59,18 @@ export function parseMp4Text(bytes: Uint8Array): Mp4TextTrack[] {
     const minf = child(one(mdia, 'minf')!), stbl = child(one(minf, 'stbl')!), stsd = one(stbl, 'stsd')!
     const entryCount = table(stsd, 0, 8), entries = boxes(stsd.data + 8, stsd.end)
     if (!entryCount || entries.length !== entryCount) throw bad()
-    if (entries.some(e => e.type !== 'tx3g')) continue
+    if (entries.some(e => !['tx3g', 'wvtt'].includes(e.type))) continue
     const dinf = one(minf, 'dinf', false), dref = dinf && one(child(dinf), 'dref', false)
     let refs: Box[] | undefined
     if (dref) { const count = table(dref, 0, 8); refs = boxes(dref.data + 8, dref.end); if (count !== refs.length) throw bad() }
     for (const entry of entries) {
-      need(entry, 38)
+      need(entry, entry.type === 'wvtt' ? 8 : 38)
+      if (entry.type === 'wvtt') {
+        const config = one(boxes(entry.data + 8, entry.end), 'vttC')!
+        if (config.end - config.data > 65536) throw bad()
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(config.data, config.end))
+        if (!/^WEBVTT(?:[ \t\r\n]|$)/.test(text)) throw bad()
+      }
       const ref = v.getUint16(entry.data + 6)
       if (refs) { const r = refs[ref - 1]; if (!r) throw bad(); need(r, 4); if (r.type !== 'url ' || (v.getUint32(r.data) & 1) !== 1) throw new Error('MP4 subtitle tracks referencing a separate file are not supported.') }
       else if (ref !== 1) throw bad()
@@ -100,18 +107,18 @@ export function parseMp4Text(bytes: Uint8Array): Mp4TextTrack[] {
     if (!!stco === !!co64) throw bad()
     const chunks = (stco || co64)!, width = stco ? 4 : 8, chunkCount = table(chunks, width), stsc = one(stbl, 'stsc')!, runCount = table(stsc, 12)
     if (!chunkCount || !runCount) throw bad()
-    const runs: { first: number; count: number }[] = []
+    const runs: { first: number; count: number; webvtt: boolean }[] = []
     for (let i = 0; i < runCount; i++) {
       const p = stsc.data + 8 + i * 12, first = v.getUint32(p), count = v.getUint32(p + 4), description = v.getUint32(p + 8)
       if (first > chunkCount || (i ? first <= runs[i - 1].first : first !== 1) || !count || count > n || description < 1 || description > entries.length) throw bad()
-      runs.push({ first, count })
+      runs.push({ first, count, webvtt: entries[description - 1].type === 'wvtt' })
     }
-    const offsets = new Float64Array(n); let sample = 0, run = 0
+    const offsets = new Float64Array(n), webvtt = new Uint8Array(n); let sample = 0, run = 0
     for (let i = 1; i <= chunkCount; i++) {
       if (run + 1 < runs.length && i === runs[run + 1].first) run++
       const p = chunks.data + 8 + (i - 1) * width; let offset = stco ? v.getUint32(p) : u64(v, p)
       if (sample + runs[run].count > n) throw bad()
-      for (let j = 0; j < runs[run].count; j++) { if (offset < 8) throw bad(); offsets[sample] = offset; offset = safe(offset + sizes[sample++]) }
+      for (let j = 0; j < runs[run].count; j++) { if (offset < 8) throw bad(); offsets[sample] = offset; webvtt[sample] = Number(runs[run].webvtt); offset = safe(offset + sizes[sample++]) }
     }
     if (sample !== n) throw bad()
     const edits: { start: number; duration: number; media: number }[] = [], edts = one(track, 'edts', false), elst = edts && one(child(edts), 'elst', false)
@@ -131,7 +138,7 @@ export function parseMp4Text(bytes: Uint8Array): Mp4TextTrack[] {
       if (!Number.isFinite(start) || end > MAX_TIME || start < -MAX_TIME) throw bad()
       for (const edit of edits) {
         const from = Math.max(start, edit.media), to = Math.min(end, edit.media + edit.duration)
-        if (sizes[i] >= 2 && to > from) samples.push({ offset: offsets[i], size: sizes[i], start: edit.start + from - edit.media, end: edit.start + to - edit.media })
+        if (sizes[i] >= 2 && to > from) samples.push({ offset: offsets[i], size: sizes[i], start: edit.start + from - edit.media, end: edit.start + to - edit.media, ...(webvtt[i] ? { codec: 'wvtt' as const } : {}) })
         if (samples.length > MAX_SAMPLES) throw bad()
       }
     }
@@ -143,7 +150,8 @@ export function parseMp4Text(bytes: Uint8Array): Mp4TextTrack[] {
   return tracks
 }
 
-export function decodeMp4Text(bytes: Uint8Array): string {
+export function decodeMp4Text(bytes: Uint8Array, codec?: 'wvtt'): string {
+  if (codec === 'wvtt') return decodeMp4WebVtt(bytes)
   if (bytes.length < 2) throw bad()
   const count = (bytes[0] << 8) | bytes[1]; if (count + 2 > bytes.length) throw bad()
   const data = bytes.subarray(2, count + 2)
@@ -151,4 +159,37 @@ export function decodeMp4Text(bytes: Uint8Array): string {
   const text = new TextDecoder(encoding, { fatal: true }).decode(data).replace(/\r\n?/g, '\n').replace(/\0/g, '').trim()
   if (text.length > 4096) throw bad()
   return text
+}
+
+/** ISO-BMFF WebVTT: each sample's cue payloads share its presentation interval.
+ * Settings, regions, cue IDs and additional source text are not executed/rendered.
+ * See https://dev.w3.org/html5/html-sourcing-inband-tracks/ and ISO/IEC 14496-30.
+ */
+export function decodeMp4WebVtt(bytes: Uint8Array): string {
+  if (bytes.length < 8 || bytes.length > 128 * 1024) throw bad()
+  let nodes = 0, cueCount = 0, empty = false, characters = 0
+  const cues: string[] = []
+  const scan = (start: number, end: number, visit: (type: string, data: number, stop: number) => void) => {
+    for (let at = start; at < end;) {
+      if (++nodes > 128 || end - at < 8) throw bad()
+      const h = mp4BoxHeader(bytes, at), stop = h.size ? at + h.size : end
+      if (!Number.isSafeInteger(stop) || stop > end || at + h.header > stop) throw bad()
+      visit(h.type, at + h.header, stop); at = stop
+    }
+  }
+  scan(0, bytes.length, (type, start, end) => {
+    if (type === 'vtte') { if (empty || start !== end) throw bad(); empty = true; return }
+    if (type !== 'vttc') return
+    if (++cueCount > 8) throw bad()
+    let payload: string | undefined
+    scan(start, end, (child, data, stop) => {
+      if (child !== 'payl') return
+      if (payload !== undefined) throw bad()
+      payload = plainCaptionText(new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(data, stop)).replace(/\r\n?/g, '\n').replace(/\0/g, ''))
+    })
+    if (payload === undefined) throw bad()
+    if (payload) { characters += payload.length + (cues.length ? 1 : 0); if (characters > 4096) throw bad(); cues.push(payload) }
+  })
+  if (empty && cueCount || !empty && !cueCount) throw bad()
+  return cues.join('\n')
 }

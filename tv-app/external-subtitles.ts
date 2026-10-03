@@ -1,4 +1,5 @@
 import { httpUrl } from './catalog'
+import { plainCaptionText as plainText } from './caption-text'
 
 export class SubtitleError extends Error {}
 export const SUBTITLE_BYTES = 2 * 1024 * 1024
@@ -11,13 +12,6 @@ function timestamp(value: string): number {
   const match = /^(?:(\d{1,3}):)?(\d{2}):(\d{2})[.,](\d{3})$/.exec(value)
   if (!match || Number(match[2]) > 59 || Number(match[3]) > 59) throw invalid()
   return Number(match[1] || 0) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(match[4]) / 1000
-}
-
-function plainText(value: string): string {
-  // No HTML interpretation, styles, images or linked resources. Preserve unknown tags as literal text.
-  return value.replace(/<\/?(?:b|i|u|ruby|rt|font|c(?:\.[\w-]+)*|v|lang)(?:[ \t][^<>\n]{0,200})?>|<\d{2}:\d{2}(?::\d{2})?\.\d{3}>/gi, '')
-    .replace(/&(amp|lt|gt|nbsp|lrm|rlm|quot|apos);/g, (_, key: string) => ({ amp: '&', lt: '<', gt: '>', nbsp: '\u00a0', lrm: '\u200e', rlm: '\u200f', quot: '"', apos: "'" })[key]!)
-    .trim()
 }
 
 function assTimestamp(value: string): number {
