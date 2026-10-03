@@ -23,6 +23,7 @@ import { loadCatalog, validateSource, type Source, type Channel, type Catalog } 
 import { readSource, storeSource } from './storage'
 import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, saveGuideOffset, sourceId, type SourceProfile } from './profiles'
 import { guideOffset, guideOffsetLabel } from './guide-offset'
+import { guideMatchUI } from './guide-match-ui'
 import { keyAction, moveFocus, atPageEdge, pageEntry, type Direction } from './remote'
 import { type AVPlay, type Player, type State, type Aspect } from './player'
 import { tvPlayer } from './adaptive-player'
@@ -55,7 +56,7 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const input = (id: string) => $<HTMLInputElement>(id)
 const select = (id: string) => $<HTMLSelectElement>(id)
 const button = (id: string) => $<HTMLButtonElement>(id)
-const SCREENS = ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout'] as const
+const SCREENS = ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout', 'guide-match'] as const
 type Screen = typeof SCREENS[number]
 let updatesReturn: 'settings' | 'about' = 'settings'
 let downloadsReturn: 'setup' | 'catalog' | 'settings' | 'detail' = 'setup'
@@ -93,6 +94,7 @@ const trackPreferences = new TrackPreferences()
 let trackSnapshot = '', trackMenuDirty = false
 let editingSource: Source | undefined, activeGuideUrl: string | undefined, accountLoading: AbortController | undefined
 let activeGuideOffset = 0
+let matching: { guide: TVGuide; library: TVLibrary; channel: Channel } | undefined
 const liveQueue = new LiveQueue(), episodeContext = new EpisodeContext()
 let zapDigits = '', zapTimer: ReturnType<typeof setTimeout> | undefined, playbackGuideLoading: AbortController | undefined
 let playbackProgrammes: Programme[] = []
@@ -146,11 +148,20 @@ const downloads = new TVDownloads(__TV_TARGET__ === 'tizen' ? window.tizen as Do
 const downloadView = downloadsUI($('downloads'), downloads, (channel, position) => { playbackReturn = 'downloads'; startWatching(channel, position) })
 const updates = updatesUI($('updates'), __TV_TARGET__, undefined, () => preferences.updateChannel)
 const preferenceChoices = settingsChoices($('settings'))
+const guideMatcher = guideMatchUI($('guide-match'), (query, page, signal) => {
+  if (!matching || away) throw new Error('Return to the guide and reopen matching to try again.')
+  return matching.guide.choices(query, page, signal)
+}, id => {
+  if (!matching || matching.guide !== guide || matching.library !== library || away) throw new Error('The active source changed. Reopen guide matching.')
+  matching.library.setGuideMatch(matching.channel, id); matching.guide.mappingChanged()
+}, () => {
+  const channel = matching?.channel; show('catalog'); selectGuide(channel); button('guide-match-open').focus()
+})
 downloads.load()
 if (away) downloads.suspend()
 function show(next: Screen) {
   if (next !== 'settings') preferenceChoices.close(false)
-  const returningToCatalog = next === 'catalog' && screen !== 'catalog' && !enteringBrowse && browseView !== 'home'
+  const returningToCatalog = next === 'catalog' && screen !== 'catalog' && screen !== 'guide-match' && !enteringBrowse && browseView !== 'home'
   if (screen === 'catalog' && next !== 'catalog') { rememberBrowsePosition(); cancelBrowseEntry(); cancelProviderLoad(); searching?.abort(); clearTimeout(searchTimer); searchTimer = undefined }
   if (screen === 'updates' && next !== 'updates') updates.close()
   if (screen === 'downloads' && next !== 'downloads') downloadView.close()
@@ -158,6 +169,7 @@ function show(next: Screen) {
   if (screen === 'diagnostics' && next !== 'diagnostics') diagnostics.close()
   if (screen === 'manage' && next !== 'manage') libraryManager.close()
   if (screen === 'layout' && next !== 'layout') layoutEditor.close()
+  if (screen === 'guide-match' && next !== 'guide-match') { guideMatcher.close(); matching = undefined }
   if (next !== 'account') { accountLoading?.abort(); accountLoading = undefined }
   if (next !== 'programme') { replayLoading?.abort(); replayLoading = undefined }
   $('card-menu').hidden = true
@@ -166,6 +178,7 @@ function show(next: Screen) {
   if (!['detail', 'playback', 'resume', 'downloads'].includes(next)) { cancelDetails(); detailTrail.length = 0 }
   if (next !== 'detail') cancelRelated()
   screen = next
+  $('about-open').hidden = next === 'guide-match'
   syncNav()
   document.documentElement.dataset.screen = next
   for (const id of SCREENS) $(id).hidden = id !== next
@@ -249,7 +262,8 @@ $('source-form').addEventListener('submit', async event => {
     activeSource = source; activeGuideUrl = override; activeGuideOffset = offset; episodeContext.clear()
     providerIndex?.pause(); clearTimeout(indexTimer); indexTimer = undefined
     providerIndex = nextIndex; pooledLibrary = undefined
-    guide?.clear(); guide = new TVGuide(source, override || catalog.epgUrl, offset); guideChannel = undefined; browseCategory = undefined
+    const sourceLibrary = library
+    guide?.clear(); guide = new TVGuide(source, override || catalog.epgUrl, offset, channel => sourceLibrary?.guideMatch(channel)); guideChannel = undefined; browseCategory = undefined
     renderIndexStatus()
     $('library-note').textContent = persisted ? 'Favorites and recent streams are saved on this TV.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.'
     $('return-catalog').hidden = false
@@ -670,6 +684,7 @@ function back() {
   else if (screen === 'manage') { if (!libraryManager.back()) show(manageReturn) }
   else if (screen === 'downloads') { if (!downloadView.back()) show(downloadsReturn) }
   else if (screen === 'updates') show(updatesReturn)
+  else if (screen === 'guide-match') button('guide-match-back').click()
   else if (screen === 'catalog' && providerLoading) { cancelBrowseEntry(); cancelProviderLoad(); notice('Loading cancelled.') }
   else if (screen === 'catalog' && browseView !== 'home') goHome()
   else if (screen === 'catalog') show('exit')
@@ -807,6 +822,7 @@ document.addEventListener('focusin', () => {
 for (const event of ['pointerdown', 'keydown']) document.addEventListener(event, () => { browseInputRevision++; pendingBrowseVisit = undefined }, { capture: true })
 bindLifecycle(document, window, () => {
   preferenceChoices.close(false)
+  guideMatcher.close()
   downloads.suspend()
   updates.close()
   away = true; screenSaver.release()
@@ -856,6 +872,9 @@ function selectGuide(channel?: Channel, refresh = false) {
   $('guide-title').textContent = channel?.name || 'Choose a channel'
   $('guide-programmes').replaceChildren(); $('guide-description').textContent = ''
   button('guide-watch').disabled = button('guide-favorite').disabled = !channel
+  button('guide-match-open').hidden = !guide?.canMatch
+  button('guide-match-open').disabled = !channel
+  button('guide-match-open').textContent = library && channel && library.guideMatch(channel) ? 'Change guide match' : 'Match guide channel'
   button('guide-favorite').textContent = channel && library?.isFavorite(channel) ? '★ Favorited' : '☆ Favorite'
   $('guide-status').textContent = channel ? 'Loading programme guide…' : ''
   if (!channel) return
@@ -951,6 +970,11 @@ setInterval(() => {
 $('guide-watch').onclick = () => { if (guideChannel) playChannel(guideChannel) }
 $('guide-favorite').onclick = () => { if (!guideChannel) return; try { library?.toggleFavorite(guideChannel); rememberLibraryChannel(guideChannel); button('guide-favorite').textContent = library?.isFavorite(guideChannel) ? '★ Favorited' : '☆ Favorite'; render() } catch (error) { $('guide-status').textContent = (error as Error).message } }
 $('guide-refresh').onclick = () => selectGuide(guideChannel, true)
+$('guide-match-open').onclick = () => {
+  if (!guideChannel || !guide?.canMatch || !library) return
+  matching = { guide, library, channel: guideChannel }; show('guide-match')
+  guideMatcher.open(guideChannel.name, library.guideMatch(guideChannel), library.persistent)
+}
 function cancelProviderLoad() { providerLoading?.abort(); providerLoading = undefined; $('cancel-category').hidden = true }
 function browseSection(): BrowseSection | undefined { return browseView === 'home' ? undefined : browseView === 'all' ? libraryView : browseView }
 function browseSignature() { return JSON.stringify([select('sort-order').value, select('watched-filter').value, select('language-filter').value, select('media-filter').value, preferences.groupLanguages, contentLanguage(), preferences.scale, preferences.overscan]) }

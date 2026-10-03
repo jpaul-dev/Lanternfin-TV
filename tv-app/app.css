@@ -256,6 +256,29 @@ progress{width:100%;height:.15rem;border:0;accent-color:var(--accent)}progress::
 #seek-controls { margin: .8rem 0 .1rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 
+[data-screen=guide-match] header,[data-screen=guide-match] footer,[data-screen=guide-match] #notice:empty{display:none}
+[data-screen=guide-match] #app{padding:calc(1rem + var(--safe-y)) calc(2rem + var(--safe-x))}
+#guide-match{height:calc(100vh - 2rem - var(--safe-y) - var(--safe-y));display:flex;flex-direction:column}
+#guide-match>*{flex-shrink:0}
+#guide-match-back{align-self:flex-start}
+#guide-match>.eyebrow{margin:.6rem 0 .2rem}
+#guide-match h1{overflow-wrap:anywhere;font-size:1.35rem;margin:.4rem 0}
+#guide-match .hint{font-size:.65rem;overflow-wrap:anywhere;margin:.25rem 0}
+#guide-match button,#guide-match input{font-size:.78rem}
+.guide-match-toolbar{display:grid;grid-template-columns:minmax(12rem,1fr) auto auto;gap:.7rem;align-items:end;margin:.6rem 0}
+.guide-match-toolbar label{margin:0;font-size:.7rem}
+.guide-match-toolbar input{margin-top:.4rem}
+#guide-match-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:max-content;gap:.65rem;flex:1;min-height:5rem;align-content:start;overflow-y:auto;padding:.3rem}
+.guide-match-choice{text-align:start;background:var(--surface);min-width:0}
+.guide-match-choice strong,.guide-match-choice small{display:block;overflow-wrap:anywhere}
+.guide-match-choice strong{font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.guide-match-choice small{color:var(--muted);font-size:.6rem;margin-top:.3rem}
+.guide-match-choice[aria-pressed=true]{border-color:var(--accent)}
+#guide-match .pagination{margin:.8rem 0;font-size:.7rem}
+[data-large-ui=true] .guide-match-toolbar{grid-template-columns:1fr 1fr}
+[data-large-ui=true] .guide-match-toolbar label{grid-column:1/-1}
+@media(max-width:800px){.guide-match-toolbar{grid-template-columns:1fr 1fr}.guide-match-toolbar label{grid-column:1/-1}#guide-match-list{grid-template-columns:1fr}}
+
 .track-menu label { margin-top: .5rem; }
 .track-menu select { min-height: 2.2rem; padding: .45rem .65rem; }
 .track-menu .subtitle-add { width: 100%; margin-top: .6rem; font-size: .78rem; }

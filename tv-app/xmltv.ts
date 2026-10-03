@@ -1,6 +1,9 @@
 import { httpUrl } from './catalog'
 import { gunzipStream } from './gzip'
+import { guideName, guideNameIndex, validGuideId } from './guide-matches'
 type XMLProgramme = { start: number; stop: number; title: string; desc: string; catchupId?: string }
+export type GuideChoice = { id: string; name: string }
+export type GuideChoices = { items: GuideChoice[]; total: number; page: number; pages: number }
 type Reply = { id: number; error?: string; noFeed?: boolean; programmes?: XMLProgramme[] | Array<[string, XMLProgramme[]]>; channelNames?: Array<[string, string]> }
 /** Reuses Android's streamed XMLTV worker and on-demand per-channel extraction. */
 export class XMLTVGuide {
@@ -11,6 +14,7 @@ export class XMLTVGuide {
   private pending = new Map<number, { resolve(reply: Reply): void; reject(error: Error): void }>()
   private names = new Map<string, string>()
   private ids = new Set<string>()
+  private channels: GuideChoice[] = []
   constructor(private url: string) {}
   close() {
     this.controller.abort(); this.worker?.terminate(); this.worker = undefined
@@ -68,15 +72,19 @@ export class XMLTVGuide {
       }
       if (!begun) throw new Error('The XMLTV guide was empty.')
       const result = await this.ask({ type: 'end', feedId: 'playlist' }, signal)
-      for (const [id] of result.programmes as Array<[string, XMLProgramme[]]> || []) this.ids.add(id)
-      for (const [id, name] of result.channelNames || []) this.names.set(name.trim().toLowerCase(), id)
+      const labels = new Map<string, string>()
+      for (const [id] of result.programmes as Array<[string, XMLProgramme[]]> || []) if (validGuideId(id)) labels.set(id.toLowerCase(), id)
+      for (const [id, name] of result.channelNames || []) if (validGuideId(id)) labels.set(id.toLowerCase(), name.slice(0, 300) || id)
+      if (labels.size > 25000) throw new Error('The programme guide exceeds this TV’s channel budget. Use a smaller guide.')
+      this.ids = new Set(labels.keys()); this.names = guideNameIndex(labels)
+      this.channels = [...labels].map(([id, name]) => ({ id, name }))
     } catch (error) {
       this.worker?.terminate(); this.worker = undefined
       if (signal.aborted) throw new Error('Guide loading stopped or timed out. Reload this source to try again.')
       throw error instanceof Error && !/https?:|fetch/i.test(error.message) ? error : new Error('Cannot reach the XMLTV guide. Check the address, network, and provider cross-origin access.')
     } finally { clearTimeout(timer); signal.removeEventListener('abort', abortRead); for (const active of new Set([reader, networkReader])) if (active) { void active.cancel().catch(() => {}); active.releaseLock() } }
   }
-  async load(tvgId: string | undefined, name: string, signal: AbortSignal, window?: { fromMs: number; toMs: number }): Promise<XMLProgramme[]> {
+  private async ensureReady(signal: AbortSignal) {
     if (signal.aborted || this.controller.signal.aborted) throw new Error('Guide loading cancelled.')
     if (!this.ready) this.ready = this.download().catch(error => { this.ready = undefined; throw error })
     await new Promise<void>((resolve, reject) => {
@@ -85,8 +93,22 @@ export class XMLTVGuide {
       signal.addEventListener('abort', abort, { once: true })
       this.ready!.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort))
     })
-    if (signal.aborted) throw new Error('Guide loading cancelled.')
-    const id = tvgId && this.ids.has(tvgId) ? tvgId : this.names.get(name.trim().toLowerCase()) || tvgId
+    if (signal.aborted || this.controller.signal.aborted) throw new Error('Guide loading cancelled.')
+  }
+  async choices(query: string, page: number, signal: AbortSignal): Promise<GuideChoices> {
+    await this.ensureReady(signal)
+    const search = query.slice(0, 100).trim().toLowerCase(), matches: GuideChoice[] = []
+    for (let index = 0; index < this.channels.length; index++) {
+      if (index % 512 === 0) { await new Promise(resolve => setTimeout(resolve, 0)); if (signal.aborted || this.controller.signal.aborted) throw new Error('Guide loading cancelled.') }
+      const item = this.channels[index]
+      if (!search || item.id.includes(search) || item.name.toLowerCase().includes(search)) matches.push(item)
+    }
+    const pages = Math.ceil(matches.length / 20), current = Math.max(0, Math.min(pages - 1, Number.isSafeInteger(page) ? page : 0))
+    return { items: matches.slice(current * 20, (current + 1) * 20).map(item => ({ ...item })), total: matches.length, page: current, pages }
+  }
+  async load(tvgId: string | undefined, name: string, signal: AbortSignal, window?: { fromMs: number; toMs: number }, override?: string): Promise<XMLProgramme[]> {
+    await this.ensureReady(signal)
+    const raw = tvgId?.toLowerCase(), id = override !== undefined ? override.toLowerCase() : raw && this.ids.has(raw) ? raw : this.names.get(guideName(name)) || raw
     if (!id) return []
     const result = await this.ask({ type: 'programmesFor', feedId: 'playlist', tvgId: id, window: window || { fromMs: Date.now() - 86400000, toMs: Date.now() + 3 * 86400000 } }, signal)
     return result.programmes as XMLProgramme[] || []

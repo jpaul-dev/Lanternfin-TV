@@ -45,7 +45,13 @@ export class TVGuide {
   private xmlLoaded = Date.now()
   private revision = 0
   private offset: number
-  constructor(private source: Source, private epgUrl?: string, offset = 0) { this.offset = guideOffset(offset); if (epgUrl) this.xml = new XMLTVGuide(epgUrl) }
+  constructor(private source: Source, private epgUrl?: string, offset = 0, private match: (channel: Channel) => string | undefined = () => undefined) { this.offset = guideOffset(offset); if (epgUrl) this.xml = new XMLTVGuide(epgUrl) }
+  get canMatch() { return !!this.xml }
+  choices(query: string, page: number, signal: AbortSignal) {
+    if (!this.xml) throw new Error('Add an XMLTV guide address in this source’s Guide options to match channels.')
+    return this.xml.choices(query, page, signal)
+  }
+  mappingChanged() { this.revision++; this.cache.clear() }
   setOffset(value: number) { const next = guideOffset(value); if (next !== this.offset) { this.offset = next; this.revision++; this.cache.clear() } }
   clear() { this.revision++; this.cache.clear(); this.xml?.close() }
   async load(channel: Channel, signal: AbortSignal, refresh = false, window?: GuideWindow): Promise<Programme[]> {
@@ -59,11 +65,11 @@ export class TVGuide {
       const corrected = minutes ? items.map(item => ({ ...item, start: item.start + shift, stop: item.stop + shift, guideShiftMinutes: minutes })) : items
       this.save(key, corrected); return corrected
     }
-    const id = channel.providerId || channel.tvgId || channel.name, key = `${id}:${minutes}:${window ? `${window.fromMs}:${window.toMs}` : 'now'}`, cached = this.cache.get(key)
+    const override = this.match(channel), id = channel.providerId || channel.tvgId || channel.name, key = JSON.stringify([id, channel.name, override, minutes, window?.fromMs, window?.toMs]), cached = this.cache.get(key)
     if (!refresh && cached && Date.now() - cached.at < 3 * 60000) { this.cache.delete(key); this.cache.set(key, cached); return cached.items }
     if (this.xml) {
       const range = rawWindow || { fromMs: now - 86400000, toMs: now + 3 * 86400000 }
-      const rows = await this.xml.load(channel.tvgId, channel.name, signal, range)
+      const rows = await this.xml.load(channel.tvgId, channel.name, signal, range, override)
       const items = boundProgrammes(rows.filter(row => row.stop > range.fromMs && row.start < range.toMs), now).map(row => ({ start: row.start, stop: row.stop, title: row.title.slice(0, 300), description: row.desc.slice(0, 4000), ...(row.catchupId && row.catchupId.length <= 8192 ? { catchupId: row.catchupId } : {}) }))
       return finish(items)
     }
