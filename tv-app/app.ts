@@ -6,6 +6,7 @@ import { diagnosticsUI } from './diagnostics-ui'
 import { libraryUI } from './library-ui'
 import { TVDownloads, localDownload, type DownloadPlatform } from './downloads'
 import { downloadsUI } from './downloads-ui'
+import { updatesUI } from './updates-ui'
 import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
@@ -42,7 +43,8 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const input = (id: string) => $<HTMLInputElement>(id)
 const select = (id: string) => $<HTMLSelectElement>(id)
 const button = (id: string) => $<HTMLButtonElement>(id)
-type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail' | 'programme' | 'account' | 'backup' | 'diagnostics' | 'manage' | 'downloads'
+type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail' | 'programme' | 'account' | 'backup' | 'diagnostics' | 'manage' | 'downloads' | 'updates'
+let updatesReturn: 'settings' | 'about' = 'settings'
 let downloadsReturn: 'setup' | 'catalog' | 'settings' | 'detail' = 'setup'
 let screen: Screen = 'setup', previousScreen: Screen = 'setup'
 let backupReturn: 'settings' | 'setup' | 'manage' = 'settings'
@@ -97,9 +99,11 @@ const diagnostics = diagnosticsUI($('diagnostics'), (): DiagnosticReport => ({ s
 const libraryManager = libraryUI($('manage'), () => { void refreshCards() })
 const downloads = new TVDownloads(__TV_TARGET__ === 'tizen' ? window.tizen as DownloadPlatform : undefined)
 const downloadView = downloadsUI($('downloads'), downloads, (channel, position) => { playbackReturn = 'downloads'; startWatching(channel, position) })
+const updates = updatesUI($('updates'), __TV_TARGET__)
 downloads.load()
 if (away) downloads.suspend()
 function show(next: Screen) {
+  if (screen === 'updates' && next !== 'updates') updates.close()
   if (screen === 'downloads' && next !== 'downloads') downloadView.close()
   if (screen === 'backup' && next !== 'backup') backups.close()
   if (screen === 'diagnostics' && next !== 'diagnostics') diagnostics.close()
@@ -113,8 +117,8 @@ function show(next: Screen) {
   screen = next
   syncNav()
   document.documentElement.dataset.screen = next
-  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads']) $(id).hidden = id !== next
-  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account', 'backup', 'diagnostics', 'manage', 'downloads'].includes(next)
+  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates']) $(id).hidden = id !== next
+  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates'].includes(next)
   document.documentElement.classList.toggle('in-library', !$('tv-nav').hidden)
   $('player-surface').hidden = next !== 'playback'
   document.documentElement.classList.toggle('watching', next === 'playback')
@@ -525,6 +529,7 @@ function back() {
   else if (screen === 'diagnostics') show(diagnosticsReturn)
   else if (screen === 'manage') { if (!libraryManager.back()) show(manageReturn) }
   else if (screen === 'downloads') { if (!downloadView.back()) show(downloadsReturn) }
+  else if (screen === 'updates') show(updatesReturn)
   else if (screen === 'catalog' && providerLoading) { cancelProviderLoad(); notice('Loading cancelled.') }
   else if (screen === 'catalog' && browseView !== 'home') goHome()
   else if (screen === 'catalog') show('exit')
@@ -645,6 +650,7 @@ document.addEventListener('change', () => { nativeSelectOpen = false })
 document.addEventListener('focusin', () => { nativeSelectOpen = false; if (heldCard && !holdOpened && heldCard !== document.activeElement) { clearTimeout(holdTimer); heldCard = undefined } })
 bindLifecycle(document, window, () => {
   downloads.suspend()
+  updates.close()
   away = true; screenSaver.release()
   suspendedIndex = providerIndex?.progress.running ? providerIndex : undefined
   providerIndex?.pause(); renderIndexStatus()
@@ -795,7 +801,7 @@ function browseLayout(title: string) {
 }
 function syncNav() {
   for (const element of Array.from($('tv-nav').querySelectorAll('button'))) {
-    const selected = screen === 'downloads' ? element.id === 'nav-downloads' : screen === 'settings' ? element.id === 'nav-settings' : element.id === `nav-${browseView}` && libraryView === 'all'
+    const selected = screen === 'downloads' ? element.id === 'nav-downloads' : ['settings', 'updates'].includes(screen) ? element.id === 'nav-settings' : element.id === `nav-${browseView}` && libraryView === 'all'
     if (selected) element.setAttribute('aria-current', 'page'); else element.removeAttribute('aria-current')
   }
 }
@@ -1014,6 +1020,8 @@ function openDownloads(channel?: Channel) {
 }
 for (const id of ['setup-downloads', 'nav-downloads', 'settings-downloads']) $(id).onclick = () => openDownloads()
 $('downloads-back').onclick = () => { if (!downloadView.back()) show(downloadsReturn) }
+for (const [id, from] of [['settings-updates', 'settings'], ['about-updates', 'about']] as const) $(id).onclick = () => { updatesReturn = from; updates.open(); show('updates') }
+$('updates-back').onclick = () => show(updatesReturn)
 for (const [id, from] of [['settings-backup', 'settings'], ['setup-backup', 'setup']] as const) $(id).onclick = () => { backupReturn = from; backups.open(); button('backup-back').textContent = from === 'setup' ? 'Back to sources' : 'Back to settings'; show('backup') }
 function returnFromBackup() { if (backupReturn === 'manage') openLibraryManager(manageReturn); else show(backupReturn) }
 $('backup-back').onclick = returnFromBackup

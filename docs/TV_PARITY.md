@@ -15,7 +15,7 @@ This is the implementation checklist for the standalone TV ports. Reference: the
 | Settings | Theme, accent, size, margins, reduced motion, guide clock, language preferences, optional automatic next episode, local diagnostics, 16 original interface languages with English fallback and RTL layout | Translate remaining fork-specific messages; other applicable Android options |
 | Downloads / offline | Samsung native single-file movie/episode downloads, private storage, pause/resume/cancel, reviewed removal, offline resume and source-independent access | Real-TV transfer/private-storage/codec/restart validation; LG has no equivalent implementation; protected/adaptive downloads excluded |
 | Casting / receiver | Deliberately absent from the standalone install | Optional future feature only; not required to watch |
-| Updates / distribution | Reproducible source builds, LG IPK, unsigned Samsung WGT, setup companion | Store/signing workflow, update design, final name/trademark and dependency review |
+| Updates / distribution | Reproducible source builds, LG IPK, unsigned Samsung WGT, setup companion, manual public TV-release/source check and rebuild/reinstall guide | Physical signing/install validation, store submission, signed release channel, final name/trademark and dependency review |
 | TV lifecycle | Samsung saver follows foreground playback; LG Type 2 configuration; standby saves progress and stops video; interrupted background indexing resumes while manual pauses persist; transient backup fields clear | Actual device standby, OLED dimming and saver validation |
 
 ## External validation gates

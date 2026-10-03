@@ -94,9 +94,16 @@
         <button id="settings-refresh" class="settings-row"><span>Refresh library</span><small>Reload your provider catalog</small></button>
         <button id="settings-clear-cache" class="settings-row"><span>Clear saved catalogs</span><small>Keep sources and viewing progress</small></button>
         <button id="settings-reset" class="settings-row"><span>Reset preferences</span><small>Restore appearance and language defaults</small></button>
+        <button id="settings-updates" class="settings-row"><span>App updates</span><small>Installed build and developer-mode update guide</small></button>
         <button id="settings-about" class="settings-row"><span>About Lanternfin TV</span><small>Version, credits, and playback support</small></button>
       </div>
       <p id="settings-note" class="hint" role="status"></p><p id="library-note" class="hint"></p><button id="settings-back">Back to home</button>
+    </section>
+    <section id="updates" class="settings-view" hidden>
+      <button id="updates-back" class="subtle">← Back</button><p class="eyebrow">KEEP YOUR PLAYER CURRENT</p><h1>App updates</h1><p id="updates-build" class="hint"></p>
+      <div class="actions"><button id="updates-check" class="primary">Check updates</button><button id="updates-cancel" hidden>Cancel check</button></div><p id="updates-status" class="hint" role="status"></p>
+      <div class="update-result"><p id="updates-result"></p><div id="updates-packages"></div></div>
+      <div class="backup-columns"><div class="backup-card"><h2>Update a developer install</h2><ol class="update-steps"><li>Back up saved sources and viewing progress in Settings.</li><li>On your computer, open the Lanternfin fork in GitHub Desktop. Choose the TV branch, fetch changes and review before pulling.</li><li>Open Lanternfin TV Setup from that same folder. Build the current checkout; for Samsung, sign it with your existing TV certificate and device permission.</li><li>Reinstall the app on your paired TV, then check this screen’s build revision. Keep the app ID and signing identity unchanged.</li></ol><p class="hint">Rebuilding uses the files already on your computer. It does not fetch new source. An unsigned Samsung archive is not ready to install.</p></div><div class="backup-card"><h2>Keep a way back</h2><p class="hint">Keep the previous working installer and your encrypted backup before testing an update. Downloads are local to this TV and are not backed up. A reinstall, developer-session expiry or clearing app data may remove local data.</p><p class="hint">This developer build cannot silently replace itself. Store distribution and a signed update channel need separate vendor approval and release testing. Matching the source revision is not a claim of hardware certification.</p><div class="actions"><a id="updates-guide" target="_blank" rel="noopener noreferrer">TV setup guide</a><a id="updates-source" target="_blank" rel="noopener noreferrer">TV source branch</a><a id="updates-releases" target="_blank" rel="noopener noreferrer">Published releases</a></div></div></div>
     </section>
     <section id="downloads" class="settings-view" hidden>
       <button id="downloads-back" class="subtle">← Back</button><p class="eyebrow">TAKE A LITTLE OFFLINE</p><h1>Downloads</h1>
@@ -180,9 +187,9 @@
       <p>Based on Extreme InfiniTV by Ludovico Ferrara / infinitel8p and contributors. Original notice: Copyright (c) 2025 Ludovico Ferrara. The shared M3U parser, XMLTV guide reader and TV interface come from that project.</p>
       <p>Free software under GPL-3.0-or-later. License and attribution are included in this app package. Corresponding source: github.com/jpaul-dev/Lanternfin-TV.</p>
       <p>Includes Shaka Player 5.2.8, Copyright Google LLC, under Apache-2.0, mpegts.js 1.8.0 by Zheng Qian under Apache-2.0, and fflate 0.8.3, Copyright Arjun Barrett, under MIT. Its license is included in this package. The TV layout adapts the original app’s sidebar, hero and artwork rows.</p>
-      <p>Hardware playback validation is ongoing. Programme guides are available for compatible sources. Downloads and full Android feature parity are still in development.</p>
-      <p>Your TV connects to the source you enter. This app adds no analytics, account service, receiver, or update downloads.</p>
-      <button id="about-back" class="primary">Back</button>
+      <p>Hardware playback validation is ongoing. Programme guides are available for compatible sources. Samsung single-file offline downloads are implemented but still need hardware validation. Full Android feature parity remains in development.</p>
+      <p>Your TV connects to the source you enter. This app adds no analytics, account service or receiver. Update checks contact the public fork only when you request them; no update installs automatically.</p>
+      <button id="about-updates">App updates</button><button id="about-back" class="primary">Back</button>
     </section>
     <section id="exit" class="info-panel" hidden><h1>All done for now?</h1><p>Exit Lanternfin TV?</p><div class="actions"><button id="stay" class="primary">Keep watching</button><button id="leave">Exit app</button></div></section>
     <p id="notice" role="status" aria-live="polite"></p>
