@@ -85,14 +85,27 @@ export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka
     whenStopped() { return queue },
   }
 }
-export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api: AVPlay; surface: HTMLElement }): Player {
-  const html = htmlPlayer(video, report), adaptive = adaptivePlayer(video, report), samsung = native && samsungPlayer(native.api, report)
-  let current: Player = html, generation = 0
+export function canUseNativeHls(media: Media, video: HTMLVideoElement): boolean {
+  return !media.playback?.drm && !media.playback?.problem && !Object.keys(media.playback?.headers || {}).length &&
+    (/\.m3u8(?:\?|$)/i.test(media.url) || media.playback?.manifestType === 'hls') && !!video.canPlayType('application/vnd.apple.mpegurl')
+}
+export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api: AVPlay; surface: HTMLElement }, getShaka = loadRuntime): Player {
+  const html = htmlPlayer(video, report), samsung = native && samsungPlayer(native.api, report)
+  let current: Player = html, generation = 0, mediaForFallback: Media | undefined, fallbackPosition = 0
+  const adaptive = adaptivePlayer(video, (state, detail) => {
+    if (state === 'error' && current === adaptive && mediaForFallback && canUseNativeHls(mediaForFallback, video)) {
+      const media = mediaForFallback, position = fallbackPosition, token = generation
+      mediaForFallback = undefined; adaptive.stop()
+      report('loading', 'Trying the TV’s native HLS player…')
+      void adaptive.whenStopped().then(() => { if (token === generation) { current = html; html.play(media.url, position) } })
+    } else report(state, detail)
+  }, getShaka)
   return {
     play(input, position) {
       current.stop()
       const token = ++generation, previous = current
       const media: Media = typeof input === 'string' ? { url: input } : input
+      mediaForFallback = media; fallbackPosition = position || 0
       const nativeHeaders = Object.keys(media.playback?.headers || {}).every(name => ['user-agent', 'cookie'].includes(name.toLowerCase()))
       const useNative = !!samsung && !media.playback?.drm && !media.playback?.problem && nativeHeaders
       const begin = () => {

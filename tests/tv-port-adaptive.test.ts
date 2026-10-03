@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
-import { adaptivePlayer, playbackError } from '../tv-app/adaptive-player'
+import { adaptivePlayer, canUseNativeHls, playbackError, tvPlayer } from '../tv-app/adaptive-player'
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers() })
 function harness(pending = false) {
   vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
@@ -11,7 +11,7 @@ function harness(pending = false) {
   const Constructor = Object.assign(function () { return engine }, { isBrowserSupported: () => true })
   const runtime = { Player: Constructor, polyfill: { installAll() {} }, net: { NetworkingEngine: { RequestType: { LICENSE: 2, MANIFEST: 0, SEGMENT: 1 } } } }
   const report = vi.fn(), player = adaptivePlayer(document.createElement('video'), report, async () => runtime as any)
-  return { engine, player, report, apply: (type: number) => { const request = { headers: {} }; filter(type, request); return request.headers } }
+  return { engine, player, report, runtime, apply: (type: number) => { const request = { headers: {} }; filter(type, request); return request.headers } }
 }
 const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve() }
 it('isolates media headers from license requests and installs the explicit DRM configuration', async () => {
@@ -43,4 +43,20 @@ it('separates DRM errors from network and format errors', () => {
   expect(playbackError({ category: 6, code: 6001 })).toContain('simulator')
   expect(playbackError({ category: 1, code: 1001 })).toContain('network')
   expect(playbackError({ category: 3 })).not.toContain('DRM')
+})
+it('falls back to native HLS after a Shaka failure, after releasing Shaka', async () => {
+  vi.useFakeTimers(); const h = harness(), video = document.createElement('video')
+  vi.spyOn(video, 'canPlayType').mockReturnValue('probably')
+  vi.spyOn(video, 'load').mockImplementation(() => {})
+  h.engine.load.mockRejectedValue({ category: 1, code: 1001 })
+  const player = tvPlayer(video, h.report, undefined, async () => h.runtime as any)
+  player.play('https://example.com/live.m3u8'); await settle(); await settle()
+  expect(h.engine.destroy).toHaveBeenCalledOnce(); expect(video.src).toBe('https://example.com/live.m3u8')
+  player.stop(); vi.clearAllTimers()
+})
+it('never falls back by silently dropping DRM or required headers', () => {
+  const video = document.createElement('video'); vi.spyOn(video, 'canPlayType').mockReturnValue('probably')
+  for (const playback of [{ headers: { Authorization: 'secret' } }, { drm: { system: 'com.widevine.alpha' } }, { problem: 'Unsupported options' }]) {
+    expect(canUseNativeHls({ url: 'https://example.com/live.m3u8', playback }, video)).toBe(false)
+  }
 })

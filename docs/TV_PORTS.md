@@ -23,7 +23,7 @@ The port preserves M3U `#KODIPROP` license settings, `#EXTVLCOPT` User-Agent/Ref
 
 | Requirement | Current implementation and limit |
 | --- | --- |
-| HLS / DASH | Shaka, using MSE when available; native Samsung path for compatible unprotected streams |
+| HLS / DASH | Shaka, using MSE when available; native Samsung path for compatible unprotected streams. Unprotected HLS can fall back to native HTML playback when available, after releasing Shaka. DRM/header requirements are never dropped to trigger fallback |
 | Widevine / PlayReady | Shaka EME configuration with provider license URL; requires a compatible CDM, codec and valid provider access; not yet verified on physical TVs |
 | ClearKey | Explicit 32-character hexadecimal KID/key pairs passed to Shaka; not a DRM bypass |
 | License authorization headers | Sent only on license requests, separate from media credentials |
