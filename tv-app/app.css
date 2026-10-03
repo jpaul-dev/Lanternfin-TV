@@ -142,6 +142,9 @@ html.watching,.watching body{background:transparent}
 
 .track-menu{position:fixed;z-index:60;right:3vw;bottom:4vh;width:22rem;max-width:90vw;border:1px solid #514557;border-radius:1rem;background:#1a1925f5;padding:1.6rem;box-shadow:0 1rem 6rem #000a}.track-menu h2{font-size:1.35rem;margin:0 0 .5rem}.track-menu .primary{margin-top:1rem;width:100%}.track-menu select{font-size:.85rem}.track-menu .hint{font-size:.68rem}
 video::cue{font-family:Geist,Arial,sans-serif;background:#000b;color:#fff}
+/* Layout for Shaka's packaged UITextDisplayer, without its separate controls UI. */
+#player-surface .shaka-text-container{position:absolute;inset:0;pointer-events:none;min-width:48px;width:100%;font-family:Geist,Arial,sans-serif;font-size:4vh;line-height:1.35;color:#fff;z-index:2;padding:0 3vw 3vh;overflow:hidden;direction:ltr}
+#player-surface .shaka-text-container .shaka-text-wrapper{display:inline;background:none}
 
 /* Match the Android TV shell's compact icon rail and category/list/guide composition. */
 :root{background:#0b1014;--surface:#151b20;--line:#2c343b;--muted:#83909a;--accent:#e68bdf;font-size:max(12px,min(1.6667vw,2.963vh))}

@@ -31,6 +31,7 @@ it('runs source loading, favorites, resume, failed-refresh recovery and forgetti
   video.currentTime = 120
   await click('tracks-open'); el<HTMLSelectElement>('aspect-mode').value = 'zoom'; el('aspect-mode').dispatchEvent(new Event('change'))
   expect(video.style.objectFit).toBe('cover'); expect(el<HTMLSelectElement>('quality-track').disabled).toBe(true)
+  expect(el<HTMLSelectElement>('subtitle-size').disabled).toBe(true); expect(el<HTMLSelectElement>('subtitle-delay').disabled).toBe(true)
   el<HTMLSelectElement>('playback-speed').value = '1.5'; el('playback-speed').dispatchEvent(new Event('change'))
   expect(video.playbackRate).toBe(1.5)
   await click('tracks-close')

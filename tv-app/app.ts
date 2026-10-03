@@ -1199,6 +1199,17 @@ function refreshPictureOptions() {
   const speed = select('playback-speed'), speeds = player?.speeds?.() || []; speed.replaceChildren(); speed.disabled = !speeds.length
   if (!speeds.length) speed.add(new Option('Normal · fixed for this stream', '1'))
   for (const rate of speeds) speed.add(new Option(rate === 1 ? 'Normal · 1×' : `${rate}×`, String(rate), false, rate === player?.speed?.()))
+  const subtitles = player?.subtitlePresentation?.(), scale = select('subtitle-size'), delay = select('subtitle-delay')
+  scale.replaceChildren(); delay.replaceChildren(); scale.disabled = delay.disabled = !subtitles
+  if (!subtitles) { scale.add(new Option(tr('Unavailable on this player'), '')); delay.add(new Option(tr('Unavailable on this player'), '')) }
+  else {
+    for (const size of [.75, 1, 1.25, 1.5, 2]) scale.add(new Option(`${Math.round(size * 100)}%`, String(size), false, size === subtitles.scale))
+    for (let seconds = -5; seconds <= 5; seconds += .5) delay.add(new Option(seconds === 0 ? tr('No adjustment') : seconds < 0 ? tr('{seconds}s earlier', { seconds: Math.abs(seconds) }) : tr('{seconds}s later', { seconds }), String(seconds), false, seconds === subtitles.delay))
+  }
+}
+for (const id of ['subtitle-size', 'subtitle-delay']) select(id).onchange = () => {
+  const success = player?.setSubtitlePresentation?.({ scale: Number(select('subtitle-size').value), delay: Number(select('subtitle-delay').value) })
+  refreshPictureOptions(); $('track-status').textContent = success ? tr('Subtitle settings applied to this stream. Size affects text captions; timing moves them earlier or later.') : tr('Subtitle settings are unavailable for this player or stream.')
 }
 select('quality-track').onchange = () => { const success = player?.selectQuality?.(select('quality-track').value); $('track-status').textContent = success ? 'Quality selected. The picture will update as the buffer changes.' : 'This quality is no longer available. Try Automatic.'; if (!success) refreshPictureOptions() }
 select('aspect-mode').onchange = () => { const aspect = select('aspect-mode').value as Aspect; if (player?.setAspect?.(aspect)) { currentAspect = aspect; $('track-status').textContent = 'Picture size applied.' } else { refreshPictureOptions(); $('track-status').textContent = 'This picture size is unavailable on the current player.' } }

@@ -2,12 +2,19 @@ import { httpUrl } from './catalog'
 import { localDownload } from './downloads'
 import type { Media } from './media'
 import type { PlayerStats } from './diagnostics'
+import { interfaceLocale } from './i18n'
 export type State = 'loading' | 'playing' | 'paused' | 'buffering' | 'ended' | 'error' | 'idle'
 export type Report = (state: State, detail?: string) => void
 export type PlayerTrack = { id: string; kind: 'audio' | 'subtitle'; label: string; language?: string; active: boolean; disabled?: boolean }
 export type Aspect = 'fit' | 'zoom' | 'stretch'
 export type VideoQuality = { id: string; label: string; active: boolean }
-export interface Player { play(url: string | Media, position?: number): void; pause(): void; resume(): void; seek(delta: number): void; stop(): void; timeline(): { position: number; duration: number }; tracks?(): PlayerTrack[]; selectTrack?(kind: PlayerTrack['kind'], id: string): boolean; qualities?(): VideoQuality[]; selectQuality?(id: string): boolean; aspects?(): Aspect[]; setAspect?(aspect: Aspect): boolean; speeds?(): number[]; speed?(): number; setSpeed?(rate: number): boolean; diagnostics?(): PlayerStats }
+export type SubtitlePresentation = { delay: number; scale: number }
+export function languageName(language: string | undefined): string {
+  const code = (language || '').slice(0, 80)
+  if (!code || code === 'und') return ''
+  try { return new Intl.DisplayNames([interfaceLocale()], { type: 'language' }).of(code) || code } catch { return code }
+}
+export interface Player { play(url: string | Media, position?: number): void; pause(): void; resume(): void; seek(delta: number): void; stop(): void; timeline(): { position: number; duration: number }; tracks?(): PlayerTrack[]; selectTrack?(kind: PlayerTrack['kind'], id: string): boolean; qualities?(): VideoQuality[]; selectQuality?(id: string): boolean; aspects?(): Aspect[]; setAspect?(aspect: Aspect): boolean; speeds?(): number[]; speed?(): number; setSpeed?(rate: number): boolean; subtitlePresentation?(): SubtitlePresentation | undefined; setSubtitlePresentation?(value: SubtitlePresentation): boolean; diagnostics?(): PlayerStats }
 type NativeTrack = { type: string; index: number; extra_info?: string }
 export interface AVPlay {
   open(url: string): void; close(): void; stop(): void; play(): void; pause(): void

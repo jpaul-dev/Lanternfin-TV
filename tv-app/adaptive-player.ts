@@ -1,4 +1,4 @@
-import { htmlPlayer, samsungPlayer, type AVPlay, type Player, type Report } from './player'
+import { htmlPlayer, samsungPlayer, languageName, type AVPlay, type Player, type Report, type SubtitlePresentation } from './player'
 import { browserHeaderProblem, needsAdaptivePlayer, type Media } from './media'
 import { wrapLicense, unwrapLicense } from './license-format'
 import { transportPlayer, transportType, loadTransportRuntime } from './transport-player'
@@ -10,10 +10,14 @@ type AdaptiveTrack = { id?: number; active: boolean; language: string; label?: s
 type VideoTrack = { active: boolean; width?: number; height?: number; bandwidth?: number; frameRate?: number; codecs?: string; hdr?: string; language?: string; label?: string; roles?: string[]; pixelAspectRatio?: string; colorGamut?: string; videoLayout?: string; mimeType?: string }
 const videoKey = (track: VideoTrack) => JSON.stringify([track.width, track.height, track.bandwidth, track.frameRate, track.codecs, track.hdr, track.language, track.label, track.roles, track.pixelAspectRatio, track.colorGamut, track.videoLayout, track.mimeType])
 const audioKey = (track: AdaptiveTrack) => JSON.stringify([track.language, track.label, track.roles, track.channelsCount, track.codecs, track.spatialAudio])
-const trackLabel = (track: AdaptiveTrack) => [track.label || track.language || 'Unknown language', track.channelsCount ? `${track.channelsCount} ch` : '', track.roles?.filter(role => role !== 'main').join(', ')].filter(Boolean).join(' · ').slice(0, 160)
+const trackLabel = (track: AdaptiveTrack) => {
+  const language = languageName(track.language), label = track.label?.slice(0, 120)
+  return [language || (!label ? 'Unknown language' : ''), label && label.toLowerCase() !== language.toLowerCase() ? label : '', track.channelsCount ? `${track.channelsCount} ch` : '', track.roles?.filter(role => role !== 'main').join(', ')].filter(Boolean).join(' · ').slice(0, 160)
+}
 type Engine = {
   attach(video: HTMLVideoElement): Promise<void>; load(url: string, position?: number, mime?: string): Promise<void>; destroy(): Promise<void>
   configure(config: object): boolean; addEventListener(name: string, callback: (event: any) => void): void
+  setVideoContainer?(container: HTMLElement): void
   getNetworkingEngine(): { registerRequestFilter(filter: (type: number, request: Request) => void): void; registerResponseFilter?(filter: (type: number, response: { data: ArrayBuffer | ArrayBufferView | string }) => void): void }
   getAudioTracks?(): AdaptiveTrack[]; getTextTracks?(): AdaptiveTrack[]
   selectAudioTrack?(track: AdaptiveTrack, safeMargin?: number): void; selectTextTrack?(track: AdaptiveTrack | null): void
@@ -42,6 +46,7 @@ export function playbackError(error: { category?: number; code?: number }): stri
 export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka = loadRuntime): Player & { whenStopped(): Promise<void> } {
   let generation = 0, engine: Engine | undefined, queue = Promise.resolve(), cleanup = () => {}, timer: ReturnType<typeof setTimeout> | undefined
   let automaticQuality = true
+  let textPresentation: SubtitlePresentation = { delay: 0, scale: 1 }, customText = false
   const dispose = async () => { clearTimeout(timer); cleanup(); cleanup = () => {}; const old = engine; engine = undefined; if (old) await old.destroy().catch(() => {}) }
   const stop = () => {
     generation++
@@ -54,6 +59,7 @@ export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka
     play(input, position = 0) {
       stop(); const token = generation, media = typeof input === 'string' ? { url: input } : input
       automaticQuality = true
+      textPresentation = { delay: 0, scale: 1 }; customText = false
       const options = media.playback
       const problem = options?.problem || browserHeaderProblem(options?.headers) || browserHeaderProblem(options?.drm?.headers)
       if (problem) { report('error', problem); return }
@@ -68,6 +74,7 @@ export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka
           shaka.polyfill.installAll()
           if (!shaka.Player.isBrowserSupported()) { fail('This device does not expose the media APIs needed by Shaka Player. Try a supported physical TV.'); return }
           const current = new shaka.Player(); engine = current
+          if (current.setVideoContainer && video.parentElement) { current.setVideoContainer(video.parentElement); customText = true }
           current.addEventListener('error', event => { if (event.detail?.severity === 2) fail(playbackError(event.detail)) })
           await current.attach(video)
           if (token !== generation) return
@@ -131,6 +138,14 @@ export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka
         ]
       } catch { return [] }
     },
+    subtitlePresentation() { try { return customText && engine?.getTextTracks?.().length ? { ...textPresentation } : undefined } catch { return undefined } },
+    setSubtitlePresentation(value) {
+      if (!this.subtitlePresentation?.() || !Number.isFinite(value.delay) || Math.abs(value.delay) > 5 || ![.75, 1, 1.25, 1.5, 2].includes(value.scale)) return false
+      try {
+        if (!engine?.configure({ textDisplayer: { subtitleDelay: value.delay, fontScaleFactor: value.scale } })) return false
+        textPresentation = { delay: value.delay, scale: value.scale }; return true
+      } catch { return false }
+    },
     selectTrack(kind, id) {
       try {
         if (kind === 'audio') {
@@ -193,6 +208,7 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
     },
     stop() { generation++; current.stop() }, pause() { current.pause() }, resume() { current.resume() }, seek(delta) { current.seek(delta) }, timeline() { return current.timeline() },
     tracks() { return current.tracks?.() || [] }, selectTrack(kind, id) { return current.selectTrack?.(kind, id) || false },
+    subtitlePresentation() { return current.subtitlePresentation?.() }, setSubtitlePresentation(value) { return current.setSubtitlePresentation?.(value) || false },
     qualities() { return current.qualities?.() || [] }, selectQuality(id) { return current.selectQuality?.(id) || false },
     speeds() { return current === samsung ? samsung.speeds!() : !live && Number.isFinite(video.duration) && video.duration > 1 ? [.5, .75, 1, 1.25, 1.5, 2] : [] },
     speed() { return current === samsung ? samsung.speed!() : video.playbackRate || 1 },

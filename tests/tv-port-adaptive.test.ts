@@ -5,6 +5,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(
 function harness(pending = false) {
   vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {})
   let filter: (type: number, request: { headers: Record<string, string> }) => void = () => {}
   let rejectLoad: (error: object) => void = () => {}
   const engine = { attach: vi.fn().mockResolvedValue(undefined), load: vi.fn(() => pending ? new Promise<void>((_, reject) => { rejectLoad = reject }) : Promise.resolve()), destroy: vi.fn(async () => { rejectLoad({ code: 7000 }) }), configure: vi.fn(() => true), addEventListener: vi.fn(), getNetworkingEngine: () => ({ registerRequestFilter: (fn: typeof filter) => { filter = fn } }) }
@@ -14,6 +15,32 @@ function harness(pending = false) {
   return { engine, player, report, runtime, apply: (type: number) => { const request = { headers: {} }; filter(type, request); return request.headers } }
 }
 const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve() }
+it('uses the UI text renderer for bounded live subtitle adjustments and resets them between streams', async () => {
+  vi.useFakeTimers(); const h = harness(), surface = document.createElement('div'), video = document.createElement('video'); surface.append(video); document.body.append(surface)
+  const container = vi.fn(), text = vi.fn(() => [{ id: 1, active: true, language: 'en', label: 'stream_0' }])
+  Object.assign(h.engine, { setVideoContainer: container, getTextTracks: text })
+  const player = tvPlayer(video, h.report, undefined, async () => h.runtime as any)
+  player.play('https://example.com/captions.mpd'); await settle()
+  expect(container).toHaveBeenCalledWith(surface); expect(player.subtitlePresentation?.()).toEqual({ delay: 0, scale: 1 })
+  expect(player.tracks?.()[0].label).toContain('English')
+  expect(player.setSubtitlePresentation?.({ delay: -1.5, scale: 1.5 })).toBe(true)
+  expect(h.engine.configure).toHaveBeenLastCalledWith({ textDisplayer: { subtitleDelay: -1.5, fontScaleFactor: 1.5 } })
+  for (const value of [{ delay: NaN, scale: 1 }, { delay: 6, scale: 1 }, { delay: 0, scale: 100 }]) expect(player.setSubtitlePresentation?.(value)).toBe(false)
+  h.engine.configure.mockReturnValueOnce(false); expect(player.setSubtitlePresentation?.({ delay: 2, scale: 2 })).toBe(false)
+  expect(player.subtitlePresentation?.()).toEqual({ delay: -1.5, scale: 1.5 })
+  text.mockReturnValueOnce([]); expect(player.subtitlePresentation?.()).toBeUndefined()
+  player.play('https://example.com/second.mpd'); await settle(); await settle()
+  expect(player.subtitlePresentation?.()).toEqual({ delay: 0, scale: 1 })
+  player.stop(); await settle(); expect(player.subtitlePresentation?.()).toBeUndefined(); surface.remove(); vi.clearAllTimers()
+})
+it('does not advertise subtitle adjustments without a text renderer and subtitle tracks', async () => {
+  vi.useFakeTimers(); const h = harness()
+  Object.assign(h.engine, { getTextTracks: () => [{ id: 1, active: true, language: 'en' }] })
+  h.player.play('https://example.com/captions.mpd'); await settle()
+  expect(h.player.subtitlePresentation?.()).toBeUndefined()
+  expect(h.player.setSubtitlePresentation?.({ delay: 1, scale: 1 })).toBe(false)
+  h.player.stop(); await settle(); vi.clearAllTimers()
+})
 it('isolates media headers from license requests and installs the explicit DRM configuration', async () => {
   vi.useFakeTimers(); vi.stubGlobal('navigator', { requestMediaKeySystemAccess: vi.fn() })
   const h = harness()
