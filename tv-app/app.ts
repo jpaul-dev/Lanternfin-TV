@@ -87,6 +87,8 @@ let suspendedIndex: ProviderIndex | undefined
 let away = document.hidden
 let keepActiveLibrary = false, cacheSaving: AbortController | undefined, cacheAttempted: ProviderIndex | undefined, forceFresh = false
 const knownLibraryChannels = new Map<string, Channel>()
+let knownLibraryVersion = 0
+let pooledLibrary: { index?: ProviderIndex; count: number; channels: Channel[]; known: number; result: Channel[] } | undefined
 const PAGE_SIZE = 24
 const notice = (message: string) => { $('notice').textContent = message }
 navigationIcons($('tv-nav'))
@@ -169,6 +171,13 @@ $('source-form').addEventListener('submit', async event => {
       notice(`Loading ${megabytes} MB${progress.total ? ` of ${(progress.total / 1024 / 1024).toFixed(1)} MB` : ''} · ${progress.channels.toLocaleString()} streams found. You can cancel at any time.`)
     })
     if (loading !== controller) return
+    let nextIndex = source.kind === 'xtream' ? new ProviderIndex(source, initialCategories || []) : undefined
+    if (savedCatalog && nextIndex) {
+      notice(`Opening ${savedCatalog.entries.reduce((sum, entry) => sum + entry.channels.length, 0).toLocaleString()} saved titles…`)
+      try { await nextIndex.restore(savedCatalog, controller.signal) }
+      catch { if (loading !== controller || controller.signal.aborted) return; nextIndex = new ProviderIndex(source, initialCategories || []) }
+    }
+    if (loading !== controller || controller.signal.aborted) return
     channels = catalog.channels; page = 0; input('search').value = ''; libraryView = 'all'; browseView = 'home'
     providerCategories = initialCategories ? { live: initialCategories } : {}; detailInfo = undefined; detailVariants = []; catalogVariants = new WeakMap()
     let storageMessage = '', persisted = false
@@ -178,6 +187,7 @@ $('source-form').addEventListener('submit', async event => {
     try { if (persisted) storage = localStorage } catch { /* Session library. */ }
     if (JSON.stringify(activeSource) !== JSON.stringify(source) || !library) {
       knownLibraryChannels.clear()
+      knownLibraryVersion++
       library = new TVLibrary(storage, source)
       for (const channel of library.bookmarkedChannels()) knownLibraryChannels.set(channelId(channel), channel)
     } else try { library.setStorage(storage) } catch { storageMessage += ' Library changes could not be saved.' }
@@ -185,14 +195,13 @@ $('source-form').addEventListener('submit', async event => {
     if (!keepActiveLibrary) void catalogCache.forget(source).catch(() => { notice('The saved catalog could not be removed. Use Clear saved catalogs in Settings.') })
     activeSource = source; activeGuideUrl = override; episodeContext.clear()
     providerIndex?.pause(); clearTimeout(indexTimer); indexTimer = undefined
-    providerIndex = source.kind === 'xtream' ? new ProviderIndex(source, initialCategories || []) : undefined
-    if (savedCatalog && providerIndex) { try { providerIndex.restore(savedCatalog) } catch { providerIndex = new ProviderIndex(source, initialCategories || []) } }
+    providerIndex = nextIndex; pooledLibrary = undefined
     guide?.clear(); guide = new TVGuide(source, override || catalog.epgUrl); guideChannel = undefined; browseCategory = undefined
     renderIndexStatus()
     $('library-note').textContent = persisted ? 'Favorites and recent streams are saved on this TV.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.'
     $('return-catalog').hidden = false
     // Credentials remain only in the form/session unless saving was explicitly chosen.
-    updateGroups(); await filter(); goHome()
+    updateGroups(); await filter(); if (loading !== controller || controller.signal.aborted) return; goHome()
     startIndex()
     notice((catalog.skipped ? `${catalog.skipped} entries with invalid addresses were skipped.` : '') + storageMessage)
   } catch (error) { if (loading === controller) notice((error as Error).message) }
@@ -211,6 +220,7 @@ input('remember').onchange = async () => {
   catch { notice('The TV could not remove saved settings. Try clearing app data in TV settings.') }
 }
 $('forget').onclick = async () => {
+  pooledLibrary = undefined; knownLibraryVersion++
   keepActiveLibrary = false; cacheSaving?.abort()
   episodeContext.clear()
   cancelGuide(); guide?.clear(); guide = undefined; guideChannel = undefined; guideItems = []
@@ -829,13 +839,18 @@ function rememberLibraryChannel(channel: Channel) {
   if (activeSource?.kind !== 'xtream') return
   knownLibraryChannels.set(channelId(channel), channel)
   for (const [id, entry] of knownLibraryChannels) if (!library?.isFavorite(entry) && !library?.lastPlayed(entry)) knownLibraryChannels.delete(id)
+  knownLibraryVersion++
 }
 function libraryPool(): Channel[] {
   const base = providerIndex?.items.length ? providerIndex.items : channels
   if (base === channels && !knownLibraryChannels.size) return channels
-  const result = [...base], ids = new Set(base.map(channelId))
-  if (base !== channels) for (const channel of channels) if (!ids.has(channelId(channel))) { result.push(channel); ids.add(channelId(channel)) }
-  for (const [id, channel] of knownLibraryChannels) if (!ids.has(id)) result.push(channel)
+  if (pooledLibrary?.index === providerIndex && pooledLibrary?.count === base.length && pooledLibrary.channels === channels && pooledLibrary.known === knownLibraryVersion) return pooledLibrary.result
+  const additions: Channel[] = [], ids = base === channels ? new Set(base.map(channelId)) : new Set<string>()
+  const add = (channel: Channel) => { if (base !== channels && providerIndex?.has(channel)) return; const id = channelId(channel); if (!ids.has(id)) { ids.add(id); additions.push(channel) } }
+  if (base !== channels) for (const channel of channels) add(channel)
+  for (const channel of knownLibraryChannels.values()) add(channel)
+  const result = additions.length ? base.concat(additions) : base
+  pooledLibrary = { index: providerIndex, count: base.length, channels, known: knownLibraryVersion, result }
   return result
 }
 function renderIndexStatus() {

@@ -20,7 +20,7 @@ it('restores a chunked whole-library index without copying account or stream cre
   expect(raw).not.toMatch(/private-user|private-password|provider.example|\/live\//)
   const restored = await cache.load(source)
   expect(restored?.entries[0].channels).toEqual(input.entries[0].channels); expect(restored?.entries[0].skipped).toBe(2)
-  const index = new ProviderIndex(source, []); index.restore(restored!)
+  const index = new ProviderIndex(source, []); await index.restore(restored!)
   expect(index.progress).toMatchObject({ complete: true, titles: 1201, loaded: 1 }); expect(index.cachedAt).toBe(input.at)
   expect(index.cached('live', input.categories.live[0])?.channels).toHaveLength(1201)
 })

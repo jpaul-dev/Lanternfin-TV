@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import { ProviderIndex } from '../tv-app/provider-index'
 import type { Source, Channel } from '../tv-app/catalog'
+import type { CatalogSnapshot } from '../tv-app/catalog-cache'
 const source: Source = { kind: 'xtream', url: 'https://example.com', username: 'u', password: 'p' }
 const categories = [{ id: '1', name: 'First' }, { id: '2', name: 'Second' }]
 it('indexes every media kind, deduplicates shared titles and reuses completed categories', async () => {
@@ -33,4 +34,41 @@ it('stops at the memory budget without claiming the search covers all titles', a
   const index = new ProviderIndex(source, categories, { categories: async () => [], category: async () => ({ channels: [{ name: 'Large', group: '', url: 'https://example.com' }], skipped: 0 }) }, { records: 0, characters: 10 })
   await index.start(() => {}); expect(index.progress.complete).toBe(false)
   expect(index.progress.message).toContain('memory budget'); expect(index.items).toEqual([])
+})
+
+const saved = (count: number): CatalogSnapshot => ({ at: Date.now(), categories: { live: categories.slice(0, 1), movie: [], series: [] }, entries: [{ kind: 'live', category: categories[0], skipped: 0, channels: Array.from({ length: count }, (_, id) => ({ name: `Channel ${id}`, group: 'Live', url: `https://example.test/${id}.m3u8`, mediaKind: 'live', providerId: String(id) })) }] })
+
+it('yields while restoring a large saved category and publishes it only when complete', async () => {
+  let clock = 0
+  const timer = vi.spyOn(performance, 'now').mockImplementation(() => clock += 20)
+  try {
+    const input = saved(50000), index = new ProviderIndex(source, [])
+    const pending = index.restore(input)
+    expect(index.items).toHaveLength(0); expect(index.progress.complete).toBe(false)
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(index.items).toHaveLength(0)
+    await pending
+    expect(index.items).toHaveLength(50000); expect(index.progress.complete).toBe(true)
+    expect(index.has({ ...input.entries[0].channels[49999] })).toBe(true)
+    expect(index.has({ ...input.entries[0].channels[49999], url: 'https://example.test/alternate.ts' })).toBe(false)
+  } finally { timer.mockRestore() }
+})
+
+it('cancels cache restoration without publishing partial titles or changing the previous categories', async () => {
+  let clock = 0
+  const timer = vi.spyOn(performance, 'now').mockImplementation(() => clock += 20)
+  try {
+    const original = [{ id: 'old', name: 'Original' }], index = new ProviderIndex(source, original), controller = new AbortController()
+    const pending = index.restore(saved(4000), controller.signal); controller.abort()
+    await expect(pending).rejects.toThrow('canceled')
+    expect(index.items).toHaveLength(0); expect(index.categories.live).toBe(original); expect(index.cachedAt).toBeUndefined()
+    await index.restore(saved(5)); expect(index.items).toHaveLength(5)
+  } finally { timer.mockRestore() }
+})
+
+it('rejects an over-budget snapshot transactionally and releases the index for a later restore', async () => {
+  const index = new ProviderIndex(source, [], undefined, { records: 3, characters: 5000 })
+  await expect(index.restore(saved(4))).rejects.toThrow('memory budget')
+  expect(index.items).toEqual([]); expect(index.progress.complete).toBe(false)
+  await index.restore(saved(3)); expect(index.progress.titles).toBe(3)
 })
