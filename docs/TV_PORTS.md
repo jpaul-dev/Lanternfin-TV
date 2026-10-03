@@ -93,6 +93,15 @@ The TV runtime bundle contains only this UI, the playback adapters, and the exis
 
 ## Validation and next milestones
 
+Verified source build: [`808fb81c5ce0780d6b83781c61866ac6b9f14c35`](https://github.com/jpaul-dev/Lanternfin-TV/tree/808fb81c5ce0780d6b83781c61866ac6b9f14c35). [GitHub Actions run 37095626858](https://github.com/jpaul-dev/Lanternfin-TV/actions/runs/37095626858) passed all **150 test files / 3,020 tests**, TV type checks, all three target builds, LG packaging, and unsigned Samsung packaging. This includes 30 new port tests. Browser inspection at 1280×720 confirmed setup and Xtream forms fit, source navigation reaches the Remember option, search and pagination work, markup in stream names stays inert, and Back restores focus after playback failure. All hashed assets inside both local packages matched the clean source build. A local Windows Defender scan with remediation disabled found no threats; this is not a guarantee of safety.
+
+Local package SHA-256 (the IPK built on CI may differ because the vendor archiver includes build timestamps):
+
+| Package | SHA-256 |
+| --- | --- |
+| LG IPK | `a7d72dcb4caebc036afb0c0fea48add935a94e57b2f104d285b464364e118a2a` |
+| Samsung unsigned WGT | `ba2e4132492357161daa35e98102ef3a4dfba1b7fd6ddab07c855f609b76ceab` |
+
 Automated coverage exercises URL and credential handling, malicious playlist text, relative stream paths and redirects, size limits without Content-Length, callback races, timeouts, stop/release, live versus VOD seeks, key mapping, and source persistence. Browser checks exercise layout, remote navigation, search, pagination, and failed-stream recovery. These checks do not emulate the vendor decoder or certify playback on a TV.
 
 Before calling either port supported, record the TV model, OS version, firmware, remote type, and provider in a device test log. Test cold install/start, on-screen keyboard, all focus paths, both Back behaviors, home/resume, standby, failed login, CORS/TLS failures, expired URLs, repeated channel switching, H.264/AAC HLS, MP4 seeking, a 30-minute live stream, audio/video sync, and loss/recovery of the network. Test HTTP only when intentionally chosen; check that forgetting a source removes it after a cold start.
