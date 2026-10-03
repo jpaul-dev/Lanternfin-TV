@@ -155,7 +155,9 @@ export function createSetupService({ root, runner = runProcess, opener = openVen
       signed.delete(`${kit.root}|${profile}`)
       await build('tizen')
       const stage = join(root, 'artifacts/tv-setup', randomUUID()); await mkdir(stage, { recursive: true })
-      for (const file of ['app.js', 'app.css', 'index.html', 'config.xml', 'icon.png', 'LICENSE', 'NOTICE.txt', 'build.json']) await copyFile(join(root, 'dist/tv/tizen', file), join(stage, file))
+      // Keep the complete self-contained build: engines, workers, startup guard,
+      // translations and their licenses must accompany the main script.
+      for (const file of await readdir(join(root, 'dist/tv/tizen'))) await copyFile(join(root, 'dist/tv/tizen', file), join(stage, file))
       step('Preparing the app with Samsung’s tools…'); await run(kit.tizen, ['build-web', '--', stage], { timeout: 180000 })
       step('Signing with your chosen certificate profile…'); const result = join(stage, '.buildResult')
       await run(kit.tizen, ['package', '-t', 'wgt', '-s', profile, '--', result], { timeout: 180000 })

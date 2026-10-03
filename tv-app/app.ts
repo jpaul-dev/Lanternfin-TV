@@ -1,3 +1,4 @@
+import './compatibility'
 import './app.css'
 import { backupUI } from './backup-ui'
 import { ScreenSaver, bindLifecycle, type AppCommon } from './lifecycle'
@@ -1513,3 +1514,5 @@ try {
 } catch { /* session-only mode still works when storage is unavailable */ }
 sourceKind(); show('setup')
 try { const restored = sessionStorage.getItem('lanternfin.restored'); sessionStorage.removeItem('lanternfin.restored'); if (restored && /^\d{1,2}$/.test(restored)) notice(`Restored ${Number(restored)} sources. Open a source to continue.`) } catch {}
+document.documentElement.setAttribute('data-app-ready', 'true')
+window.dispatchEvent(new Event('lanternfin-ready'))

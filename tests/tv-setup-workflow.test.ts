@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
 import { join, dirname, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { deflateRawSync, gzipSync } from 'node:zlib'
@@ -121,10 +121,14 @@ it('only installs the explicit paired LG package and records success after the t
 it('signs into a fresh directory, checks both signatures, and rejects a changed package before install', async () => {
   const sdkRoot = await samsungTools()
   await file(join(root, 'node_modules/vite/package.json'), '{}')
-  for (const name of ['app.js', 'app.css', 'index.html', 'config.xml', 'icon.png', 'LICENSE', 'NOTICE.txt', 'build.json']) await file(join(root, 'dist/tv/tizen', name), 'fixture')
+  const assets = ['app.js', 'app.css', 'index.html', 'config.xml', 'icon.png', 'LICENSE', 'NOTICE.txt', 'build.json', 'startup.js', 'shaka-player.compiled.js', 'mpegts.js', 'epg-worker.js', 'mp4-text-worker.js', 'i18n-fr.json', 'LICENSE-Shaka.txt']
+  for (const name of assets) await file(join(root, 'dist/tv/tizen', name), name)
   let signedPath = ''
   const runner = vi.fn(async (_command, args) => {
-    if (args[0] === 'build-web') await mkdir(join(args.at(-1), '.buildResult'))
+    if (args[0] === 'build-web') {
+      for (const name of assets) expect(await readFile(join(args.at(-1), name), 'utf8')).toBe(name)
+      await mkdir(join(args.at(-1), '.buildResult'))
+    }
     if (args[0] === 'package') { signedPath = join(args.at(-1), 'LanternfinTV.wgt'); await writeFile(signedPath, widget(true)) }
     return args[0] === 'devices' ? '192.168.1.50:26101 device TV' : 'Success'
   })

@@ -4,14 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' file:; style-src 'self'; font-src 'self' data:; img-src 'self' https: http:; connect-src https: http:; media-src https: http: blob:; worker-src 'self' blob:; object-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' file:; style-src 'self' file:; font-src 'self' file: data:; img-src 'self' file: https: http:; connect-src 'self' file: https: http:; media-src file: https: http: blob:; worker-src 'self' file: blob:; object-src 'self' file:; base-uri 'none'; form-action 'none'">
   <title>Lanternfin TV</title>
   <link rel="icon" href="icon.png">
   <link rel="stylesheet" href="app.css">
+  <script defer src="startup.js"></script>
   <!-- PLATFORM_SCRIPT -->
   <script defer src="app.js"></script>
 </head>
 <body>
+  <div id="startup-status" role="alert" hidden></div>
   <div id="player-surface" hidden><div id="external-subtitles" class="external-subtitles" dir="auto" hidden></div></div>
   <main id="app">
     <nav id="tv-nav" aria-label="Main navigation" hidden>
