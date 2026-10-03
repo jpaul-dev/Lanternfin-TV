@@ -2,11 +2,23 @@ name: LG and Samsung TV previews
 on:
   push:
     branches: [main, 'ports/**']
-    paths: ['tv-app/**', 'scripts/*-tv.mjs', 'tests/tv-port-*.test.ts', 'src/scripts/lib/m3u-parser.ts', 'packaging/tv-tools/**', 'package.json', 'pnpm-lock.yaml', '.github/workflows/tv-ports.yml']
+    paths: ['tv-app/**', 'tv-setup/**', 'Open TV Setup*', 'scripts/*-tv.mjs', 'tests/tv-port-*.test.ts', 'tests/tv-setup-*.test.ts', 'src/scripts/lib/m3u-parser.ts', 'packaging/tv-tools/**', 'package.json', 'pnpm-lock.yaml', '.github/workflows/tv-ports.yml']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
+  windows-setup:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm exec vitest run tests/tv-setup-security.test.ts tests/tv-setup-workflow.test.ts
   package:
     runs-on: ubuntu-latest
     timeout-minutes: 15

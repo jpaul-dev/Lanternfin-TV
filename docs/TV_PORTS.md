@@ -2,6 +2,8 @@
 
 The first standalone TV port lives in `tv-app/`, on branch `ports/webos-tizen`. The Android baseline remains on `main`. Local checkout: `C:\Users\jayco\Desktop\Codex Projects\Lanternfin-TV`.
 
+For a guided interface instead of terminal commands, open **Open TV Setup.vbs** in the checkout or the **Lanternfin TV Setup** desktop shortcut. See [the setup companion guide](TV_SETUP.md).
+
 ## What this preview does
 
 - Opens your M3U playlist, an Xtream provider's `get.php` playlist, or a direct HTTP/HTTPS stream.
