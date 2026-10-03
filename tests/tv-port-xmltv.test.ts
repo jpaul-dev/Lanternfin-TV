@@ -16,9 +16,10 @@ it('preserves playlist guide addresses and bounded channel IDs', () => {
   const catalog = parseCatalog('#EXTM3U x-tvg-url="guide.xml"\n#EXTINF:-1 tvg-id="news",News\nhttps://example.com/live.m3u8', 'https://example.com/list.m3u')
   expect(catalog.epgUrl).toBe('https://example.com/guide.xml'); expect(catalog.channels[0].tvgId).toBe('news')
 })
-it.each([false, true])('loads an XMLTV guide through the Android worker, gzip=%s', async gzip => {
+it.each(['plain', 'gzip', 'gzip-fallback'])('loads an XMLTV guide through the Android worker, mode=%s', async mode => {
+  if (mode === 'gzip-fallback') vi.stubGlobal('DecompressionStream', undefined)
   vi.stubGlobal('Worker', TestWorker)
-  const bytes = gzip ? gzipSync(xml) : new TextEncoder().encode(xml)
+  const bytes = mode !== 'plain' ? gzipSync(xml) : new TextEncoder().encode(xml)
   let offset = 0
   vi.stubGlobal('fetch', vi.fn(async () => new Response(new ReadableStream({ pull(controller) { if (offset >= bytes.length) controller.close(); else { controller.enqueue(new Uint8Array(bytes.slice(offset, offset + 1))); offset++ } } }))))
   const guide = new XMLTVGuide('https://example.com/guide.xml'), signal = new AbortController().signal

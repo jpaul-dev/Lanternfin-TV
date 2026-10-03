@@ -61,6 +61,8 @@ it('restores the last season and removes only the chosen history entry', () => {
   const restored = new TVLibrary(localStorage, source)
   expect(restored.season(channel)).toBe('Season 2'); restored.removeRecent(channel)
   expect(restored.lastPlayed(channel)).toBeUndefined(); expect(restored.lastPlayed(other)?.position).toBe(90); expect(restored.isFavorite(channel)).toBe(true)
+  restored.record(channel, 0, 0, true)
+  expect(new TVLibrary(localStorage, source).lastPlayed(channel)?.completed).toBe(true)
 })
 it('restores provider favorites and resume items without reloading their categories or storing credentials', () => {
   const account: Source = { kind: 'xtream', url: 'https://provider.example/sub', username: 'my-user', password: 'my-password' }

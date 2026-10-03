@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { programmes, nowNext, TVGuide } from '../tv-app/guide'
+import { programmes, nowNext, TVGuide, boundProgrammes } from '../tv-app/guide'
 const now = Date.now(), seconds = (n: number) => Math.floor((now + n * 60000) / 1000)
 const row = { start_timestamp: seconds(-10), stop_timestamp: seconds(20), title: btoa('News'), description: btoa('<b>Inert description</b>'), has_archive: '1' }
 afterEach(() => vi.unstubAllGlobals())
@@ -18,4 +18,12 @@ it('uses provider spelling fallbacks, caches results, and supports refresh', asy
   await guide.load(channel, signal, true); expect(fetcher).toHaveBeenCalledTimes(4)
   const controller = new AbortController(); controller.abort()
   await expect(guide.load(channel, controller.signal, true)).rejects.toThrow('cancelled')
+})
+it('keeps the current programme in large guides and isolates a requested day', () => {
+  const items = Array.from({ length: 1500 }, (_, index) => ({ start: now + (index - 1000) * 60000, stop: now + (index - 999) * 60000 }))
+  const bounded = boundProgrammes(items, now); expect(bounded).toHaveLength(512)
+  expect(bounded.some(item => item.start === now)).toBe(true)
+  const day = { fromMs: now + 86400000, toMs: now + 2 * 86400000 }
+  const rows = [row, { ...row, start_timestamp: Math.floor((day.fromMs + 60000) / 1000), stop_timestamp: Math.floor((day.fromMs + 120000) / 1000) }]
+  expect(programmes(rows, now, day)).toHaveLength(1)
 })

@@ -8,10 +8,12 @@ import { tvPlayer } from './adaptive-player'
 import { channelCard, cardChannel, homeRows, cancelHomeRows } from './presentation'
 import { loadCategories, loadCategory, basicDetails, loadTitleDetails, type TitleDetails, type Category, type MediaKind } from './xtream'
 import { searchCatalog } from './search'
+import { sortCatalog } from './sort'
 import { TVLibrary, durationLabel, forgetLibraries, forgetLibrary } from './library'
 import { channelId } from './library'
 import { ProviderIndex } from './provider-index'
-import { TVGuide, nowNext, timeRange, type Programme } from './guide'
+import { TVGuide, nowNext, timeRange, guideDate, type Programme } from './guide'
+import { canReplay, replayChannel } from './catchup'
 import { navigationIcons } from './icons'
 import { LiveQueue, nextEpisode } from './playback-queue'
 import { ACCENTS, LANGUAGES, DEFAULTS, readPreferences, savePreferences, normalizePreferences, applyPreferences, languageMatch } from './preferences'
@@ -27,7 +29,7 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const input = (id: string) => $<HTMLInputElement>(id)
 const select = (id: string) => $<HTMLSelectElement>(id)
 const button = (id: string) => $<HTMLButtonElement>(id)
-type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail'
+type Screen = 'setup' | 'catalog' | 'playback' | 'resume' | 'about' | 'exit' | 'settings' | 'detail' | 'programme'
 let screen: Screen = 'setup', previousScreen: Screen = 'setup'
 let channels: Channel[] = [], filtered: Channel[] = [], page = 0, lastChannel = 0
 let state: State = 'idle', player: Player | undefined, loading: AbortController | undefined
@@ -41,7 +43,7 @@ let nativeSelectOpen = false
 let browseView: 'home' | 'all' | 'search' | MediaKind = 'home'
 let providerCategories: Partial<Record<MediaKind, Category[]>> = {}, providerLoading: AbortController | undefined
 let detailInfo: TitleDetails | undefined, detailLoading: AbortController | undefined, episodePage = 0
-let playbackReturn: 'catalog' | 'detail' = 'catalog'
+let playbackReturn: 'catalog' | 'detail' | 'programme' = 'catalog'
 let providerIndex: ProviderIndex | undefined, indexTimer: ReturnType<typeof setTimeout> | undefined
 let browseCategory: Category | undefined, guide: TVGuide | undefined, guideChannel: Channel | undefined
 let guideLoading: AbortController | undefined, guideTimer: ReturnType<typeof setTimeout> | undefined, guideItems: Programme[] = []
@@ -55,6 +57,8 @@ let contextCard: HTMLElement | undefined, contextChannel: Channel | undefined
 let heldCard: HTMLElement | undefined, holdTimer: ReturnType<typeof setTimeout> | undefined, holdOpened = false
 let nextTimer: ReturnType<typeof setTimeout> | undefined
 let hasPlayed = false
+let guidePage = 0, selectedProgramme: Programme | undefined, programmeChannel: Channel | undefined, replayLoading: AbortController | undefined
+let currentGuideSlot: number | undefined
 const knownLibraryChannels = new Map<string, Channel>()
 const PAGE_SIZE = 24
 const notice = (message: string) => { $('notice').textContent = message }
@@ -63,13 +67,14 @@ try { preferenceStorage = localStorage; preferences = readPreferences(localStora
 applyPreferences(preferences)
 
 function show(next: Screen) {
+  if (next !== 'programme') { replayLoading?.abort(); replayLoading = undefined }
   $('card-menu').hidden = true
   if (next !== 'catalog') cancelGuide()
   if (next !== 'catalog') cancelHomeRows()
   if (!['detail', 'playback', 'resume'].includes(next)) cancelDetails()
   screen = next
   document.documentElement.dataset.screen = next
-  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail']) $(id).hidden = id !== next
+  for (const id of ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme']) $(id).hidden = id !== next
   $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail'].includes(next)
   document.documentElement.classList.toggle('in-library', !$('tv-nav').hidden)
   $('player-surface').hidden = next !== 'playback'
@@ -163,14 +168,17 @@ async function filter(resetPage = true) {
   button('previous').disabled = button('next').disabled = true
   try {
     const include = (channel: Channel) => {
+      const kind = select('media-filter').value
+      if (['search', 'all'].includes(browseView) && kind && (kind === 'series' ? !['series', 'episode'].includes(channel.mediaKind || '') : (channel.mediaKind || 'live') !== kind)) return false
+      if (input('hide-watched').checked && library?.lastPlayed(channel)?.completed) return false
       if (libraryView === 'favorites') return !!library?.isFavorite(channel)
       if (libraryView === 'recent') return !!library?.lastPlayed(channel)
       return !['live', 'movie', 'series'].includes(browseView) || (browseView === 'series' ? ['series', 'episode'].includes(channel.mediaKind || '') : (channel.mediaKind || 'live') === browseView)
     }
     const pool = activeSource?.kind === 'xtream' && (libraryView !== 'all' || ['search', 'all'].includes(browseView)) ? libraryPool() : channels
-    const matches = await searchCatalog(pool, input('search').value, select('group').value, controller.signal, include)
+    const matches = await sortCatalog(await searchCatalog(pool, input('search').value, select('group').value, controller.signal, include), browseView === 'live' ? 'provider' : select('sort-order').value, controller.signal)
     if (searching !== controller) return
-    if (libraryView === 'recent') matches.sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
+    if (libraryView === 'recent' && select('sort-order').value === 'provider') matches.sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
     filtered = matches; page = resetPage ? 0 : Math.min(page, Math.max(0, Math.ceil(matches.length / PAGE_SIZE) - 1)); render()
   } catch { /* Superseded searches do not replace current results. */ }
   finally { if (searching === controller) searching = undefined }
@@ -196,6 +204,7 @@ function render() {
 }
 input('search').oninput = () => { searching?.abort(); searchTimer && clearTimeout(searchTimer); searchTimer = setTimeout(filter, 180) }
 select('group').onchange = () => { void filter() }
+for (const id of ['media-filter', 'sort-order', 'hide-watched']) $(id).onchange = () => { void filter() }
 for (const [id, delta] of [['previous', -1], ['next', 1]] as const) $(id).onclick = () => { page += delta; render(); $('channels').querySelector('button')?.focus() }
 $('change-source').onclick = () => { cancelProviderLoad(); show('setup') }
 $('return-catalog').onclick = () => { cancelLoad(); show('catalog') }
@@ -296,6 +305,7 @@ function startWatching(channel: Channel, position = 0) {
 function updatePlaybackContext() {
   const live = currentChannel?.mediaKind === 'live'
   $('playback-kind').textContent = live ? `LIVE TV · CHANNEL ${liveQueue.number}` : 'NOW WATCHING'
+  button('stop').textContent = playbackReturn === 'detail' ? 'Back to details' : playbackReturn === 'programme' ? 'Back to programme' : 'Back to streams'
   $('channel-previous').hidden = $('channel-next').hidden = !live || liveQueue.length < 2
   $('rewind').hidden = $('forward').hidden = !!live
   const next = nextEpisode(detailInfo?.episodes, currentChannel)
@@ -356,7 +366,7 @@ function saveProgress(ended = false) {
   if (!currentChannel || !hasPlayed) return
   const timeline = player?.timeline()
   if (!ended && timeline && Number.isFinite(timeline.position) && timeline.position > 0) lastTimeline = timeline
-  try { library?.record(currentChannel, lastTimeline.position, lastTimeline.duration, ended); rememberLibraryChannel(currentChannel); lastSaved = Date.now() }
+  try { library?.record(currentChannel, lastTimeline.position, lastTimeline.duration, ended || state === 'ended'); rememberLibraryChannel(currentChannel); lastSaved = Date.now() }
   catch { $('library-note').textContent = 'TV storage is unavailable. Changes are kept for this session.' }
 }
 function stopWatching() {
@@ -364,6 +374,7 @@ function stopWatching() {
   cancelZap(); playbackGuideLoading?.abort(); playbackGuideLoading = undefined
   saveProgress(); currentChannel = undefined
   clearTimeout(controlsTimer); player?.stop()
+  if (playbackReturn === 'programme' && selectedProgramme) { show('programme'); button('programme-back').focus(); return }
   if (playbackReturn === 'detail' && detailInfo) { renderDetails(); show('detail'); button('detail-play').focus(); return }
   render(); show('catalog')
   const items = $('channels').querySelectorAll('button'); (items[lastChannel] || button('change-source')).focus()
@@ -397,6 +408,7 @@ function back() {
   else if (screen === 'playback') stopWatching()
   else if (screen === 'resume') { pendingChannel = undefined; show(playbackReturn) }
   else if (screen === 'detail') returnFromDetails()
+  else if (screen === 'programme') returnFromProgramme()
   else if (screen === 'about') show(previousScreen)
   else if (screen === 'settings') goHome()
   else if (screen === 'catalog' && providerLoading) { cancelProviderLoad(); notice('Loading cancelled.') }
@@ -439,7 +451,7 @@ document.addEventListener('keydown', event => {
   if (active instanceof HTMLSelectElement && (event.key === 'Enter' || event.keyCode === 13)) { nativeSelectOpen = true; return }
   const action = keyAction(event.key, event.keyCode)
   if (!action) return
-  if (['detail-description', 'guide-programmes'].some(id => active === $(id)) && ['up', 'down'].includes(action)) {
+  if (['detail-description', 'programme-description', 'guide-programmes'].some(id => active === $(id)) && ['up', 'down'].includes(action)) {
     const description = active as HTMLElement, remaining = description.scrollHeight - description.clientHeight - description.scrollTop
     if ((action === 'down' && remaining > 1) || (action === 'up' && description.scrollTop > 0)) { event.preventDefault(); description.scrollTop += action === 'down' ? 60 : -60; return }
   }
@@ -482,6 +494,8 @@ function openCardMenu(card: HTMLElement) {
   button('card-menu-play').textContent = ['movie', 'series'].includes(contextChannel.mediaKind || '') ? 'View details' : 'Watch'
   button('card-menu-favorite').textContent = library?.isFavorite(contextChannel) ? 'Remove favorite' : 'Add favorite'
   $('card-menu-history').hidden = !library?.lastPlayed(contextChannel)
+  $('card-menu-watched').hidden = !['movie', 'episode'].includes(contextChannel.mediaKind || '')
+  button('card-menu-watched').textContent = library?.lastPlayed(contextChannel)?.completed ? 'Mark as unwatched' : 'Mark as watched'
   $('card-menu-note').textContent = ''; $('card-menu').hidden = false; button('card-menu-play').focus()
 }
 function closeCardMenu() {
@@ -503,6 +517,11 @@ for (const [id, history] of [['card-menu-favorite', false], ['card-menu-history'
   try { if (history) library?.removeRecent(contextChannel); else library?.toggleFavorite(contextChannel); rememberLibraryChannel(contextChannel); await refreshCards(); closeCardMenu() }
   catch (error) { $('card-menu-note').textContent = (error as Error).message }
 }
+$('card-menu-watched').onclick = async () => {
+  if (!contextChannel) return
+  try { if (library?.lastPlayed(contextChannel)?.completed) library.removeRecent(contextChannel); else library?.record(contextChannel, 0, 0, true); rememberLibraryChannel(contextChannel); await refreshCards(); closeCardMenu() }
+  catch { $('card-menu-note').textContent = 'This change could not be saved to TV storage.' }
+}
 document.addEventListener('change', () => { nativeSelectOpen = false })
 document.addEventListener('focusin', () => { nativeSelectOpen = false; if (heldCard && !holdOpened && heldCard !== document.activeElement) { clearTimeout(holdTimer); heldCard = undefined } })
 document.addEventListener('visibilitychange', () => {
@@ -523,7 +542,7 @@ function updateGroups() {
 }
 function cancelGuide() { clearTimeout(guideTimer); guideLoading?.abort(); guideLoading = undefined }
 function selectGuide(channel?: Channel, refresh = false) {
-  cancelGuide(); guideChannel = channel; guideItems = []
+  cancelGuide(); guideChannel = channel; guideItems = []; guidePage = 0
   $('guide-title').textContent = channel?.name || 'Choose a channel'
   $('guide-programmes').replaceChildren(); $('guide-description').textContent = ''
   button('guide-watch').disabled = button('guide-favorite').disabled = !channel
@@ -533,7 +552,7 @@ function selectGuide(channel?: Channel, refresh = false) {
   guideTimer = setTimeout(async () => {
     const controller = new AbortController(); guideLoading = controller
     try {
-      const items = await guide?.load(channel, controller.signal, refresh) || []
+      const items = await guide?.load(channel, controller.signal, refresh, selectedGuideWindow()) || []
       if (guideLoading !== controller) return
       guideItems = items; renderGuide()
     } catch (error) { if (guideLoading === controller) $('guide-status').textContent = (error as Error).message }
@@ -541,19 +560,76 @@ function selectGuide(channel?: Channel, refresh = false) {
   }, 180)
 }
 function renderGuide() {
-  const slot = nowNext(guideItems), upcoming = guideItems.filter(item => item.stop > Date.now())
+  const slot = nowNext(guideItems), window = selectedGuideWindow()
+  currentGuideSlot = slot.current?.start
+  const upcoming = guideItems.filter(item => !window ? item.stop > Date.now() : item.stop > window.fromMs && item.start < window.toMs)
   $('guide-status').textContent = slot.current ? `On now · ${timeRange(slot.current, preferences.guideClock)}` : upcoming.length ? 'Coming up' : 'No programme guide for this channel.'
   $('guide-description').textContent = slot.current?.description || ''
-  const list = $('guide-programmes'), scroll = list.scrollTop; list.replaceChildren()
-  for (const item of upcoming.slice(0, 48)) {
-    const entry = document.createElement('article'), title = document.createElement('h3'), time = document.createElement('p')
+  const list = $('guide-programmes'), scroll = list.scrollTop, focused = list.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.programme : undefined; list.replaceChildren()
+  guidePage = Math.min(guidePage, Math.max(0, Math.ceil(upcoming.length / 24) - 1))
+  for (const item of upcoming.slice(guidePage * 24, (guidePage + 1) * 24)) {
+    const entry = document.createElement('button'), title = document.createElement('h3'), time = document.createElement('p')
+    entry.className = 'programme-entry'; entry.dataset.programme = String(item.start); entry.onclick = () => openProgramme(item)
     title.textContent = item.title; time.textContent = timeRange(item, preferences.guideClock); entry.append(time, title)
-    if (item === slot.current) { const progress = document.createElement('progress'); progress.max = item.stop - item.start; progress.value = Math.max(0, Date.now() - item.start); progress.setAttribute('aria-label', 'Programme progress'); entry.append(progress); entry.className = 'on-now' }
+    if (item === slot.current) { const progress = document.createElement('progress'); progress.max = item.stop - item.start; progress.value = Math.max(0, Date.now() - item.start); progress.setAttribute('aria-label', 'Programme progress'); entry.append(progress); entry.classList.add('on-now') }
+    if (activeSource && guideChannel && canReplay(activeSource, guideChannel, item)) { const badge = document.createElement('small'); badge.textContent = '↶ Replay available'; entry.append(badge) }
     list.append(entry)
   }
   list.scrollTop = scroll
+  if (focused) list.querySelector<HTMLElement>(`[data-programme="${focused}"]`)?.focus({ preventScroll: true })
+  button('guide-previous').disabled = guidePage === 0; button('guide-next').disabled = (guidePage + 1) * 24 >= upcoming.length
+  $('guide-page').textContent = upcoming.length ? `${guidePage + 1} / ${Math.ceil(upcoming.length / 24)}` : 'No listings'
 }
-setInterval(() => { if (screen === 'catalog' && browseView === 'live' && guideItems.length) renderGuide() }, 30000)
+function syncGuideDays() {
+  const selected = select('guide-day').value, picker = select('guide-day'); picker.replaceChildren(new Option('Now & next', 'now'))
+  for (let delta = -7; delta <= 2; delta++) {
+    const fixed = preferences.guideClock !== 'auto', offset = fixed ? Number(preferences.guideClock) * 60000 : 0, date = new Date(Date.now() + offset)
+    if (fixed) { date.setUTCDate(date.getUTCDate() + delta); date.setUTCHours(0, 0, 0, 0) } else { date.setDate(date.getDate() + delta); date.setHours(0, 0, 0, 0) }
+    const from = date.getTime() - offset, label = guideDate(from, preferences.guideClock)
+    picker.add(new Option(delta === 0 ? `Today · ${label}` : label, String(from)))
+  }
+  if ([...picker.options].some(option => option.value === selected)) picker.value = selected
+}
+function selectedGuideWindow() {
+  const raw = select('guide-day').value; if (!raw || raw === 'now') return
+  const fromMs = Number(raw), end = new Date(fromMs)
+  if (preferences.guideClock === 'auto') end.setDate(end.getDate() + 1); else end.setTime(fromMs + 86400000)
+  return { fromMs, toMs: end.getTime() }
+}
+syncGuideDays()
+select('guide-day').onchange = () => { guidePage = 0; selectGuide(guideChannel) }
+for (const [id, delta] of [['guide-previous', -1], ['guide-next', 1]] as const) $(id).onclick = () => { guidePage += delta; renderGuide(); $('guide-programmes').querySelector<HTMLElement>('button')?.focus() }
+function openProgramme(programme: Programme) {
+  if (!guideChannel || !activeSource) return
+  selectedProgramme = programme; programmeChannel = guideChannel
+  $('programme-title').textContent = programme.title
+  $('programme-meta').textContent = `${guideChannel.name} · ${guideDate(programme.start, preferences.guideClock)} · ${timeRange(programme, preferences.guideClock)}`
+  $('programme-description').textContent = programme.description || 'Your provider has no description for this programme.'
+  const replay = canReplay(activeSource, guideChannel, programme)
+  $('programme-replay').hidden = $('replay-options').hidden = !replay
+  button('programme-replay').disabled = false; button('programme-replay').textContent = programme.stop > Date.now() ? 'Watch from beginning' : 'Watch replay'
+  $('programme-note').textContent = replay ? 'Available within your provider’s archive. Format and playback support depend on this TV.' : programme.start > Date.now() ? 'This programme has not started yet.' : 'Your provider does not advertise a replay for this programme.'
+  show('programme')
+}
+function returnFromProgramme() { show('catalog'); (selectedProgramme && $('guide-programmes').querySelector<HTMLElement>(`[data-programme="${selectedProgramme.start}"]`) || button('guide-watch')).focus() }
+$('programme-back').onclick = returnFromProgramme
+$('programme-live').onclick = () => { if (programmeChannel) { playbackReturn = 'programme'; liveQueue.reset(libraryPool(), programmeChannel); startWatching(programmeChannel) } }
+$('programme-replay').onclick = async () => {
+  if (!activeSource || !programmeChannel || !selectedProgramme || replayLoading) return
+  const controller = new AbortController(); replayLoading = controller; button('programme-replay').disabled = true; $('programme-note').textContent = 'Opening the provider archive…'
+  try {
+    const media = await replayChannel(activeSource, programmeChannel, selectedProgramme, controller.signal, { format: select('replay-format').value as 'hls' | 'ts' | 'legacy', ...(select('replay-clock').value !== 'provider' ? { offset: Number(select('replay-clock').value) } : {}) })
+    if (replayLoading !== controller) return
+    replayLoading = undefined; $('programme-note').textContent = 'Replay uses the selected provider clock and archive format.'; playbackReturn = 'programme'; startWatching(media)
+  } catch (error) { if (replayLoading === controller) $('programme-note').textContent = (error as Error).message }
+  finally { if (replayLoading === controller) replayLoading = undefined; button('programme-replay').disabled = false }
+}
+setInterval(() => {
+  if (screen !== 'catalog' || browseView !== 'live' || !guideItems.length) return
+  const current = nowNext(guideItems).current
+  if (currentGuideSlot !== current?.start) renderGuide()
+  else { const progress = $('guide-programmes').querySelector<HTMLProgressElement>('progress'); if (progress && current) progress.value = Math.max(0, Date.now() - current.start) }
+}, 30000)
 $('guide-watch').onclick = () => { if (guideChannel) playChannel(guideChannel) }
 $('guide-favorite').onclick = () => { if (!guideChannel) return; try { library?.toggleFavorite(guideChannel); rememberLibraryChannel(guideChannel); button('guide-favorite').textContent = library?.isFavorite(guideChannel) ? '★ Favorited' : '☆ Favorite'; render() } catch (error) { $('guide-status').textContent = (error as Error).message } }
 $('guide-refresh').onclick = () => selectGuide(guideChannel, true)
@@ -568,6 +644,8 @@ function browseLayout(title: string) {
   $('browse-columns').classList.toggle('has-categories', !$('category-sidebar').hidden)
   $('browse-columns').classList.toggle('has-guide', !$('guide-panel').hidden)
   $('group-field').hidden = !$('category-sidebar').hidden
+  $('kind-field').hidden = !['search', 'all'].includes(browseView)
+  $('browse-options').hidden = browseView === 'live'
   $('catalog').querySelector<HTMLElement>('.filters')!.hidden = false
   $('section-title').textContent = title; $('section-kicker').textContent = activeSource?.kind === 'xtream' ? 'YOUR PROVIDER LIBRARY' : 'YOUR LIBRARY'
   $('categories-back').hidden = activeSource?.kind !== 'xtream' || !['live', 'movie', 'series'].includes(browseView)
@@ -757,6 +835,7 @@ function syncPreferences() {
 }
 function persistPreferences() {
   applyPreferences(preferences)
+  syncGuideDays()
   try { savePreferences(preferenceStorage, preferences); $('settings-note').textContent = preferenceStorage ? 'Preferences saved. Language choices apply when the next stream starts.' : 'Preferences apply for this session.' }
   catch { $('settings-note').textContent = 'TV storage is unavailable. Preferences apply for this session.' }
 }
@@ -766,6 +845,7 @@ select('pref-subtitles').add(new Option('Off', 'off'))
 for (const [code, label] of Object.entries(LANGUAGES)) { select('pref-audio').add(new Option(label, code)); select('pref-subtitles').add(new Option(label, code)) }
 select('pref-clock').add(new Option('Device time zone', 'auto'))
 for (let offset = -720; offset <= 840; offset += 30) select('pref-clock').add(new Option(`UTC${offset < 0 ? '−' : '+'}${String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0')}:${String(Math.abs(offset) % 60).padStart(2, '0')}`, String(offset)))
+for (const option of select('pref-clock').options) if (option.value !== 'auto') select('replay-clock').add(new Option(option.text, option.value))
 for (const element of $('settings').querySelectorAll<HTMLSelectElement>('select')) element.onchange = () => {
   preferences = normalizePreferences({ theme: select('pref-theme').value, accent: select('pref-accent').value, scale: Number(select('pref-scale').value), overscan: Number(select('pref-overscan').value), reducedMotion: select('pref-motion').value === 'true', audio: select('pref-audio').value, subtitles: select('pref-subtitles').value, guideClock: select('pref-clock').value, autoNext: select('pref-autonext').value === 'true' })
   persistPreferences()

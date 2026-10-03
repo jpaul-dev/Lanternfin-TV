@@ -1,7 +1,7 @@
 import type { Channel, Source } from './catalog'
 import { channelReference, readProviderReference, referenceChannel, type ProviderReference } from './provider-reference'
 
-export type Recent = { id: string; at: number; position: number; duration: number }
+export type Recent = { id: string; at: number; position: number; duration: number; completed?: boolean }
 const PREFIX = 'lanternfin.tv.library.v1.'
 const MAX_FAVORITES = 2000, MAX_RECENT = 100
 const validId = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{16}$/.test(value)
@@ -39,7 +39,7 @@ export class TVLibrary {
       if (Array.isArray(data.recent)) for (const item of data.recent.slice(0, MAX_RECENT).reverse()) {
         if (!item || !validId(item.id) || ![item.at, item.position, item.duration].every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0)) continue
         if (item.position > item.duration || item.at > Date.now() + 86400000) continue
-        this.recent.set(item.id, { id: item.id, at: item.at, position: item.position, duration: item.duration })
+        this.recent.set(item.id, { id: item.id, at: item.at, position: item.position, duration: item.duration, ...(item.completed === true ? { completed: true } : {}) })
       }
       if (Array.isArray(data.seasons)) for (const entry of data.seasons.slice(0, 1000)) { if (Array.isArray(entry) && validId(entry[0]) && typeof entry[1] === 'string' && entry[1].length <= 100) this.seasons.set(entry[0], entry[1]) }
       if (source.kind === 'xtream' && Array.isArray(data.references)) for (const item of data.references.slice(0, MAX_FAVORITES + MAX_RECENT)) {
@@ -65,7 +65,8 @@ export class TVLibrary {
     const id = channelId(channel)
     const vod = channel.mediaKind !== 'live' && Number.isFinite(duration) && duration > 60 && Number.isFinite(position) && position >= 15 && position < duration - 15 && !ended
     this.recent.delete(id)
-    this.recent.set(id, { id, at: Date.now(), position: vod ? position : 0, duration: vod ? duration : 0 })
+    const completed = channel.mediaKind !== 'live' && (ended || Number.isFinite(duration) && duration > 60 && Number.isFinite(position) && position >= duration - 15)
+    this.recent.set(id, { id, at: Date.now(), position: vod ? position : 0, duration: vod ? duration : 0, ...(completed ? { completed: true } : {}) })
     while (this.recent.size > MAX_RECENT) this.recent.delete(this.recent.keys().next().value!)
     this.remember(channel); this.save()
   }

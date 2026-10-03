@@ -1,5 +1,6 @@
 import { httpUrl } from './catalog'
-type XMLProgramme = { start: number; stop: number; title: string; desc: string }
+import { gunzipStream } from './gzip'
+type XMLProgramme = { start: number; stop: number; title: string; desc: string; catchupId?: string }
 type Reply = { id: number; error?: string; noFeed?: boolean; programmes?: XMLProgramme[] | Array<[string, XMLProgramme[]]>; channelNames?: Array<[string, string]> }
 /** Reuses Android's streamed XMLTV worker and on-demand per-channel extraction. */
 export class XMLTVGuide {
@@ -34,15 +35,15 @@ export class XMLTVGuide {
     this.worker.onmessage = event => { const reply = event.data as Reply; this.pending.get(reply.id)?.resolve(reply) }
     this.worker.onerror = () => { this.close(); this.ready = undefined }
     const signal = this.controller.signal
-    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined, timer: ReturnType<typeof setTimeout> | undefined
-    const abortRead = () => { void reader?.cancel().catch(() => {}) }
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined, networkReader: ReadableStreamDefaultReader<Uint8Array> | undefined, timer: ReturnType<typeof setTimeout> | undefined
+    const abortRead = () => { void reader?.cancel().catch(() => {}); if (networkReader !== reader) void networkReader?.cancel().catch(() => {}) }
     signal.addEventListener('abort', abortRead, { once: true })
     const idle = () => { clearTimeout(timer); timer = setTimeout(() => this.controller.abort(), 45000) }
     try {
       idle()
       const response = await fetch(httpUrl(this.url), { signal, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store' })
       if (!response.ok || !response.body) throw new Error('The XMLTV guide could not be downloaded. Check the guide address and provider access.')
-      reader = response.body.getReader(); let bytes = 0, begun = false, decompressed = false, prefix = new Uint8Array(0)
+      reader = response.body.getReader(); networkReader = reader; let bytes = 0, begun = false, decompressed = false, prefix = new Uint8Array(0)
       while (true) {
         idle(); const next = await reader!.read(); clearTimeout(timer)
         if (signal.aborted) throw new Error('Guide loading cancelled.')
@@ -55,10 +56,10 @@ export class XMLTVGuide {
           if (chunk.length < 2) { prefix = new Uint8Array(chunk); continue }
           if (chunk[0] === 31 && chunk[1] === 139) {
             if (decompressed) throw new Error('The XMLTV guide has unsupported nested compression.')
-            if (typeof DecompressionStream !== 'function') throw new Error('This TV cannot decompress this guide. Use an uncompressed XMLTV address from your provider.')
             const compressed: ReadableStreamDefaultReader<Uint8Array> = reader!, initial = new Uint8Array(chunk)
-            const stream: ReadableStream<BufferSource> = new ReadableStream<BufferSource>({ start(controller) { controller.enqueue(initial) }, async pull(controller) { const next = await compressed.read(); if (next.done) controller.close(); else controller.enqueue(new Uint8Array(next.value)) }, cancel() { return compressed.cancel() } })
-            reader = stream.pipeThrough(new DecompressionStream('gzip')).getReader(); bytes = 0; prefix = new Uint8Array(0); decompressed = true; continue
+            let compressedBytes = initial.length
+            const stream = new ReadableStream<Uint8Array<ArrayBuffer>>({ start(controller) { controller.enqueue(initial) }, async pull(controller) { const next = await compressed.read(); if (next.done) controller.close(); else { compressedBytes += next.value.length; if (compressedBytes > 64 * 1024 * 1024) throw new Error('The compressed XMLTV feed exceeds the guide download budget.'); controller.enqueue(new Uint8Array(next.value)) } }, cancel() { return compressed.cancel() } })
+            reader = (typeof DecompressionStream === 'function' ? stream.pipeThrough(new DecompressionStream('gzip')) : gunzipStream(stream)).getReader(); bytes = 0; prefix = new Uint8Array(0); decompressed = true; continue
           }
           this.worker.postMessage({ type: 'begin', id: 0, feedId: 'playlist', mode: 'now-next', nowMs: Date.now(), gzip: false, maxChannels: 25000 }); begun = true
         }
@@ -73,9 +74,9 @@ export class XMLTVGuide {
       this.worker?.terminate(); this.worker = undefined
       if (signal.aborted) throw new Error('Guide loading stopped or timed out. Reload this source to try again.')
       throw error instanceof Error && !/https?:|fetch/i.test(error.message) ? error : new Error('Cannot reach the XMLTV guide. Check the address, network, and provider cross-origin access.')
-    } finally { clearTimeout(timer); signal.removeEventListener('abort', abortRead); if (reader) { void reader.cancel().catch(() => {}); reader.releaseLock() } }
+    } finally { clearTimeout(timer); signal.removeEventListener('abort', abortRead); for (const active of new Set([reader, networkReader])) if (active) { void active.cancel().catch(() => {}); active.releaseLock() } }
   }
-  async load(tvgId: string | undefined, name: string, signal: AbortSignal): Promise<XMLProgramme[]> {
+  async load(tvgId: string | undefined, name: string, signal: AbortSignal, window?: { fromMs: number; toMs: number }): Promise<XMLProgramme[]> {
     if (signal.aborted || this.controller.signal.aborted) throw new Error('Guide loading cancelled.')
     if (!this.ready) this.ready = this.download().catch(error => { this.ready = undefined; throw error })
     await new Promise<void>((resolve, reject) => {
@@ -87,7 +88,7 @@ export class XMLTVGuide {
     if (signal.aborted) throw new Error('Guide loading cancelled.')
     const id = tvgId && this.ids.has(tvgId) ? tvgId : this.names.get(name.trim().toLowerCase()) || tvgId
     if (!id) return []
-    const result = await this.ask({ type: 'programmesFor', feedId: 'playlist', tvgId: id, window: { fromMs: Date.now() - 86400000, toMs: Date.now() + 3 * 86400000 } }, signal)
-    return (result.programmes as XMLProgramme[] || []).slice(0, 512)
+    const result = await this.ask({ type: 'programmesFor', feedId: 'playlist', tvgId: id, window: window || { fromMs: Date.now() - 86400000, toMs: Date.now() + 3 * 86400000 } }, signal)
+    return result.programmes as XMLProgramme[] || []
   }
 }

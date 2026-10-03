@@ -91,7 +91,7 @@ export async function loadCategory(source: Source, kind: MediaKind, category: Ca
     const row = record(data[index])
     try {
       const id = identifier(kind === 'series' ? row.series_id : row.stream_id)
-      channels.push({ name: text(row.name, 'Untitled'), group: category.name, url: kind === 'series' ? '' : mediaUrl(source, kind, id, kind === 'live' ? 'm3u8' : row.container_extension), mediaKind: kind, providerId: id, logo: artwork(row.stream_icon || row.cover), description: text(row.plot) })
+      channels.push({ name: text(row.name, 'Untitled'), group: category.name, url: kind === 'series' ? '' : mediaUrl(source, kind, id, kind === 'live' ? 'm3u8' : row.container_extension), mediaKind: kind, providerId: id, logo: artwork(row.stream_icon || row.cover), description: text(row.plot), ...(kind === 'live' && Number(row.tv_archive) === 1 ? { tvArchive: 1, tvArchiveDuration: Math.max(1, Math.min(30, Number(row.tv_archive_duration) || 7)) } : {}) })
     } catch { skipped++ }
     if (index && index % 1000 === 0) await new Promise<void>(resolve => setTimeout(resolve, 0))
   }
