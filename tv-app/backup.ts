@@ -7,6 +7,7 @@ import { readSourceHome } from './source-home'
 import { readBrowseOptions } from './browse-options'
 import { guideOffset } from './guide-offset'
 import { readGuideMatches } from './guide-matches'
+import { isAccent } from './accent'
 
 type Snapshot = ReturnType<TVLibrary['snapshot']>
 export type Backup = { format: 'lanternfin-tv'; version: 1; profiles: Array<SourceProfile & { library: Snapshot }>; preferences: Preferences }
@@ -44,10 +45,11 @@ export function validateBackup(value: unknown): Backup {
   const ids = new Set<string>()
   const profiles = input.profiles.map(entry => {
     if (!entry || typeof entry.name !== 'string' || entry.name.length > 80) throw invalid()
+    if (entry.accent !== undefined && !isAccent(entry.accent)) throw invalid()
     const source = validateSource(entry.source), id = sourceId(source)
     if (ids.has(id)) throw invalid(); ids.add(id)
     const guideUrl = guideAddress(entry.guideUrl), offset = guideOffset(entry.guideOffset), library = fromSnapshot(source, entry.library).snapshot()
-    return { id, name: entry.name, source, library, ...(guideUrl ? { guideUrl } : {}), ...(offset ? { guideOffset: offset } : {}), ...(source.kind === 'xtream' && entry.keepLibrary === true ? { keepLibrary: true } : {}) }
+    return { id, name: entry.name, source, library, ...(entry.accent ? { accent: entry.accent } : {}), ...(guideUrl ? { guideUrl } : {}), ...(offset ? { guideOffset: offset } : {}), ...(source.kind === 'xtream' && entry.keepLibrary === true ? { keepLibrary: true } : {}) }
   })
   const result: Backup = { format: 'lanternfin-tv', version: 1, profiles, preferences: normalizePreferences(input.preferences) }
   if (new TextEncoder().encode(JSON.stringify(result)).byteLength > BACKUP_BYTES) throw invalid()

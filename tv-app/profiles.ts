@@ -2,8 +2,9 @@ import { httpUrl, validateSource, type Source } from './catalog'
 import { libraryId } from './library'
 import { readSource, storeSource } from './storage'
 import { guideOffset, validGuideOffset } from './guide-offset'
+import { isAccent, sourceAccent, type Accent } from './accent'
 
-export type SourceProfile = { id: string; name: string; source: Source; keepLibrary?: boolean; guideUrl?: string; guideOffset?: number }
+export type SourceProfile = { id: string; name: string; source: Source; keepLibrary?: boolean; guideUrl?: string; guideOffset?: number; accent?: Accent }
 export function guideAddress(value: unknown): string | undefined {
   if (value === undefined || value === '') return
   if (typeof value !== 'string' || value.length > 8192) throw new Error('Enter a guide address shorter than 8,192 characters.')
@@ -22,7 +23,7 @@ export function readProfiles(storage: Storage): SourceProfile[] {
     if (raw && raw.length <= 512 * 1024) {
       const entries = JSON.parse(raw)
       if (Array.isArray(entries)) for (const entry of entries.slice(0, MAX)) {
-        try { const source = validateSource(entry.source), id = sourceId(source); let guideUrl: string | undefined; try { guideUrl = guideAddress(entry.guideUrl) } catch { /* A damaged guide URL must not hide a valid source. */ }; if (!profiles.some(profile => profile.id === id)) profiles.push({ id, source, name: label(entry.name, source), ...(entry.keepLibrary === true ? { keepLibrary: true } : {}), ...(guideUrl ? { guideUrl } : {}), ...(validGuideOffset(entry.guideOffset) && entry.guideOffset ? { guideOffset: entry.guideOffset } : {}) }) } catch { /* A damaged entry does not hide other profiles. */ }
+        try { const source = validateSource(entry.source), id = sourceId(source); let guideUrl: string | undefined; try { guideUrl = guideAddress(entry.guideUrl) } catch { /* A damaged guide URL must not hide a valid source. */ }; if (!profiles.some(profile => profile.id === id)) profiles.push({ id, source, name: label(entry.name, source), ...(isAccent(entry.accent) ? { accent: entry.accent } : {}), ...(entry.keepLibrary === true ? { keepLibrary: true } : {}), ...(guideUrl ? { guideUrl } : {}), ...(validGuideOffset(entry.guideOffset) && entry.guideOffset ? { guideOffset: entry.guideOffset } : {}) }) } catch { /* A damaged entry does not hide other profiles. */ }
       }
     }
   } catch { /* Restore the legacy source if it is still readable. */ }
@@ -30,11 +31,11 @@ export function readProfiles(storage: Storage): SourceProfile[] {
   if (legacy && profiles.length < MAX && !profiles.some(profile => profile.id === sourceId(legacy))) profiles.push({ id: sourceId(legacy), source: legacy, name: label('', legacy) })
   return profiles
 }
-export function rememberProfile(storage: Storage, input: Source, name: string, replaces?: Source, options: { guideUrl?: string; keepLibrary?: boolean; guideOffset?: number } = {}) {
+export function rememberProfile(storage: Storage, input: Source, name: string, replaces?: Source, options: { guideUrl?: string; keepLibrary?: boolean; guideOffset?: number; accent?: Accent } = {}) {
   const source = validateSource(input), id = sourceId(source)
   const profiles = readProfiles(storage).filter(profile => !replaces || sourceId(replaces) === id || profile.id !== sourceId(replaces))
-  const guideUrl = guideAddress(options.guideUrl), offset = guideOffset(options.guideOffset)
-  const index = profiles.findIndex(profile => profile.id === id), profile = { id, source, name: label(name, source), ...(options.keepLibrary === true && source.kind === 'xtream' ? { keepLibrary: true } : {}), ...(guideUrl ? { guideUrl } : {}), ...(offset ? { guideOffset: offset } : {}) }
+  const guideUrl = guideAddress(options.guideUrl), offset = guideOffset(options.guideOffset), accent = sourceAccent(options.accent)
+  const index = profiles.findIndex(profile => profile.id === id), profile = { id, source, name: label(name, source), ...(accent ? { accent } : {}), ...(options.keepLibrary === true && source.kind === 'xtream' ? { keepLibrary: true } : {}), ...(guideUrl ? { guideUrl } : {}), ...(offset ? { guideOffset: offset } : {}) }
   if (index >= 0) profiles[index] = profile
   else { if (profiles.length >= MAX) throw new Error('You can save up to 20 sources. Remove one before saving another.'); profiles.push(profile) }
   storage.setItem(KEY, JSON.stringify(profiles)); storeSource(storage, source)
@@ -47,6 +48,12 @@ export function removeProfile(storage: Storage, source: Source) {
   if (remaining.length) storage.setItem(KEY, JSON.stringify(remaining)); else storage.removeItem(KEY)
 }
 export function forgetProfiles(storage: Storage) { storeSource(storage, null); storage.removeItem(KEY) }
+export function saveSourceAccent(storage: Storage, source: Source, value?: Accent): boolean {
+  const accent = sourceAccent(value), profiles = readProfiles(storage), profile = profiles.find(item => item.id === sourceId(source))
+  if (!profile) return false
+  if (accent) profile.accent = accent; else delete profile.accent
+  storage.setItem(KEY, JSON.stringify(profiles)); return true
+}
 /** Update only a still-remembered source; never recreate removed credentials. */
 export function saveGuideOffset(storage: Storage, source: Source, value: number): boolean {
   const offset = guideOffset(value), profiles = readProfiles(storage), profile = profiles.find(item => item.id === sourceId(source))

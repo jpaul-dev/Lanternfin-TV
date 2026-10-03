@@ -3,6 +3,7 @@ import './app.css'
 import { backupUI } from './backup-ui'
 import { resetAppData } from './reset'
 import { resetUI } from './reset-ui'
+import { sourceAccent, clearAccentRoll, type Accent } from './accent'
 import { ScreenSaver, bindLifecycle, type AppCommon } from './lifecycle'
 import { PlaybackDiagnostics, capabilities, buildInfo, type DiagnosticReport } from './diagnostics'
 import { diagnosticsUI } from './diagnostics-ui'
@@ -23,7 +24,7 @@ import { BrowseHistory, browseFocus, resolveBrowseVisit, type BrowseFocus, type 
 import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
-import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, saveGuideOffset, sourceId, type SourceProfile } from './profiles'
+import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, saveGuideOffset, saveSourceAccent, sourceId, type SourceProfile } from './profiles'
 import { guideOffset, guideOffsetLabel } from './guide-offset'
 import { guideMatchUI } from './guide-match-ui'
 import { keyAction, moveFocus, atPageEdge, pageEntry, type Direction } from './remote'
@@ -97,6 +98,7 @@ const trackPreferences = new TrackPreferences()
 let trackSnapshot = '', trackMenuDirty = false
 let editingSource: Source | undefined, activeGuideUrl: string | undefined, accountLoading: AbortController | undefined
 let activeGuideOffset = 0
+let activeAccent: Accent | undefined
 let matching: { guide: TVGuide; library: TVLibrary; channel: Channel } | undefined
 const liveQueue = new LiveQueue(), episodeContext = new EpisodeContext()
 let zapDigits = '', zapTimer: ReturnType<typeof setTimeout> | undefined, playbackGuideLoading: AbortController | undefined
@@ -142,7 +144,7 @@ function resetSubtitles() { embeddedSubtitles.reset(); externalSubtitles.reset()
 navigationIcons($('tv-nav'))
 const translateStatic = staticTranslations($('app'))
 try { preferenceStorage = localStorage; preferences = readPreferences(localStorage) } catch { /* Session settings still work. */ }
-applyPreferences(preferences)
+applyPreferences(preferences, document.documentElement, activeAccent)
 
 const backups = backupUI($('backup'), () => localStorage, count => { try { sessionStorage.setItem('lanternfin.restored', String(count)) } catch {}; window.location.reload() })
 const diagnostics = diagnosticsUI($('diagnostics'), (): DiagnosticReport => ({ schema: 1, app: buildInfo(__TV_TARGET__), capabilities: capabilities(document.querySelector('video') || document.createElement('video')), samsungPlayer: !!window.webapis?.avplay, screenSaver: screenSaver.status, playback: playbackDiagnostics.snapshot() }), () => playbackDiagnostics.clear())
@@ -206,7 +208,7 @@ function show(next: Screen) {
   if (next !== 'playback') { $('track-menu').hidden = true; resetSubtitles() }
   notice('')
   if (next === 'setup') renderProfiles()
-  if (next === 'settings') { select('source-guide-offset').value = String(activeGuideOffset); select('source-guide-offset').disabled = !activeSource || activeSource.kind === 'direct' }
+  if (next === 'settings') { select('source-guide-offset').value = String(activeGuideOffset); select('source-guide-offset').disabled = !activeSource || activeSource.kind === 'direct'; syncAccent() }
   const focus = next === 'setup' ? $('profile-list').querySelector<HTMLElement>('.profile-open') || input('source-name') : [...$(next).querySelectorAll<HTMLElement>('button:not(:disabled), input, select')].find(element => !element.closest('[hidden]'))
   focus?.focus()
   if (returningToCatalog && catalogReturnVisit) { pendingBrowseVisit = catalogReturnVisit; void filter(false) }
@@ -225,7 +227,7 @@ function currentSource(): Source {
   return validateSource({ kind: select('source-kind').value, url: input('source-url').value, username: input('username').value, password: input('password').value })
 }
 function setBusy(busy: boolean) {
-  for (const id of ['connect', 'source-name', 'source-kind', 'source-url', 'username', 'password', 'remember', 'forget', 'profile-new', 'guide-url', 'guide-offset', 'source-advanced-toggle', 'keep-library']) ( $(id) as HTMLInputElement).disabled = busy
+  for (const id of ['connect', 'source-name', 'source-kind', 'source-url', 'username', 'password', 'remember', 'forget', 'profile-new', 'guide-url', 'guide-offset', 'source-advanced-toggle', 'keep-library', 'profile-accent']) ( $(id) as HTMLInputElement).disabled = busy
   for (const item of $('profile-list').querySelectorAll<HTMLButtonElement>('button')) item.disabled = busy
   input('keep-library').disabled = busy || !input('remember').checked
   $('cancel-load').hidden = !busy
@@ -236,8 +238,8 @@ function cancelLoad() { loading?.abort(); loading = undefined; setBusy(false) }
 $('source-form').addEventListener('submit', async event => {
   event.preventDefault()
   if (loading) return
-  let source: Source, override: string | undefined, offset: number
-  try { source = currentSource(); override = guideAddress(input('guide-url').value); offset = guideOffset(Number(select('guide-offset').value)) } catch (error) { notice((error as Error).message); return }
+  let source: Source, override: string | undefined, offset: number, accent: Accent | undefined
+  try { source = currentSource(); override = guideAddress(input('guide-url').value); offset = guideOffset(Number(select('guide-offset').value)); accent = sourceAccent(select('profile-accent').value) } catch (error) { notice((error as Error).message); return }
   const controller = new AbortController(); loading = controller
   setBusy(true); notice('Opening your playlist…')
   const fresh = forceFresh; forceFresh = false
@@ -264,7 +266,7 @@ $('source-form').addEventListener('submit', async event => {
     channels = catalog.channels; page = 0; input('search').value = ''; libraryView = 'all'; browseView = 'home'
     providerCategories = initialCategories ? { live: initialCategories } : {}; detailInfo = undefined; detailVariants = []; catalogVariants = new WeakMap()
     let storageMessage = '', persisted = false
-    try { if (input('remember').checked) { rememberProfile(localStorage, source, input('source-name').value, editingSource, { guideUrl: override, keepLibrary: useCache, guideOffset: offset }); if (editingSource && sourceId(editingSource) !== sourceId(source)) { forgetLibrary(localStorage, editingSource); void catalogCache.forget(editingSource).catch(() => { notice('The previous saved catalog could not be removed. Use Clear saved catalogs in Settings.') }) }; persisted = true }; if (!input('remember').checked) { removeProfile(localStorage, source); forgetLibrary(localStorage, source); storeSource(localStorage, null) }; editingSource = source; renderProfiles() }
+    try { if (input('remember').checked) { rememberProfile(localStorage, source, input('source-name').value, editingSource, { guideUrl: override, keepLibrary: useCache, guideOffset: offset, accent }); if (editingSource && sourceId(editingSource) !== sourceId(source)) { forgetLibrary(localStorage, editingSource); void catalogCache.forget(editingSource).catch(() => { notice('The previous saved catalog could not be removed. Use Clear saved catalogs in Settings.') }) }; persisted = true }; if (!input('remember').checked) { removeProfile(localStorage, source); forgetLibrary(localStorage, source); storeSource(localStorage, null) }; editingSource = source; renderProfiles() }
     catch (error) { storageMessage = ` ${error instanceof Error && error.message.startsWith('You can save') ? error.message : 'Your TV could not update saved settings. This session will still work.'}` }
     let storage: Storage | null = null
     try { if (persisted) storage = localStorage } catch { /* Session library. */ }
@@ -277,6 +279,7 @@ $('source-form').addEventListener('submit', async event => {
     cacheSaving?.abort(); cacheSaving = undefined; cacheAttempted = undefined; keepActiveLibrary = useCache && persisted
     if (!keepActiveLibrary) void catalogCache.forget(source).catch(() => { notice('The saved catalog could not be removed. Use Clear saved catalogs in Settings.') })
     activeSource = source; activeGuideUrl = override; activeGuideOffset = offset; episodeContext.clear()
+    activeAccent = accent; applyPreferences(preferences, document.documentElement, activeAccent)
     providerIndex?.pause(); clearTimeout(indexTimer); indexTimer = undefined
     providerIndex = nextIndex; pooledLibrary = undefined
     const sourceLibrary = library
@@ -304,6 +307,7 @@ input('remember').onchange = async () => {
   catch { notice('The TV could not remove saved settings. Try clearing app data in TV settings.') }
 }
 $('forget').onclick = async () => {
+  activeAccent = undefined; select('profile-accent').value = ''; applyPreferences(preferences)
   activeGuideOffset = 0; select('guide-offset').value = '0'
   browseHistory.forget(); cancelBrowseEntry(); catalogReturnVisit = undefined
   pooledLibrary = undefined; knownLibraryVersion++
@@ -438,7 +442,7 @@ $('refresh-catalog').onclick = () => {
   if (!activeSource) return
   let profile: SourceProfile | undefined
   try { profile = readProfiles(localStorage).find(item => item.id === sourceId(activeSource!)) } catch { /* Session-only refresh. */ }
-  editingSource = activeSource; input('guide-url').value = activeGuideUrl || ''; select('guide-offset').value = String(activeGuideOffset); input('source-name').value = profile?.name || ''; input('remember').checked = !!profile; input('keep-library').checked = !!profile?.keepLibrary
+  select('profile-accent').value = activeAccent || ''; editingSource = activeSource; input('guide-url').value = activeGuideUrl || ''; select('guide-offset').value = String(activeGuideOffset); input('source-name').value = profile?.name || ''; input('remember').checked = !!profile; input('keep-library').checked = !!profile?.keepLibrary
   select('source-kind').value = activeSource.kind; input('source-url').value = activeSource.url
   input('username').value = activeSource.username; input('password').value = activeSource.password; sourceKind()
   show('setup'); $('source-form').dispatchEvent(new Event('submit', { cancelable: true }))
@@ -482,6 +486,7 @@ function watch(channel: Channel, versions?: Channel[]) {
 
 function fillProfile(profile: SourceProfile) {
   editingSource = profile.source
+  select('profile-accent').value = profile.accent || ''
   input('keep-library').checked = !!profile.keepLibrary
   input('guide-url').value = profile.guideUrl || ''; select('guide-offset').value = String(profile.guideOffset || 0); $('source-advanced').hidden = !profile.guideUrl && !profile.guideOffset; button('source-advanced-toggle').setAttribute('aria-expanded', String(!$('source-advanced').hidden))
   select('source-kind').value = profile.source.kind; input('source-name').value = profile.name; input('source-url').value = profile.source.url
@@ -507,7 +512,7 @@ function renderProfiles() {
     row.append(open, edit, remove); list.append(row)
   }
 }
-$('profile-new').onclick = () => { input('keep-library').checked = false; editingSource = undefined; select('guide-offset').value = '0'; input('source-name').value = input('source-url').value = input('username').value = input('password').value = input('guide-url').value = ''; input('remember').checked = false; select('source-kind').value = 'playlist'; sourceKind(); input('source-name').focus() }
+$('profile-new').onclick = () => { select('profile-accent').value = ''; input('keep-library').checked = false; editingSource = undefined; select('guide-offset').value = '0'; input('source-name').value = input('source-url').value = input('username').value = input('password').value = input('guide-url').value = ''; input('remember').checked = false; select('source-kind').value = 'playlist'; sourceKind(); input('source-name').focus() }
 function playChannel(channel: Channel) {
   playbackReturn = screen === 'detail' ? 'detail' : 'catalog'
   const recent = library?.lastPlayed(channel)
@@ -1440,13 +1445,27 @@ function syncPreferences() {
   for (const [id, value] of Object.entries({ theme: preferences.theme, accent: preferences.accent, scale: preferences.scale, overscan: preferences.overscan, motion: preferences.reducedMotion, audio: preferences.audio, subtitles: preferences.subtitles, clock: preferences.guideClock, autonext: preferences.autoNext, grouping: preferences.groupLanguages, content: preferences.contentLanguage, language: preferences.interfaceLanguage, 'update-channel': preferences.updateChannel })) select(`pref-${id}`).value = String(value)
 }
 function persistPreferences() {
-  applyPreferences(preferences)
+  applyPreferences(preferences, document.documentElement, activeAccent); syncAccent()
   void applyInterfaceLanguage()
   syncGuideDays()
   try { savePreferences(preferenceStorage, preferences); $('settings-note').textContent = preferenceStorage ? 'Preferences saved. Language choices apply when the next stream starts.' : 'Preferences apply for this session.' }
   catch { $('settings-note').textContent = 'TV storage is unavailable. Preferences apply for this session.' }
 }
-for (const accent of Object.keys(ACCENTS)) select('pref-accent').add(new Option(accent[0].toUpperCase() + accent.slice(1), accent))
+for (const id of ['profile-accent', 'source-accent']) select(id).add(new Option('App default', ''))
+for (const accent of Object.keys(ACCENTS)) for (const id of ['pref-accent', 'profile-accent', 'source-accent']) select(id).add(new Option(accent[0].toUpperCase() + accent.slice(1), accent))
+select('pref-accent').add(new Option('Random', 'random'))
+function syncAccent() {
+  select('source-accent').value = activeAccent || ''; select('source-accent').disabled = !activeSource
+  $('accent-note').textContent = tr(activeAccent ? 'The current source overrides the app accent color.' : preferences.accent === 'random' ? 'A random color is kept for this app session. Choose another accent and return to Random for a new color.' : 'Sources using App default follow this accent color.')
+}
+select('source-accent').onchange = () => {
+  if (!activeSource) return
+  activeAccent = sourceAccent(select('source-accent').value)
+  applyPreferences(preferences, document.documentElement, activeAccent); syncAccent()
+  if (editingSource && sourceId(editingSource) === sourceId(activeSource)) select('profile-accent').value = activeAccent || ''
+  try { const saved = saveSourceAccent(localStorage, activeSource, activeAccent); $('settings-note').textContent = tr(saved ? 'Source color saved.' : 'Source color applies for this session. Remember the source to keep it.'); renderProfiles() }
+  catch { $('settings-note').textContent = tr('TV storage is unavailable. Source color applies for this session.') }
+}
 for (let value = 0; value <= 8; value++) select('pref-overscan').add(new Option(value ? `${value}%` : 'Off', String(value)))
 select('pref-subtitles').add(new Option('Off', 'off'))
 for (const [code, label] of Object.entries(LANGUAGES)) { select('pref-audio').add(new Option(label, code)); select('pref-subtitles').add(new Option(label, code)); select('pref-content').add(new Option(label, code)) }
@@ -1455,6 +1474,7 @@ select('pref-clock').add(new Option('Device time zone', 'auto'))
 for (let offset = -720; offset <= 840; offset += 30) select('pref-clock').add(new Option(`UTC${offset < 0 ? '−' : '+'}${String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0')}:${String(Math.abs(offset) % 60).padStart(2, '0')}`, String(offset)))
 for (const option of select('pref-clock').options) if (option.value !== 'auto') select('replay-clock').add(new Option(option.text, option.value))
 for (const element of $('settings').querySelectorAll<HTMLSelectElement>('select[id^="pref-"]')) element.onchange = () => {
+  if (element.id === 'pref-accent' && select('pref-accent').value === 'random') clearAccentRoll()
   preferences = normalizePreferences({ ...preferences, theme: select('pref-theme').value, accent: select('pref-accent').value, scale: Number(select('pref-scale').value), overscan: Number(select('pref-overscan').value), reducedMotion: select('pref-motion').value === 'true', audio: select('pref-audio').value, subtitles: select('pref-subtitles').value, guideClock: select('pref-clock').value, autoNext: select('pref-autonext').value === 'true', groupLanguages: select('pref-grouping').value === 'true', contentLanguage: select('pref-content').value, interfaceLanguage: select('pref-language').value, updateChannel: select('pref-update-channel').value })
   persistPreferences()
 }
@@ -1481,7 +1501,8 @@ async function applyInterfaceLanguage() {
   try {
     if (!await setInterfaceLanguage(requested)) return
     translateStatic()
-    for (const option of select('pref-accent').options) option.text = tr(option.value[0].toUpperCase() + option.value.slice(1))
+    for (const id of ['pref-accent', 'profile-accent', 'source-accent']) for (const option of select(id).options) option.text = tr(option.value ? option.value[0].toUpperCase() + option.value.slice(1) : 'App default')
+    syncAccent()
     select('pref-overscan').options[0].text = tr('Off')
     select('pref-subtitles').options[0].text = tr('Off')
     if (screen === 'catalog') { if (browseView === 'home') renderHome(); else void filter(false) }
@@ -1489,7 +1510,7 @@ async function applyInterfaceLanguage() {
 }
 void applyInterfaceLanguage()
 function contentLanguage() { return preferences.contentLanguage === 'auto' ? navigator.language || 'en' : preferences.contentLanguage }
-window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change', () => applyPreferences(preferences))
+window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change', () => applyPreferences(preferences, document.documentElement, activeAccent))
 function applyTrackPreferences() {
   if (!player || !currentChannel || screen !== 'playback' || away || !['playing', 'paused'].includes(state)) return
   const tracks = player.tracks?.() || [], snapshot = JSON.stringify(tracks)

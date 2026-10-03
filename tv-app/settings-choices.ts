@@ -49,7 +49,7 @@ export function settingsChoices(root: HTMLElement) {
       const button = document.createElement('button'), text = document.createElement('span'), mark = document.createElement('span')
       button.type = 'button'; button.setAttribute('role', 'radio'); button.setAttribute('aria-checked', String(index === originalIndex)); button.disabled = !enabled(option)
       button.hidden = !!option.closest('[hidden]'); text.textContent = option.text; mark.className = 'settings-choice-mark'; mark.setAttribute('aria-hidden', 'true'); mark.textContent = index === originalIndex ? '✓' : ''
-      if (target.id === 'pref-accent' && Object.prototype.hasOwnProperty.call(ACCENTS, option.value)) {
+      if (['pref-accent', 'source-accent'].includes(target.id) && Object.prototype.hasOwnProperty.call(ACCENTS, option.value)) {
         const swatch = document.createElement('span'); swatch.className = 'settings-choice-swatch'; swatch.setAttribute('aria-hidden', 'true')
         swatch.style.backgroundColor = ACCENTS[option.value as keyof typeof ACCENTS][document.documentElement.dataset.theme === 'light' ? 1 : 0]; button.append(swatch)
       }

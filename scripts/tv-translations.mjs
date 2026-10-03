@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 
 const locales = ['es', 'de', 'fr', 'pt-BR', 'it', 'ru', 'zh', 'ja', 'tr', 'ar', 'ur', 'nl', 'hi', 'id', 'pl']
 // Portable labels that use different English copy for the same original action.
-const aliases = { Watchlist: 'nav.watchlist', 'Save for later': 'detail.action.watchLater', 'Remove from watchlist': 'detail.action.removeWatchlist' }
+const aliases = { Watchlist: 'nav.watchlist', 'Save for later': 'detail.action.watchLater', 'Remove from watchlist': 'detail.action.removeWatchlist', 'Source accent color': 'login.field.accent', 'The current source overrides the app accent color.': 'settings.accent.overrideHint' }
 /** Packaged scripts avoid file:// fetch restrictions. No translation service is contacted. */
 export async function buildTranslations(root, out) {
   const english = JSON.parse(await readFile(resolve(root, 'src/i18n/en.json'), 'utf8'))

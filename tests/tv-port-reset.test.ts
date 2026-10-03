@@ -14,6 +14,7 @@ it('clears every portable app key and its real catalog stores while retaining ot
   for (const key of ['lanternfin.tv.source.v1', 'lanternfin.tv.profiles.v1', 'lanternfin.tv.library.v1.abc', 'lanternfin.tv.preferences.v1', 'lanternfin.tv.future.v2']) localStorage.setItem(key, 'private')
   localStorage.setItem('other.app', 'keep'); localStorage.setItem('lanternfin.downloads.v1', 'keep')
   sessionStorage.setItem('lanternfin.restored', '2'); sessionStorage.setItem('other.session', 'keep')
+  sessionStorage.setItem('lanternfin.tv.accent-roll.v1', 'blue')
   await resetAppData(localStorage, sessionStorage, cache)
   expect(localStorage.length).toBe(2); expect(localStorage.getItem('other.app')).toBe('keep'); expect(localStorage.getItem('lanternfin.downloads.v1')).toBe('keep')
   expect(sessionStorage.length).toBe(1); expect(sessionStorage.getItem('other.session')).toBe('keep')
