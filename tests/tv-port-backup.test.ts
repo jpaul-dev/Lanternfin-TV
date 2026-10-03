@@ -13,6 +13,7 @@ const channel = { name: 'A title', group: 'Movies', mediaKind: 'movie' as const,
 function fixture() {
   const storage = new MemoryStore(); rememberProfile(storage, source, 'My TV', undefined, { guideUrl: 'https://guide.example/list.xml', keepLibrary: true })
   const library = new TVLibrary(storage, source); library.toggleFavorite(channel); library.record(channel, 120, 600); library.markWatched(channel, true)
+  library.setBrowseChoice('movie', { sort: 'rating', watched: 'unwatched', language: 'FR', media: '' })
   return { storage, backup: createBackup(storage) }
 }
 it('encrypts and restores byte-authenticated backups with fresh salts and no readable credentials', async () => {
@@ -21,6 +22,9 @@ it('encrypts and restores byte-authenticated backups with fresh salts and no rea
   expect(first).not.toEqual(second); expect(first).not.toContain('private'); expect(first).not.toContain('provider.example')
   expect(await decryptBackup(first, passphrase, crypto)).toEqual(backup)
   expect(backup.profiles[0].library.references[0]).toMatchObject({ categoryId: '1', rating: 8.2, year: '2024' })
+  const decrypted = await decryptBackup(first, passphrase, crypto), target = new MemoryStore()
+  restoreBackup(target, decrypted, { library: true, preferences: false })
+  expect(new TVLibrary(target, source).browseChoice('movie')).toEqual({ sort: 'rating', watched: 'unwatched', language: 'FR', media: '' })
   await expect(decryptBackup(first, 'wrong password long enough', crypto)).rejects.toThrow('incorrect')
   const edited = JSON.parse(first); edited.data = (edited.data[0] === 'A' ? 'B' : 'A') + edited.data.slice(1)
   await expect(decryptBackup(JSON.stringify(edited), passphrase, crypto)).rejects.toThrow('damaged')

@@ -13,3 +13,11 @@ it('allows a newer query to cancel a large sort before it publishes results', as
   const pending = sortCatalog(items, 'name-asc', controller.signal); controller.abort()
   await expect(pending).rejects.toThrow('cancelled')
 })
+it('ranks rated titles first, retains provider order for ties and unrated titles, and permits cancellation', async () => {
+  const items = [entry('No rating A'), { ...entry('Seven'), rating: 7 }, { ...entry('Nine A'), rating: 9 }, entry('No rating B'), { ...entry('Nine B'), rating: 9 }]
+  const original = [...items], controller = new AbortController()
+  expect((await sortCatalog(items, 'rating', controller.signal)).map(item => item.name)).toEqual(['Nine A', 'Nine B', 'Seven', 'No rating A', 'No rating B'])
+  expect(items).toEqual(original)
+  const pending = sortCatalog(Array.from({ length: 100000 }, (_, i) => ({ ...entry(`Movie ${i}`), rating: i % 10 })), 'rating', controller.signal)
+  controller.abort(); await expect(pending).rejects.toThrow('cancelled')
+})

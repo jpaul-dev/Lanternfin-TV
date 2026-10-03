@@ -2,11 +2,12 @@ import type { Channel } from './catalog'
 
 /** Stable merge sort that yields and can be cancelled, including large catalogs. */
 export async function sortCatalog(items: Channel[], order: string, signal: AbortSignal): Promise<Channel[]> {
-  if (!['name-asc', 'name-desc', 'newest'].includes(order)) return items
+  if (!['name-asc', 'name-desc', 'newest', 'rating'].includes(order)) return items
   let input = items.slice(), output = new Array<Channel>(items.length), started = performance.now(), operations = 0
   const names = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare
   const compare = order === 'newest'
     ? (a: Channel, b: Channel) => (b.addedAt || 0) - (a.addedAt || 0)
+    : order === 'rating' ? (a: Channel, b: Channel) => (b.rating || 0) - (a.rating || 0)
     : (a: Channel, b: Channel) => names(a.name, b.name) * (order === 'name-desc' ? -1 : 1)
   const check = () => { if (signal.aborted) throw new Error('Sorting cancelled.') }
   check()

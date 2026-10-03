@@ -14,6 +14,7 @@ import { subtitleUI, EXTERNAL_SUBTITLE } from './subtitle-ui'
 import { mp4SubtitleUI, MP4_SUBTITLE } from './mp4-subtitle-ui'
 import { TrackPreferences } from './track-preferences'
 import { relatedTitles, type RelatedTitle } from './related-titles'
+import { DEFAULT_BROWSE_CHOICE, type BrowseChoice, type BrowseView } from './browse-options'
 import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
@@ -287,9 +288,12 @@ async function filter(resetPage = true) {
       return !language || language === tag
     }
     const pool = activeSource?.kind === 'xtream' && (libraryView !== 'all' || ['search', 'all'].includes(browseView)) ? libraryPool() : channels
-    let matches = await sortCatalog(await searchCatalog(pool, input('search').value, select('group').value, controller.signal, include), browseView === 'live' ? 'provider' : select('sort-order').value, controller.signal)
+    const order = browseView === 'live' ? 'provider' : select('sort-order').value
+    let matches = await searchCatalog(pool, input('search').value, select('group').value, controller.signal, include)
+    if (order !== 'rating') matches = await sortCatalog(matches, order, controller.signal)
     let variants = new WeakMap<Channel, VariantGroup>()
     if (preferences.groupLanguages && libraryView === 'all' && browseView !== 'live') { const grouped = await groupVariants(matches, contentLanguage(), controller.signal); matches = grouped.channels; variants = grouped.groups }
+    if (order === 'rating') matches = await sortCatalog(matches, order, controller.signal) // Rank the version actually shown on each card.
     if (searching !== controller) return
     catalogVariants = variants
     const languageSelect = select('language-filter'); languageSelect.replaceChildren(new Option('All languages', ''))
@@ -317,8 +321,10 @@ function render() {
   if (live && (!guideChannel || !filtered.includes(guideChannel))) selectGuide(filtered[page * PAGE_SIZE])
   if (guideChannel) button('guide-favorite').textContent = library?.isFavorite(guideChannel) ? '★ Favorited' : '☆ Favorite'
   $('result-count').textContent = `${filtered.length.toLocaleString()} ${filtered.length === 1 ? 'title' : 'titles'}${filtered.length ? '' : ' — try a different search or category'}${providerIndex && browseView === 'search' ? providerIndex.progress.complete ? ' · Entire library' : ' · Loaded titles; library is incomplete' : ''}`
-  $('sort-note').hidden = browseView === 'live' || select('sort-order').value !== 'newest' || !filtered.length
-  if (!$('sort-note').hidden) $('sort-note').textContent = tr(filtered.some(channel => channel.addedAt || catalogVariants.get(channel)?.members.some(member => member.addedAt))
+  $('sort-note').hidden = browseView === 'live' || !['newest', 'rating'].includes(select('sort-order').value) || !filtered.length
+  if (!$('sort-note').hidden) $('sort-note').textContent = tr(select('sort-order').value === 'rating'
+    ? filtered.some(channel => channel.rating) ? 'Highest provider ratings first; unrated titles follow. Language groups use the displayed version’s rating.' : 'This source has no ratings for these titles. Provider order is shown.'
+    : filtered.some(channel => channel.addedAt || catalogVariants.get(channel)?.members.some(member => member.addedAt))
     ? 'Newest provider additions first. Series may use update dates; titles without dates follow.'
     : 'This source has no added dates for these titles. Provider order is shown.')
   input('page-jump').max = String(Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))); input('page-jump').value = String(page + 1)
@@ -351,7 +357,7 @@ $('empty-home').onclick = goHome
 $('empty-load').onclick = () => { startIndex(); renderEmpty() }
 input('search').oninput = () => { searching?.abort(); searchTimer && clearTimeout(searchTimer); searchTimer = setTimeout(filter, 180) }
 select('group').onchange = () => { void filter() }
-for (const id of ['media-filter', 'sort-order', 'watched-filter', 'language-filter']) $(id).onchange = () => { void filter() }
+for (const id of ['media-filter', 'sort-order', 'watched-filter', 'language-filter']) $(id).onchange = () => { saveBrowseChoice(); void filter() }
 for (const [id, delta] of [['previous', -1], ['next', 1]] as const) $(id).onclick = () => changePage(page + delta)
 function changePage(next: number, x?: number) {
   if (searching || next < 0 || next * PAGE_SIZE >= filtered.length || next === page) return
@@ -361,10 +367,10 @@ function changePage(next: number, x?: number) {
 }
 $('page-go').onclick = () => { const value = Number(input('page-jump').value); if (Number.isInteger(value)) changePage(Math.max(0, Math.min(Math.ceil(filtered.length / PAGE_SIZE) - 1, value - 1))) }
 input('page-jump').onkeydown = event => { if (event.key === 'Enter') { event.preventDefault(); button('page-go').click() } }
-$('reset-filters').onclick = () => { input('search').value = ''; for (const id of ['group', 'media-filter', 'language-filter']) select(id).value = ''; select('watched-filter').value = 'all'; select('sort-order').value = 'provider'; void filter() }
+$('reset-filters').onclick = () => { input('search').value = ''; select('group').value = ''; restoreBrowseChoice(true); saveBrowseChoice(); void filter() }
 $('change-source').onclick = () => { cancelProviderLoad(); show('setup') }
 $('return-catalog').onclick = () => { cancelLoad(); show('catalog') }
-for (const view of ['all', 'favorites', 'watchlist', 'recent'] as const) $(`view-${view}`).onclick = () => { cancelProviderLoad(); libraryView = view; browseView = 'all'; input('search').value = ''; select('group').value = ''; browseLayout(view === 'all' ? 'All streams' : view === 'favorites' ? 'Favorites' : view === 'watchlist' ? 'Watchlist' : 'Recently watched'); void filter() }
+for (const view of ['all', 'favorites', 'watchlist', 'recent'] as const) $(`view-${view}`).onclick = () => { cancelProviderLoad(); libraryView = view; browseView = 'all'; input('search').value = ''; select('group').value = ''; restoreBrowseChoice(); browseLayout(view === 'all' ? 'All streams' : view === 'favorites' ? 'Favorites' : view === 'watchlist' ? 'Watchlist' : 'Recently watched'); updateGroups(); void filter() }
 $('clear-history').onclick = () => openLibraryManager('catalog', 'history')
 $('refresh-catalog').onclick = () => {
   forceFresh = true
@@ -892,6 +898,19 @@ $('guide-watch').onclick = () => { if (guideChannel) playChannel(guideChannel) }
 $('guide-favorite').onclick = () => { if (!guideChannel) return; try { library?.toggleFavorite(guideChannel); rememberLibraryChannel(guideChannel); button('guide-favorite').textContent = library?.isFavorite(guideChannel) ? '★ Favorited' : '☆ Favorite'; render() } catch (error) { $('guide-status').textContent = (error as Error).message } }
 $('guide-refresh').onclick = () => selectGuide(guideChannel, true)
 function cancelProviderLoad() { providerLoading?.abort(); providerLoading = undefined; $('cancel-category').hidden = true }
+function browseChoiceView(): BrowseView | undefined { return browseView === 'home' || browseView === 'live' ? undefined : browseView === 'all' ? libraryView : browseView }
+function restoreBrowseChoice(defaults = false) {
+  const view = browseChoiceView(), choice = !defaults && view ? library?.browseChoice(view) || DEFAULT_BROWSE_CHOICE : DEFAULT_BROWSE_CHOICE
+  select('sort-order').value = choice.sort; select('watched-filter').value = choice.watched; select('media-filter').value = choice.media
+  const languages = select('language-filter')
+  if (choice.language && ![...languages.options].some(option => option.value === choice.language)) languages.add(new Option(providerLanguageLabel(choice.language), choice.language))
+  languages.value = choice.language
+}
+function saveBrowseChoice() {
+  const view = browseChoiceView(); if (!view) return
+  const choice = { sort: select('sort-order').value, watched: select('watched-filter').value, language: select('language-filter').value, media: select('media-filter').value } as BrowseChoice
+  try { library?.setBrowseChoice(view, choice) } catch (error) { notice((error as Error).message) }
+}
 function browseLayout(title: string) {
   select('sort-order').options[0].textContent = tr(libraryView === 'watchlist' ? 'Recently saved' : 'Provider order')
   document.documentElement.dataset.browse = browseView
@@ -926,8 +945,6 @@ function refreshHomeRows(activate: (channel: Channel, versions?: Channel[]) => v
   return homeRows($('home-rows'), source?.kind === 'xtream' ? libraryPool() : channels, library, activate, preferences.groupLanguages ? contentLanguage() : undefined, layout.rows, categories)
 }
 async function openHomeCategory(category: HomeCategory) {
-  for (const id of ['search', 'media-filter', 'language-filter']) ($<HTMLInputElement | HTMLSelectElement>(id)).value = ''
-  select('watched-filter').value = 'all'; select('sort-order').value = 'provider'
   await browse(category.kind, { id: category.categoryId || '', name: category.group || category.title })
 }
 function renderHome() {
@@ -1011,6 +1028,7 @@ function goHome() {
 }
 async function browse(kind: 'search' | MediaKind, categoryToOpen?: Category) {
   cancelProviderLoad(); cancelGuide(); browseCategory = undefined; browseView = kind; libraryView = 'all'; input('search').value = ''; select('group').value = ''
+  restoreBrowseChoice(!!categoryToOpen)
   const title = { live: 'Live TV', movie: 'Movies', series: 'Series', search: 'Search' }[kind]
   browseLayout(tr(title))
   if (activeSource?.kind !== 'xtream' || kind === 'search') {

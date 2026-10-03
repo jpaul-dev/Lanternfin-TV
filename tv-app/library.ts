@@ -1,6 +1,7 @@
 import type { Channel, Source } from './catalog'
 import { channelReference, readProviderReference, referenceChannel, type ProviderReference } from './provider-reference'
 import { cloneSourceHome, readSourceHome, type SourceHome } from './source-home'
+import { cloneBrowseOptions, DEFAULT_BROWSE_CHOICE, readBrowseOptions, type BrowseChoice, type BrowseOptions, type BrowseView } from './browse-options'
 
 export type Recent = { id: string; at: number; position: number; duration: number; completed?: boolean }
 export type LibraryArea = 'favorites' | 'watchlist' | 'history' | 'watched' | 'seasons'
@@ -36,6 +37,7 @@ export class TVLibrary {
   private revision = 0
   private savedRaw: string | null = null
   private home?: SourceHome
+  private browsing: BrowseOptions = {}
   constructor(private storage: Storage | null, private source: Source) {
     this.key = PREFIX + libraryId(JSON.stringify(source))
     try {
@@ -44,6 +46,7 @@ export class TVLibrary {
       if (!raw || raw.length > 2 * 1024 * 1024) return
       const data = JSON.parse(raw)
       this.home = readSourceHome(data.homeLayout, source)
+      this.browsing = readBrowseOptions(data.browseOptions) || {}
       if (Array.isArray(data.favorites)) for (const id of data.favorites.slice(0, MAX_FAVORITES)) if (validId(id)) this.favorites.add(id)
       if (Array.isArray(data.watchlist)) for (const id of data.watchlist.slice(0, MAX_WATCHLIST)) if (validId(id)) this.watchlist.add(id)
       if (Array.isArray(data.recent)) for (const item of data.recent.slice(0, MAX_RECENT).reverse()) {
@@ -65,6 +68,13 @@ export class TVLibrary {
   isFavorite(channel: Channel) { return this.favorites.has(channelId(channel)) }
   get homeLayout() { return this.home && cloneSourceHome(this.home) }
   get persistent() { return !!this.storage }
+  browseChoice(view: BrowseView): BrowseChoice { return { ...(this.browsing[view] || DEFAULT_BROWSE_CHOICE) } }
+  setBrowseChoice(view: BrowseView, choice: BrowseChoice) {
+    const next = readBrowseOptions({ ...this.browsing, [view]: choice })
+    if (!next) throw new Error('These browsing choices are invalid.')
+    this.checkStoredRevision(); const before = this.snapshot(); this.browsing = next
+    try { this.save() } catch { this.restoreSnapshot(before); throw new Error('TV storage could not save these browsing choices. Previous saved choices were kept.') }
+  }
   setHomeLayout(value: SourceHome) {
     const next = readSourceHome(value, this.source)
     if (!next) throw new Error('This Home layout is invalid or exceeds eight category rows.')
@@ -119,7 +129,7 @@ export class TVLibrary {
   setSeason(channel: Channel, season: string) { this.seasons.delete(channelId(channel)); this.seasons.set(channelId(channel), season.slice(0, 100)); while (this.seasons.size > 1000) this.seasons.delete(this.seasons.keys().next().value!); this.save() }
   setStorage(storage: Storage | null) { this.storage = storage; this.save() }
   bookmarkedChannels(): Channel[] { return [...this.references.values()].map(reference => referenceChannel(this.source, reference)) }
-  snapshot() { return { favorites: [...this.favorites], watchlist: [...this.watchlist], recent: [...this.recent.values()].reverse().map(item => ({ ...item })), references: [...this.references.values()].map(item => ({ ...item })), seasons: [...this.seasons], watched: [...this.watched], ...(this.home ? { homeLayout: cloneSourceHome(this.home) } : {}) } }
+  snapshot() { return { favorites: [...this.favorites], watchlist: [...this.watchlist], recent: [...this.recent.values()].reverse().map(item => ({ ...item })), references: [...this.references.values()].map(item => ({ ...item })), seasons: [...this.seasons], watched: [...this.watched], ...(this.home ? { homeLayout: cloneSourceHome(this.home) } : {}), ...(Object.keys(this.browsing).length ? { browseOptions: cloneBrowseOptions(this.browsing) } : {}) } }
   counts(): Record<LibraryArea, number> { return { favorites: this.favorites.size, watchlist: this.watchlist.size, history: this.recent.size, watched: this.watched.size, seasons: this.seasons.size } }
   /** One storage write, with an in-session undo that never overwrites newer activity. */
   clearAreas(areas: LibraryArea[]) {
@@ -146,6 +156,7 @@ export class TVLibrary {
   }
   private restoreSnapshot(snapshot: ReturnType<TVLibrary['snapshot']>) {
     this.home = snapshot.homeLayout && cloneSourceHome(snapshot.homeLayout)
+    this.browsing = cloneBrowseOptions(snapshot.browseOptions || {})
     this.favorites.clear(); for (const id of snapshot.favorites) this.favorites.add(id)
     this.watchlist.clear(); for (const id of snapshot.watchlist) this.watchlist.add(id)
     this.recent.clear(); for (const item of [...snapshot.recent].reverse()) this.recent.set(item.id, { ...item })
@@ -158,6 +169,7 @@ export class TVLibrary {
     const favorites = new Set([...this.favorites, ...other.favorites]), watchlist = new Set([...this.watchlist, ...other.watchlist]), watched = new Set([...this.watched, ...other.watched])
     if (favorites.size > MAX_FAVORITES || watchlist.size > MAX_WATCHLIST || watched.size > 10000) throw new Error('Combined library exceeds the favorites, watchlist or watched limit. Restore sources without library data, or reduce those lists first.')
     if (!this.home && other.home) this.home = cloneSourceHome(other.home)
+    this.browsing = { ...cloneBrowseOptions(other.browsing), ...this.browsing }
     for (const id of favorites) this.favorites.add(id)
     for (const id of watchlist) this.watchlist.add(id)
     for (const id of watched) this.watched.add(id)

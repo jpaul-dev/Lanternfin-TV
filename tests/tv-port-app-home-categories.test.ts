@@ -38,6 +38,10 @@ it('saves a provider category by ID, opens its full grid, and isolates a later p
   expect(el('channels').textContent).toContain('Category 2 movie 20'); expect(el('channels').textContent).not.toContain('Category 1 movie')
   expect(el<HTMLSelectElement>('watched-filter').value).toBe('all'); expect(el<HTMLSelectElement>('language-filter').value).toBe('')
   await click('nav-home'); expect(el('home-rows').querySelectorAll('[data-row="category-0"] .channel')).toHaveLength(12)
+  await click('nav-movie'); await change('sort-order', 'rating'); await change('watched-filter', 'watched'); await click('nav-home')
+  el('home-rows').querySelector<HTMLButtonElement>('[data-row="category-0"] [data-home-action="open"]')!.click(); await vi.advanceTimersByTimeAsync(250)
+  expect(el('result-count').textContent).toContain('20 titles'); expect(el<HTMLSelectElement>('watched-filter').value).toBe('all')
+  await click('nav-movie'); expect(el<HTMLSelectElement>('sort-order').value).toBe('rating'); expect(el<HTMLSelectElement>('watched-filter').value).toBe('watched')
   await click('nav-movie'); await click('change-source'); await click('profile-new'); el<HTMLInputElement>('source-url').value = 'https://example.com/list.m3u'
   await click('connect'); expect(el('home-rows').querySelector('[data-row="category-0"]')).toBeNull()
   await click('nav-settings'); await click('settings-home'); await click('layout-add'); await click('layout-save'); await click('settings-back')
