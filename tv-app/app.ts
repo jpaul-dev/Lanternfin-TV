@@ -204,6 +204,7 @@ const schedule = scheduleUI($('schedule'), {
   programmes: (channel, signal, window) => guide?.load(channel, signal, false, window) || Promise.resolve([]),
   clock: () => preferences.guideClock,
   invalidate: () => guide?.refresh(),
+  incomplete: () => activeSource?.kind === 'xtream' && !providerIndex?.progress.complete,
   watch(channel, queue) { playbackReturn = 'schedule'; liveQueue.reset(queue, channel); startWatching(channel) },
   details(channel, programme) { guideChannel = channel; openProgramme(programme, 'schedule') },
   list: () => { void browse('live') }, back: goHome, sidebar: () => button('nav-live').focus(),

@@ -4,6 +4,7 @@ import { categoryBrowser } from './category-browser'
 import { guideDate, timeRange, type Programme, type GuideWindow } from './guide'
 import { keyAction } from './remote'
 import { tr } from './i18n'
+import { guideFinder } from './guide-finder'
 
 const HALF_HOUR = 1800000, DAY = 86400000
 type Cell = { start: number; stop: number; programme?: Programme }
@@ -19,6 +20,7 @@ type Options = {
   back(): void
   sidebar(): void
   invalidate?(): void
+  incomplete?(): boolean
 }
 
 /** Clip overlaps and fill gaps so every channel has a selectable cell at every time. */
@@ -41,9 +43,11 @@ export function scheduleUI(root: HTMLElement, options: Options) {
   root.innerHTML = `<div class="schedule-heading"><div><p class="eyebrow">LIVE TV</p><h1>TV Guide</h1></div><div class="schedule-toolbar"><button id="schedule-category">All channels</button><button id="schedule-now">Now</button><button id="schedule-more">More</button></div></div>
     <div id="schedule-summary"><p id="schedule-meta"></p><h2 id="schedule-title"></h2><p id="schedule-description"></p></div>
     <div id="schedule-board"><div class="schedule-times"><span id="schedule-date"></span><div id="schedule-hours"></div></div><div id="schedule-rows" aria-label="Channels and programmes"></div></div>
-    <div class="schedule-bottom"><span id="schedule-status" role="status"></span><span>↑ ↓ Channels · ← → Schedule · OK Watch / details · Back Controls</span></div>
-    <section id="schedule-options" class="schedule-dialog" hidden aria-label="Guide options"><h2>Guide options</h2><button id="schedule-day-back">Previous day</button><button id="schedule-day-next">Next day</button><button id="schedule-refresh">Refresh guide</button><button id="schedule-list">Channel list &amp; guide settings</button><button id="schedule-options-back">Back to guide</button></section>
-    <section id="schedule-categories" class="schedule-dialog" hidden aria-label="Channel categories"><h2>Channel categories</h2><button id="schedule-categories-back">Back to guide</button><button id="schedule-all">All channels</button><p id="schedule-category-status" role="status"></p><div id="schedule-category-list"></div></section>`
+    <div class="schedule-bottom"><span id="schedule-status" role="status"></span><span>↑ ↓ Channels · ← → Schedule · Numbers Jump · OK Watch / details · Back Controls</span></div>
+    <div id="schedule-number" role="status" hidden></div>
+    <section id="schedule-options" class="schedule-dialog" hidden aria-label="Guide options"><h2>Guide options</h2><button id="schedule-find">Find a channel</button><button id="schedule-day-back">Previous day</button><button id="schedule-day-next">Next day</button><button id="schedule-refresh">Refresh guide</button><button id="schedule-list">Channel list &amp; guide settings</button><button id="schedule-options-back">Back to guide</button></section>
+    <section id="schedule-categories" class="schedule-dialog" hidden aria-label="Channel categories"><h2>Channel categories</h2><button id="schedule-categories-back">Back to guide</button><button id="schedule-all">All channels</button><p id="schedule-category-status" role="status"></p><div id="schedule-category-list"></div></section>
+    <div id="schedule-finder" class="guide-finder-shade" hidden></div>`
   const el = (id: string) => root.querySelector<HTMLElement>(`#schedule-${id}`)!
   const btn = (id: string) => el(id) as HTMLButtonElement
   const categoryPicker = categoryBrowser(el('categories'), el('category-list'), 'schedule-group', () => category?.id)
@@ -51,12 +55,28 @@ export function scheduleUI(root: HTMLElement, options: Options) {
   let from = 0, span = 4 * HALF_HOUR, anchor = Date.now(), channelColumn = false, followsNow = true, rows: Row[] = []
   let active = false, controller: AbortController | undefined, channelLoad: AbortController | undefined, categoryLoad: AbortController | undefined
   let timer: ReturnType<typeof setInterval> | undefined, version = 0, loadingChannels = false
+  let digits = '', digitTimer: ReturnType<typeof setTimeout> | undefined
+  const finder = guideFinder(el('finder'), {
+    channels: () => channels, scope: () => category?.name || tr('All channels'),
+    incomplete: () => !category && !!options.incomplete?.(),
+    choose(channel, index) { if (!active || channels[index] !== channel) return; finder.close(); selected = index; channelColumn = false; render(true) },
+    back() { finder.close(); focusSelection() },
+  })
   const focus = (node?: HTMLElement | null) => node?.focus({ preventScroll: true })
   const clock = (time: number) => timeRange({ start: time, stop: time, title: '', description: '' }, options.clock()).split(' – ')[0]
   const selectedRow = () => rows[selected - first]
   const cellIndex = (row = selectedRow()) => Math.max(0, row?.cells.findIndex(cell => cell.start <= anchor && cell.stop > anchor) ?? 0)
   const selection = () => el('rows').querySelector<HTMLElement>(`[data-row="${selected}"] [data-cell="${channelColumn ? -1 : cellIndex()}"]`)
   const focusSelection = () => focus(selection() || btn('category'))
+  function cancelNumber() { clearTimeout(digitTimer); digitTimer = undefined; digits = ''; el('number').hidden = true; el('number').textContent = '' }
+  function jumpNumber() {
+    const number = Number(digits); cancelNumber()
+    if (!active || loadingChannels) return
+    if (!number || number > channels.length) {
+      el('number').textContent = tr('No channel {number} in this guide view.', { number }); el('number').hidden = false; digitTimer = setTimeout(cancelNumber, 2500); return
+    }
+    selected = number - 1; channelColumn = false; render(true)
+  }
   function summary() {
     const row = selectedRow(), cell = row?.cells[cellIndex()], programme = cell?.programme
     el('meta').textContent = row ? `${selected + 1} · ${row.channel.name}${programme ? ` · ${timeRange(programme, options.clock())}` : ''}` : tr('Your channels, at a glance')
@@ -126,13 +146,13 @@ export function scheduleUI(root: HTMLElement, options: Options) {
     void Promise.all([worker(), worker(), worker()])
   }
   async function loadChannels(takeFocus: boolean) {
-    channelLoad?.abort(); cancelGuide(); const request = new AbortController(); channelLoad = request; loadingChannels = true; heading(); summary()
+    cancelNumber(); channelLoad?.abort(); cancelGuide(); const request = new AbortController(); channelLoad = request; loadingChannels = true; heading(); summary()
     try {
       const result = await options.channels(category, request.signal)
       if (!active || request.signal.aborted || channelLoad !== request) return
       const old = channels[selected], position = old ? result.findIndex(channel => channel.url === old.url && channel.name === old.name) : -1
       const ownsFocus = el('rows').contains(document.activeElement)
-      channels = result; selected = Math.max(0, position); loadingChannels = false; render(ownsFocus || takeFocus && el('options').hidden && el('categories').hidden && (root.contains(document.activeElement) || document.activeElement === document.body))
+      channels = result; selected = Math.max(0, position); loadingChannels = false; render(ownsFocus || takeFocus && !finder.visible && el('options').hidden && el('categories').hidden && (root.contains(document.activeElement) || document.activeElement === document.body)); finder.refresh()
     } catch {
       if (!request.signal.aborted && channelLoad === request) { loadingChannels = false; el('status').textContent = tr('Channels unavailable. Open Categories or choose Refresh guide to retry.') }
     } finally { if (channelLoad === request) channelLoad = undefined }
@@ -149,17 +169,18 @@ export function scheduleUI(root: HTMLElement, options: Options) {
     if (programme && (details || programme.start > Date.now() || programme.stop <= Date.now())) options.details(row.channel, programme)
     else options.watch(row.channel, channels)
   }
-  function closePanel() { el('options').hidden = el('categories').hidden = true; categoryPicker.suspend(); categoryLoad?.abort(); focusSelection() }
-  const translate = () => { for (const id of ['now', 'more', 'day-back', 'day-next', 'refresh', 'list', 'options-back', 'categories-back', 'all']) { const node = btn(id); node.textContent = tr(node.dataset.label || (node.dataset.label = node.textContent || '')) } }
-  btn('now').onclick = () => { followsNow = true; anchor = Date.now(); from = Math.floor(anchor / HALF_HOUR) * HALF_HOUR; channelColumn = false; render(true) }
-  btn('more').onclick = () => { el('options').hidden = false; focus(btn('day-back')) }
+  function closePanel() { cancelNumber(); finder.close(); el('options').hidden = el('categories').hidden = true; categoryPicker.suspend(); categoryLoad?.abort(); focusSelection() }
+  const translate = () => { for (const id of ['now', 'more', 'find', 'day-back', 'day-next', 'refresh', 'list', 'options-back', 'categories-back', 'all']) { const node = btn(id); node.textContent = tr(node.dataset.label || (node.dataset.label = node.textContent || '')) } }
+  btn('now').onclick = () => { cancelNumber(); followsNow = true; anchor = Date.now(); from = Math.floor(anchor / HALF_HOUR) * HALF_HOUR; channelColumn = false; render(true) }
+  btn('more').onclick = () => { cancelNumber(); el('options').hidden = false; focus(btn('find')) }
+  btn('find').onclick = () => { closePanel(); finder.open() }
   btn('options-back').onclick = btn('categories-back').onclick = closePanel
   btn('day-back').onclick = () => { closePanel(); shift(-DAY) }; btn('day-next').onclick = () => { closePanel(); shift(DAY) }
   btn('refresh').onclick = () => { options.invalidate?.(); closePanel(); void loadChannels(true) }
   btn('list').onclick = options.list
   btn('all').onclick = () => { category = undefined; channels = []; selected = 0; closePanel(); render(false); void loadChannels(true) }
   btn('category').onclick = async () => {
-    el('categories').hidden = false; categoryPicker.clear(); focus(btn('categories-back')); el('category-status').textContent = tr('Loading categories…')
+    cancelNumber(); el('categories').hidden = false; categoryPicker.clear(); focus(btn('categories-back')); el('category-status').textContent = tr('Loading categories…')
     categoryLoad?.abort(); const request = new AbortController(); categoryLoad = request
     try {
       const categories = await options.categories(request.signal)
@@ -178,6 +199,7 @@ export function scheduleUI(root: HTMLElement, options: Options) {
   })
   root.addEventListener('keydown', event => {
     if (!active || event.isComposing) return
+    if (finder.visible) return
     const action = keyAction(event.key, event.keyCode), target = document.activeElement as HTMLElement
     const panel = !el('categories').hidden ? el('categories') : !el('options').hidden ? el('options') : undefined
     if (panel) {
@@ -189,6 +211,17 @@ export function scheduleUI(root: HTMLElement, options: Options) {
         if (action === 'up' || action === 'down') { const items = [...panel.querySelectorAll<HTMLElement>('button:not(:disabled),input')].filter(node => !node.closest('[hidden]')); focus(items[Math.max(0, Math.min(items.length - 1, items.indexOf(target) + (action === 'up' ? -1 : 1)))]) }
       }
       return
+    }
+    const digit = /^\d$/.test(event.key) ? event.key : event.keyCode >= 48 && event.keyCode <= 57 ? String(event.keyCode - 48) : ''
+    if (digit && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      event.preventDefault(); event.stopPropagation(); if (event.repeat || loadingChannels) return
+      if (digits.length < 6) digits += digit
+      clearTimeout(digitTimer); el('number').textContent = tr('Channel {number} · OK to jump · Back to cancel', { number: digits }); el('number').hidden = false; digitTimer = setTimeout(jumpNumber, 1200); return
+    }
+    if (digits) {
+      if (event.key === 'Enter' || event.keyCode === 13 || action === 'back') { event.preventDefault(); event.stopPropagation(); if (action === 'back') cancelNumber(); else if (!event.repeat) jumpNumber(); return }
+      if (event.key === 'Backspace') { event.preventDefault(); event.stopPropagation(); digits = digits.slice(0, -1); clearTimeout(digitTimer); if (!digits) cancelNumber(); else { el('number').textContent = tr('Channel {number} · OK to jump · Back to cancel', { number: digits }); digitTimer = setTimeout(jumpNumber, 1200) }; return }
+      if (action || event.key === 'Tab') cancelNumber()
     }
     const inRows = !!target.closest('#schedule-rows'), toolbar = [btn('category'), btn('now'), btn('more')]
     if (action === 'back') { event.preventDefault(); event.stopPropagation(); if (inRows) focus(btn('category')); else options.back(); return }
@@ -218,13 +251,13 @@ export function scheduleUI(root: HTMLElement, options: Options) {
       else shift(action === 'left' ? -span : span)
     }
   })
-  function suspend() { active = false; cancelGuide(); channelLoad?.abort(); categoryLoad?.abort(); categoryPicker.suspend(); clearInterval(timer); timer = undefined }
+  function suspend() { active = false; cancelNumber(); finder.close(); cancelGuide(); channelLoad?.abort(); categoryLoad?.abort(); categoryPicker.suspend(); clearInterval(timer); timer = undefined }
   function resume(takeFocus = true) {
     active = true; el('options').hidden = el('categories').hidden = true; translate(); measure()
     if (followsNow && Date.now() >= from + span || anchor < Date.now() - 7 * DAY || anchor > Date.now() + 2 * DAY) { anchor = Date.now(); from = Math.floor(anchor / HALF_HOUR) * HALF_HOUR }
     render(takeFocus); clearInterval(timer); timer = setInterval(() => {
       if (!active) return
-      if (followsNow && Date.now() >= from + span && el('options').hidden && el('categories').hidden) { anchor = Date.now(); from = Math.floor(anchor / HALF_HOUR) * HALF_HOUR; render(el('rows').contains(document.activeElement)) }
+      if (followsNow && Date.now() >= from + span && !finder.visible && el('options').hidden && el('categories').hidden) { anchor = Date.now(); from = Math.floor(anchor / HALF_HOUR) * HALF_HOUR; render(el('rows').contains(document.activeElement)) }
       else { summary(); heading() }
     }, 60000)
     if (!channels.length || loadingChannels) void loadChannels(takeFocus)

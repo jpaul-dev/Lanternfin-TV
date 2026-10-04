@@ -56,8 +56,8 @@ it('tunes current programmes, opens future/past details, and restores channel/ti
 it('Back reaches the three main controls, then exits; menu arrows cannot escape', async () => {
   await open(); press('Escape'); expect(document.activeElement).toBe(el('category'))
   press('ArrowRight'); expect(document.activeElement).toBe(el('now')); press('ArrowDown'); expect(position()).toEqual([0, 0])
-  el('more').click(); press('ArrowLeft'); expect(document.activeElement).toBe(el('day-back'))
-  press('ArrowDown'); expect(document.activeElement).toBe(el('day-next')); press('Escape'); expect(position()).toEqual([0, 0])
+  el('more').click(); press('ArrowLeft'); expect(document.activeElement).toBe(el('find'))
+  press('ArrowDown'); expect(document.activeElement).toBe(el('day-back')); press('Escape'); expect(position()).toEqual([0, 0])
   press('Escape'); press('Escape'); expect(options.back).toHaveBeenCalledOnce()
 })
 it('loads only visible rows with three concurrent requests, rejects stale replies, and does not steal toolbar focus', async () => {
@@ -85,4 +85,20 @@ it('chooses a category through a bounded list and returns to all channels', asyn
   expect(options.channels).toHaveBeenLastCalledWith({ id: 'news', name: 'News' }, expect.any(AbortSignal)); expect(el('category').textContent).toBe('News')
   el('category').click(); await settle(); el('all').click(); await settle(); expect(options.channels).toHaveBeenLastCalledWith(undefined, expect.any(AbortSignal))
   el('more').click(); el('refresh').click(); await settle(); expect(options.invalidate).toHaveBeenCalledOnce()
+})
+it('jumps to guide numbers without tuning, preserves the chosen time and cancels pending digits', async () => {
+  await open(); press('ArrowRight'); press('1'); press('8'); expect(el('number').textContent).toContain('18')
+  press('Enter'); await settle(); expect(position()).toEqual([17, 1]); expect(options.watch).not.toHaveBeenCalled(); expect(options.details).not.toHaveBeenCalled()
+  press('4'); press('Escape'); await vi.advanceTimersByTimeAsync(1500); expect(position()).toEqual([17, 1]); expect(el('number').hidden).toBe(true)
+  press('9'); press('9'); await vi.advanceTimersByTimeAsync(1200); expect(position()).toEqual([17, 1]); expect(el('number').textContent).toContain('No channel 99')
+  press('2'); await vi.advanceTimersByTimeAsync(1200); expect(position()).toEqual([1, 1]); expect(options.watch).not.toHaveBeenCalled()
+  press('1'); ui.suspend(); ui.open('other-source'); await vi.advanceTimersByTimeAsync(1500); expect(position()).toEqual([0, 0]); expect(el('number').hidden).toBe(true)
+})
+it('finds a channel inside the guide and restores its schedule without starting playback', async () => {
+  await open(); press('ArrowRight'); press('ArrowRight'); el('more').click(); el('find').click(); await settle()
+  const query = document.getElementById('schedule-find-query') as HTMLInputElement
+  query.value = 'Channel 19'; query.dispatchEvent(new Event('input')); await vi.advanceTimersByTimeAsync(200)
+  press('Enter'); await settle(); (document.activeElement as HTMLElement).click(); await settle()
+  expect(position()).toEqual([18, 2]); expect(el('finder').hidden).toBe(true); expect(options.watch).not.toHaveBeenCalled()
+  el('more').click(); el('find').click(); await settle(); press('Escape'); expect(position()).toEqual([18, 2])
 })

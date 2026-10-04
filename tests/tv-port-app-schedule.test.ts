@@ -29,6 +29,11 @@ it('opens the grid from Live TV, refreshes XMLTV, restores details/playback focu
   await press('Escape'); expect(el('schedule').hidden).toBe(false); expect(document.activeElement?.textContent).toBe('Show 2-0')
   await click('schedule-more'); await click('schedule-refresh'); expect(el('schedule-rows').textContent).toContain('Show 2-0')
   expect(fetcher.mock.calls.filter(([url]) => url.endsWith('guide.xml'))).toHaveLength(2)
+  await click('schedule-more'); await click('schedule-find')
+  el<HTMLInputElement>('schedule-find-query').value = 'Channel 3'; el('schedule-find-query').dispatchEvent(new Event('input')); await vi.advanceTimersByTimeAsync(300)
+  await press('Enter'); (document.activeElement as HTMLElement).click(); await vi.advanceTimersByTimeAsync(300)
+  expect(document.activeElement?.textContent).toBe('Show 3-0'); expect(playback.play).toHaveBeenCalledTimes(1)
+  await press('1'); await press('Enter'); expect(document.activeElement?.textContent).toBe('Show 1-0'); expect(playback.play).toHaveBeenCalledTimes(1)
   await press('Escape'); await press('Escape'); expect(el('catalog').hidden).toBe(false)
   const movie = [...el('home-rows').querySelectorAll<HTMLButtonElement>('.channel')].find(node => node.textContent?.includes('Movie one'))!
   movie.focus(); movie.click(); await vi.advanceTimersByTimeAsync(300); expect(el('detail').hidden).toBe(false)
