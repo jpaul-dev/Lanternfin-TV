@@ -37,8 +37,10 @@ function loadRuntime(): Promise<Shaka> {
 }
 export function playbackError(error: { category?: number; code?: number }): string {
   const code = Number.isInteger(error.code) ? ` (code ${error.code})` : ''
+  if (error.category === 6 && error.code === 6007) return `The DRM license request failed${code}. Check provider authorization, required license headers, network access, and cross-origin permissions.`
+  if (error.category === 6 && error.code === 6008) return `The device rejected the DRM license response${code}. Check the provider license format and that the license matches this stream.`
   if (error.category === 6) return `DRM license or device support failed${code}. LG's simulator cannot play DRM; a physical TV with the required DRM system and provider access is needed.`
-  if (error.category === 1) return `The media or license server could not be reached${code}. Check provider access, network, and cross-origin permissions.`
+  if (error.category === 1) return `The media or license request failed${code}. Check provider authorization, required headers, network access, and cross-origin permissions.`
   if (error.category === 3 || error.category === 4) return `The stream format or codec could not be loaded${code}. Try another format from your provider.`
   return `Playback could not start${code}. Check the stream format and provider access.`
 }

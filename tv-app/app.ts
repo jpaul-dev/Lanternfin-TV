@@ -554,6 +554,7 @@ function startWatching(channel: Channel, position = 0) {
   if (screen !== 'playback' && channel.mediaKind === 'live') liveQueue.reset(browseView === 'live' && filtered.some(item => channelId(item) === channelId(channel)) ? filtered : libraryPool(), channel)
   cancelZap(); playbackGuideLoading?.abort(); playbackProgrammes = []
   currentAspect = 'fit'; $('seek-controls').hidden = true; input('seek-position').value = String(position)
+  $('playback-time').textContent = $('playback-remaining').textContent = ''
   currentChannel = channel; lastTimeline = { position, duration: library?.lastPlayed(channel)?.duration || 0 }; lastSaved = 0; hasPlayed = false
   if (channel.mediaKind === 'episode' && detailInfo?.channel.mediaKind === 'series' && channel.seriesId === detailInfo.channel.providerId) { select('detail-season').value = channel.group; try { library?.setSeason(detailInfo.channel, channel.group) } catch { /* Session season remains selected. */ } }
   const logo = $<HTMLImageElement>('playing-logo'); logo.hidden = true; logo.removeAttribute('src')
@@ -685,7 +686,9 @@ $('resume-back').onclick = () => { pendingChannel = undefined; show(playbackRetu
 setInterval(() => {
   if (screen !== 'playback') return
   applyTrackPreferences()
-  const timeline = player?.timeline()
+  // Decoder teardown can retain the previous video's time until the new load
+  // completes. Do not display that timeline under the next title.
+  const timeline = hasPlayed && ['playing', 'paused', 'buffering'].includes(state) ? player?.timeline() : undefined
   const seekable = canSeek(timeline, currentChannel?.mediaKind === 'live', state)
   button('forward').disabled = button('rewind').disabled = !seekable
   $('seek-controls').hidden = !seekable

@@ -68,6 +68,9 @@ it('fails before loading when a required header cannot be honored', async () => 
 })
 it('separates DRM errors from network and format errors', () => {
   expect(playbackError({ category: 6, code: 6001 })).toContain('simulator')
+  expect(playbackError({ category: 6, code: 6007 })).toContain('license request failed')
+  expect(playbackError({ category: 6, code: 6007 })).not.toContain('simulator')
+  expect(playbackError({ category: 6, code: 6008 })).toContain('license response')
   expect(playbackError({ category: 1, code: 1001 })).toContain('network')
   expect(playbackError({ category: 3 })).not.toContain('DRM')
 })

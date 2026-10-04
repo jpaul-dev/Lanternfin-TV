@@ -2,15 +2,18 @@ import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { resolve, dirname, extname, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createDRMFixture } from './tv-drm-fixture.mjs'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../dist/tv/browser')
 const fixtures = process.argv.includes('--fixtures')
 const portFlag = process.argv.indexOf('--port')
 const port = portFlag < 0 ? 4323 : Number(process.argv[portFlag + 1])
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Use a port from 1024 to 65535.')
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json' }
+const drmFixture = createDRMFixture({ port, directory: resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/tv-drm-demo') })
 createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1:4323').pathname)
+    if (fixtures && await drmFixture(request, response)) return
     if (fixtures && ['/_test/subtitled.mp4', '/_test/webvtt.mp4'].includes(pathname)) {
       // Optional locally generated video, never copied into a TV package.
       const data = await readFile(resolve(dirname(fileURLToPath(import.meta.url)), pathname === '/_test/webvtt.mp4' ? '../artifacts/tv-mp4-webvtt-demo.mp4' : '../artifacts/tv-mp4-text-demo.mp4'))

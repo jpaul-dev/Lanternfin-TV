@@ -27,6 +27,8 @@ This is the implementation checklist for the standalone TV ports. Reference: the
 
 These gates are not reasons to stop the software work listed above. Checkpoints will update this ledger as features are built and tested.
 
+Encrypted desktop acceptance now includes generated Clear Key DASH played through the app with inline keys, raw licenses and base64/JSON wrapped licenses. Separate required media/license headers passed real cross-origin browser requests; missing/wrong headers failed visibly. Pause/seek and clean elapsed-time state between titles were checked. This validates the portable request/player path with our own public test keys, not Widevine/PlayReady or physical-TV/provider acceptance. Reproduction and bounds are in [TV_PORTS.md](TV_PORTS.md#encrypted-playback-acceptance-fixture).
+
 ## Screen saver and background work
 
 Samsung's documented [AppCommon API](https://developer.samsung.com/smarttv/develop/api-references/samsung-product-api-references/appcommon-api.html) is called with OFF only during foreground playback (including bounded buffering after playback starts). Pause, stop, errors and leaving the app request ON. Delayed OFF callbacks are corrected after a pause or background transition. Missing/failed APIs do not crash playback; the TV's own Auto Protection Time setting still applies. LG's [Type 2 configuration](https://webostv.developer.lge.com/develop/guides/screensaver) covers the player's on-screen controls on supported OLED models; no private power service is used.
