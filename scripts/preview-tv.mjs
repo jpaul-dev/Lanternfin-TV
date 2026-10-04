@@ -10,7 +10,7 @@ const port = portFlag < 0 ? 4323 : Number(process.argv[portFlag + 1])
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Use a port from 1024 to 65535.')
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json' }
 const drmFixture = createDRMFixture({ port, directory: resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/tv-drm-demo') })
-const mp4Stats = { authorized: 0, denied: 0, ranges: 0 }
+const mp4Stats = { authorized: 0, denied: 0, ranges: 0, nativeAttempts: 0 }
 const refreshDemos = new Map()
 const growingDemos = new Map()
 createServer(async (request, response) => {
@@ -19,10 +19,12 @@ createServer(async (request, response) => {
     if (fixtures && await drmFixture(request, response)) return
     if (fixtures && pathname === '/_test/authenticated-mp4.m3u') {
       response.writeHead(200, { 'Content-Type': 'audio/x-mpegurl', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
-      response.end(`#EXTM3U\n#EXTINF:-1 tvg-type="movie",Authorized MP4 demo\nhttp://localhost:${port}/_test/authenticated.mp4|Authorization=fixture-only\n#EXTINF:-1 tvg-type="movie",Rejected MP4 authorization demo\nhttp://localhost:${port}/_test/authenticated.mp4|Authorization=incorrect\n`); return
+      response.end(`#EXTM3U\n#EXTINF:-1 tvg-type="movie",Authorized MP4 demo\nhttp://localhost:${port}/_test/authenticated.mp4|Authorization=fixture-only\n#EXTINF:-1 tvg-type="movie",Authorized extensionless MP4 demo\nhttp://localhost:${port}/_test/authenticated-video|Authorization=fixture-only\n#EXTINF:-1 tvg-type="movie",Extensionless MP4 byte detection demo\nhttp://localhost:${port}/_test/authenticated-video-octets|Authorization=fixture-only\n#EXTINF:-1 tvg-type="movie",Rejected MP4 authorization demo\nhttp://localhost:${port}/_test/authenticated-video|Authorization=incorrect\n#EXTINF:-1 tvg-type="movie",Unsupported direct audio with headers\nhttp://localhost:${port}/_test/direct-audio.mp3|Authorization=fixture-only\n`); return
     }
+    // A required-header MP3 must be rejected before the browser's src= request.
+    if (fixtures && pathname === '/_test/direct-audio.mp3') { mp4Stats.nativeAttempts++; response.writeHead(418, { 'Access-Control-Allow-Origin': '*' }); response.end('Direct playback should have been blocked.'); return }
     if (fixtures && pathname === '/_test/mp4-stats.json') { response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(mp4Stats)); return }
-    if (fixtures && pathname === '/_test/authenticated.mp4') {
+    if (fixtures && ['/_test/authenticated.mp4', '/_test/authenticated-video', '/_test/authenticated-video-octets'].includes(pathname)) {
       const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Authorization, Range, If-Range', 'Access-Control-Expose-Headers': 'Content-Range, ETag', 'Access-Control-Allow-Methods': 'GET, OPTIONS' }
       if (request.method === 'OPTIONS') { response.writeHead(204, cors); response.end(); return }
       if (request.headers.authorization !== 'fixture-only') { mp4Stats.denied++; response.writeHead(401, cors); response.end(); return }
@@ -33,7 +35,7 @@ createServer(async (request, response) => {
       mp4Stats.ranges++
       const start = Number(range[1]), end = Math.min(Number(range[2]), data.length - 1)
       if (start > end || !Number.isSafeInteger(start)) { response.writeHead(416, cors); response.end(); return }
-      response.writeHead(206, { ...cors, 'Content-Type': 'video/mp4', 'Content-Length': end - start + 1, 'Content-Range': `bytes ${start}-${end}/${data.length}`, ETag: '"local-mp4-fixture"', 'Cache-Control': 'no-store' })
+      response.writeHead(206, { ...cors, 'Content-Type': pathname.endsWith('-octets') ? 'application/octet-stream' : 'video/mp4', 'Content-Length': end - start + 1, 'Content-Range': `bytes ${start}-${end}/${data.length}`, ETag: '"local-mp4-fixture"', 'Cache-Control': 'no-store' })
       response.end(data.subarray(start, end + 1)); return
     }
     if (fixtures && ['/_test/subtitled.mp4', '/_test/webvtt.mp4', '/_test/subtitled.mkv'].includes(pathname)) {

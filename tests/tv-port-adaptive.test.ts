@@ -10,6 +10,8 @@ function harness(pending = false) {
   let filter: (type: number, request: { headers: Record<string, string> }) => void = () => {}
   let rejectLoad: (error: object) => void = () => {}
   const engine = { attach: vi.fn().mockResolvedValue(undefined), load: vi.fn(() => pending ? new Promise<void>((_, reject) => { rejectLoad = reject }) : Promise.resolve()), destroy: vi.fn(async () => { rejectLoad({ code: 7000 }) }), configure: vi.fn(() => true), addEventListener: vi.fn(), getNetworkingEngine: () => ({ registerRequestFilter: (fn: typeof filter) => { filter = fn } }) }
+  const preloaded = { destroy: vi.fn().mockResolvedValue(undefined) }
+  Object.assign(engine, { preload: vi.fn().mockResolvedValue(preloaded) })
   const Constructor = Object.assign(function () { return engine }, { isBrowserSupported: () => true })
   const runtime = { Player: Constructor, polyfill: { installAll() {} }, net: { NetworkingEngine: { RequestType: { LICENSE: 2, MANIFEST: 0, SEGMENT: 1, KEY: 6 } } } }
   const report = vi.fn(), player = adaptivePlayer(document.createElement('video'), report, async () => runtime as any)
@@ -56,6 +58,31 @@ it('filters headers by request purpose, preserving media authentication only on 
   await settle()
   expect(h.apply(0)).toEqual({ Authorization: 'media' }); expect(h.apply(1)).toEqual({ Authorization: 'media' }); expect(h.apply(6)).toEqual({ Authorization: 'media' }); expect(h.apply(2)).toEqual({}); expect(h.apply(5)).toEqual({})
   h.player.stop(); await settle(); vi.clearAllTimers()
+})
+it('requires a request-filtered preload before loading streams with media headers', async () => {
+  vi.useFakeTimers(); const h = harness(), preloaded = { destroy: vi.fn().mockResolvedValue(undefined) }, preload = vi.fn().mockResolvedValue(preloaded)
+  Object.assign(h.engine, { preload })
+  h.player.play({ url: 'https://example.test/live', playback: { manifestType: 'hls', headers: { Authorization: 'media' } } }, 25); await settle()
+  expect(preload).toHaveBeenCalledWith('https://example.test/live', 25, 'application/x-mpegurl', undefined, true)
+  expect(h.engine.load).toHaveBeenCalledWith(preloaded)
+  h.player.stop(); await settle(); vi.clearAllTimers()
+})
+it.each(['missing', 'null', 'native'])('does not use direct video playback when the header-capable preload is %s', async mode => {
+  vi.useFakeTimers(); const h = harness()
+  Object.assign(h.engine, { preload: mode === 'missing' ? undefined : mode === 'null' ? vi.fn().mockResolvedValue(null) : vi.fn().mockRejectedValue({ category: 7, code: 7005, data: ['private'] }) })
+  h.player.play({ url: 'https://example.test/live', playback: { manifestType: 'hls', headers: { Authorization: 'secret' } } }); await settle()
+  expect(h.engine.load).not.toHaveBeenCalled(); expect(h.report).toHaveBeenLastCalledWith('error', expect.stringContaining('headers'))
+  expect(JSON.stringify(h.report.mock.calls)).not.toContain('secret'); expect(JSON.stringify(h.report.mock.calls)).not.toContain('private')
+  h.player.stop(); await settle(); vi.clearAllTimers()
+})
+it('destroys a preload that arrives after Stop without loading or playing it', async () => {
+  vi.useFakeTimers(); const h = harness(), preloaded = { destroy: vi.fn().mockResolvedValue(undefined) }
+  let complete: (value: typeof preloaded) => void = () => {}
+  Object.assign(h.engine, { preload: vi.fn(() => new Promise(resolve => { complete = resolve })) })
+  h.player.play({ url: 'https://example.test/live', playback: { manifestType: 'hls', headers: { Authorization: 'secret' } } }); await settle()
+  h.player.stop(); await settle(); complete(preloaded); await settle()
+  expect(preloaded.destroy).toHaveBeenCalledOnce(); expect(h.engine.load).not.toHaveBeenCalled(); expect(h.report).toHaveBeenLastCalledWith('idle')
+  vi.clearAllTimers()
 })
 it('destroys a pending load on stop without waiting for that load to finish', async () => {
   vi.useFakeTimers(); const h = harness(true)

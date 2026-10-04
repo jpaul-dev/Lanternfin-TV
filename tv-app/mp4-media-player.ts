@@ -1,10 +1,11 @@
 import { browserHeaderProblem, webAddress, type Media } from './media'
 import { languageName, type Player, type Report } from './player'
 import type { Mp4MediaInfo, Mp4MediaSegment } from './mp4-media-session'
+import { mediaFormat } from './media-format'
 
 const ERROR = 'This MP4 could not play. Check provider access and the TV’s codec support. Try an HLS or DASH version if available.'
 export function needsMp4Media(media: Media) {
-  try { return !media.playback?.manifestType && !media.playback?.drm && media.mediaKind !== 'live' && !!Object.keys(media.playback?.headers || {}).length && /\.(mp4|m4v|mov)$/i.test(new URL(media.url).pathname) } catch { return false }
+  return !media.playback?.drm && media.mediaKind !== 'live' && !!Object.keys(media.playback?.headers || {}).length && mediaFormat(media) === 'mp4'
 }
 type WorkerLike = Pick<Worker, 'postMessage' | 'terminate' | 'onmessage' | 'onerror'>
 export function mp4MediaPlayer(video: HTMLVideoElement, report: Report, createWorker = (): WorkerLike => new Worker('mp4-media-worker.js')): Player {

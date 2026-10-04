@@ -25,7 +25,7 @@ export function cancelSubtitleResponse(response?: Response) {
 }
 
 /** Keep one bounded buffer, not a list of arbitrarily many incoming chunk views. */
-export async function readSubtitleBytes(body: ReadableStream<Uint8Array>, limit: number, signal: AbortSignal, tooLarge: () => Error): Promise<Uint8Array> {
+async function readBytes(body: ReadableStream<Uint8Array>, limit: number, signal: AbortSignal, tooLarge: () => Error, prefix = false): Promise<Uint8Array> {
   stopped(signal)
   const reader = body.getReader()
   try {
@@ -33,8 +33,10 @@ export async function readSubtitleBytes(body: ReadableStream<Uint8Array>, limit:
     while (true) {
       const part = await untilAbort(reader.read(), signal); stopped(signal)
       if (part.done) break
-      if (part.value.byteLength > limit - size) throw tooLarge()
-      bytes.set(part.value, size); size += part.value.byteLength
+      if (!prefix && part.value.byteLength > limit - size) throw tooLarge()
+      const value = part.value.subarray(0, limit - size)
+      bytes.set(value, size); size += value.byteLength
+      if (prefix && size === limit) break
       // Yield even for empty or immediately resolved chunks so Back and deadlines run.
       if (++reads % 256 === 0 || performance.now() - turn >= 10) {
         await untilAbort(new Promise<void>(resolve => setTimeout(resolve, 0)), signal)
@@ -44,3 +46,7 @@ export async function readSubtitleBytes(body: ReadableStream<Uint8Array>, limit:
     return bytes.subarray(0, size)
   } finally { void reader.cancel().catch(() => {}) }
 }
+
+export const readSubtitleBytes = (body: ReadableStream<Uint8Array>, limit: number, signal: AbortSignal, tooLarge: () => Error) => readBytes(body, limit, signal, tooLarge)
+/** Sniff only a prefix even if a server ignores Range and starts a whole file. */
+export const readResponsePrefix = (body: ReadableStream<Uint8Array>, limit: number, signal: AbortSignal) => readBytes(body, limit, signal, () => new Error('Response prefix too large'), true)

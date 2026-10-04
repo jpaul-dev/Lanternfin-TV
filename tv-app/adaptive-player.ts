@@ -6,6 +6,7 @@ import { safeStats, type PlayerStats } from './diagnostics'
 import { localDownload } from './downloads'
 import { needsSamsungPlayReady } from './samsung-drm'
 import { mp4MediaPlayer, needsMp4Media } from './mp4-media-player'
+import { needsMediaProbe, resolveMediaFormat } from './media-format'
 
 type Request = { headers: Record<string, string>; body?: ArrayBuffer | ArrayBufferView | string | null }
 type AdaptiveTrack = { id?: number; active: boolean; language: string; label?: string; roles?: string[]; channelsCount?: number; codecs?: string; spatialAudio?: boolean }
@@ -16,8 +17,10 @@ const trackLabel = (track: AdaptiveTrack) => {
   const language = languageName(track.language), label = track.label?.slice(0, 120)
   return [language || (!label ? 'Unknown language' : ''), label && label.toLowerCase() !== language.toLowerCase() ? label : '', track.channelsCount ? `${track.channelsCount} ch` : '', track.roles?.filter(role => role !== 'main').join(', ')].filter(Boolean).join(' · ').slice(0, 160)
 }
+type Preload = { destroy(): Promise<void> }
 type Engine = {
-  attach(video: HTMLVideoElement): Promise<void>; load(url: string, position?: number, mime?: string): Promise<void>; destroy(): Promise<void>
+  attach(video: HTMLVideoElement): Promise<void>; load(url: string | Preload, position?: number, mime?: string): Promise<void>; destroy(): Promise<void>
+  preload?(url: string, position?: number, mime?: string, config?: object, throwOnUnsupported?: boolean): Promise<Preload | null>
   configure(config: object): boolean; addEventListener(name: string, callback: (event: any) => void): void
   setVideoContainer?(container: HTMLElement): void
   getNetworkingEngine(): { registerRequestFilter(filter: (type: number, request: Request) => void): void; registerResponseFilter?(filter: (type: number, response: { data: ArrayBuffer | ArrayBufferView | string }) => void): void }
@@ -39,6 +42,7 @@ function loadRuntime(): Promise<Shaka> {
 }
 export function playbackError(error: { category?: number; code?: number }): string {
   const code = Number.isInteger(error.code) ? ` (code ${error.code})` : ''
+  if (error.category === 7 && error.code === 7005) return 'This stream needs direct video playback, which cannot apply its required headers. Use a provider-compatible HLS, DASH or MP4 address.'
   if (error.category === 6 && error.code === 6007) return `The DRM license request failed${code}. Check provider authorization, required license headers, network access, and cross-origin permissions.`
   if (error.category === 6 && error.code === 6008) return `The device rejected the DRM license response${code}. Check the provider license format and that the license matches this stream.`
   if (error.category === 6) return `DRM license or device support failed${code}. LG's simulator cannot play DRM; a physical TV with the required DRM system and provider access is needed.`
@@ -85,7 +89,7 @@ export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka
           const drm = options?.drm
           if (drm && !['com.widevine.alpha', 'com.microsoft.playready', 'org.w3.clearkey'].includes(drm.system)) { fail('This DRM system is not supported by the TV port.'); return }
           if (drm && !navigator.requestMediaKeySystemAccess) { fail('DRM is unavailable in this environment. LG’s simulator does not support DRM; test this stream on a physical TV.'); return }
-          current.configure({ streaming: { bufferingGoal: 20, rebufferingGoal: 2, preferNativeHls: false }, ...(drm ? { drm: { ...(drm.licenseUrl ? { servers: { [drm.system]: drm.licenseUrl } } : {}), ...(drm.clearKeys ? { clearKeys: drm.clearKeys } : {}) } } : {}) })
+          current.configure({ streaming: { bufferingGoal: 20, rebufferingGoal: 2, preferNativeHls: false, preferNativeDash: false }, ...(drm ? { drm: { ...(drm.licenseUrl ? { servers: { [drm.system]: drm.licenseUrl } } : {}), ...(drm.clearKeys ? { clearKeys: drm.clearKeys } : {}) } } : {}) })
           const types = shaka.net.NetworkingEngine.RequestType
           const network = current.getNetworkingEngine()
           network.registerRequestFilter((type, request) => {
@@ -107,7 +111,15 @@ export function adaptivePlayer(video: HTMLVideoElement, report: Report, getShaka
           cleanup = () => { for (const [name, fn] of Object.entries(events)) video.removeEventListener(name, fn) }
           wait()
           const mime = options?.manifestType === 'mpd' || options?.manifestType === 'dash' ? 'application/dash+xml' : options?.manifestType === 'hls' ? 'application/x-mpegurl' : undefined
-          await current.load(media.url, position || undefined, mime)
+          if (Object.keys(options?.headers || {}).length) {
+            // A non-null preload guarantees Shaka's request-filtered MSE route.
+            // Never let MIME detection silently switch required headers to src=.
+            if (!current.preload) { fail('This player cannot preserve custom media headers. Reinstall the complete app package.'); return }
+            const preloaded = await current.preload(media.url, position || undefined, mime, undefined, true)
+            if (token !== generation) { await preloaded?.destroy().catch(() => {}); return }
+            if (!preloaded) { fail('This stream needs direct video playback, which cannot apply its required headers. Use a provider-compatible HLS, DASH or MP4 address.'); return }
+            await current.load(preloaded)
+          } else await current.load(media.url, position || undefined, mime)
           if (token === generation) await video.play()
         } catch (error) { fail(playbackError(error as { category?: number; code?: number })) }
       })
@@ -173,7 +185,7 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
   const html = htmlPlayer(video, report), samsung = native && samsungPlayer(native.api, report)
   const transport = transportPlayer(video, report, getTransport)
   const mp4 = mp4MediaPlayer(video, report)
-  let current: Player = html, generation = 0, mediaForFallback: Media | undefined, fallbackPosition = 0
+  let current: Player = html, generation = 0, mediaForFallback: Media | undefined, fallbackPosition = 0, probing: AbortController | undefined
   let live = false
   const adaptive = adaptivePlayer(video, (state, detail) => {
     if (state === 'error' && current === adaptive && mediaForFallback && canUseNativeHls(mediaForFallback, video)) {
@@ -193,6 +205,7 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
       return safeStats({ ...stats, ...current.diagnostics?.() })
     },
     play(input, position) {
+      probing?.abort(); probing = undefined
       current.stop()
       const token = ++generation, previous = current
       const media: Media = typeof input === 'string' ? { url: input } : input
@@ -203,15 +216,23 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
       mediaForFallback = media; fallbackPosition = position || 0
       const nativeHeaders = Object.keys(media.playback?.headers || {}).every(name => ['user-agent', 'cookie'].includes(name.toLowerCase()))
       const useNative = !!samsung && !media.playback?.problem && nativeHeaders && (!media.playback?.drm || !!native?.api.setDrm && needsSamsungPlayReady(media))
-      const begin = () => {
+      const begin = async () => {
         if (token !== generation) return
-        current = useNative ? samsung! : transportType(media) ? transport : needsMp4Media(media) ? mp4 : needsAdaptivePlayer(media) ? adaptive : html
+        let resolved = media
+        if (!useNative && needsMediaProbe(media)) {
+          const controller = new AbortController(); probing = controller; report('loading', 'Checking the stream format…')
+          try { resolved = await resolveMediaFormat(media, controller.signal) }
+          catch (error) { if (token === generation && !controller.signal.aborted) report('error', (error as Error).message); return }
+          finally { if (probing === controller) probing = undefined }
+          if (token !== generation || controller.signal.aborted) return
+        }
+        current = useNative ? samsung! : transportType(resolved) ? transport : needsMp4Media(resolved) ? mp4 : needsAdaptivePlayer(resolved) ? adaptive : html
         video.hidden = useNative; if (native) native.surface.hidden = !useNative
-        current.play(media, position)
+        current.play(resolved, position)
       }
-      if (previous === adaptive) void adaptive.whenStopped().then(begin); else begin()
+      if (previous === adaptive) void adaptive.whenStopped().then(begin); else void begin()
     },
-    stop() { generation++; current.stop() }, pause() { current.pause() }, resume() { current.resume() }, seek(delta) { current.seek(delta) }, timeline() { return current.timeline() },
+    stop() { generation++; probing?.abort(); probing = undefined; current.stop() }, pause() { current.pause() }, resume() { current.resume() }, seek(delta) { current.seek(delta) }, timeline() { return current.timeline() },
     tracks() { return current.tracks?.() || [] }, selectTrack(kind, id) { return current.selectTrack?.(kind, id) || false },
     subtitlePresentation() { return current.subtitlePresentation?.() }, setSubtitlePresentation(value) { return current.setSubtitlePresentation?.(value) || false },
     qualities() { return current.qualities?.() || [] }, selectQuality(id) { return current.selectQuality?.(id) || false },
