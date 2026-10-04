@@ -12,6 +12,8 @@ The inherited publishing, deployment, funding, and automation workflows were rem
 
 Read the [security review and LG and Samsung roadmap](docs/fork-review/README.md) for findings, scan evidence, licensing work, platform scope, and the recommended implementation sequence.
 
+The first LG webOS and Samsung Tizen preview ports are now implemented on `ports/webos-tizen`. See [TV port builds, installation, and remaining milestones](docs/TV_PORTS.md). The Android alpha baseline is unchanged.
+
 ## Initial alpha changes, October 2, 2026
 
 - Android and Tauri identity: `io.github.jpauldev.lanternfin`, Lanternfin TV, version `0.1.0-alpha.1`. New vector icon, launcher artwork, banner, splash, and in-app branding. Original author credit remains in About and TV settings.

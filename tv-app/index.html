@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' file:; style-src 'self' file:; font-src 'self' file: data:; img-src 'self' file: https: http:; connect-src 'self' file: https: http:; media-src file: https: http: blob:; worker-src 'self' file: blob:; object-src 'self' file:; base-uri 'none'; form-action 'none'">
+  <title>Lanternfin TV</title>
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="app.css">
+  <script defer src="startup.js"></script>
+  <!-- PLATFORM_SCRIPT -->
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div id="startup-status" role="alert" hidden></div>
+  <div id="player-surface" hidden><div id="external-subtitles" class="external-subtitles" dir="auto" hidden></div></div>
+  <main id="app">
+    <nav id="tv-nav" aria-label="Main navigation" hidden>
+      <img class="nav-logo" src="icon.png" alt="Lanternfin TV">
+      <button id="nav-home" aria-current="page"><span aria-hidden="true">⌂</span>Home</button>
+      <button id="nav-live"><span aria-hidden="true">▣</span>Live TV</button>
+      <button id="nav-movie"><span aria-hidden="true">▷</span>Movies</button>
+      <button id="nav-series"><span aria-hidden="true">▤</span>Series</button>
+      <button id="nav-search"><span aria-hidden="true">⌕</span>Search</button>
+      <div class="nav-divider"></div>
+      <button id="view-favorites" aria-pressed="false"><span aria-hidden="true">☆</span>Favorites</button>
+      <button id="view-watchlist" aria-pressed="false"><span aria-hidden="true">▱</span>Watchlist</button>
+      <button id="view-recent" aria-pressed="false"><span aria-hidden="true">◷</span>Recent</button>
+      <button id="nav-downloads"><span aria-hidden="true">↓</span>Downloads</button>
+      <button id="nav-settings"><span aria-hidden="true">⚙</span>Settings</button>
+    </nav>
+    <header><div class="brand"><img src="icon.png" alt="" width="56" height="56"><span>Lanternfin <b>TV</b></span></div><span id="platform" class="badge">TV development build</span></header>
+    <section id="setup" class="panel">
+      <div class="intro"><p class="eyebrow">YOUR STREAMS. YOUR SCREEN.</p><h1>Settle in.</h1><p>Connect your own playlist and watch directly on your TV.</p><p class="muted">No casting device needed. No channels are included.</p><div id="saved-sources" hidden><h2>Your saved sources</h2><div id="profile-list"></div><button id="profile-new" type="button">Add another source</button></div><button id="setup-backup" type="button" class="subtle">Backup and restore</button><button id="setup-downloads" type="button" class="subtle">Downloads</button><button id="setup-diagnostics" type="button" class="subtle">Device &amp; playback diagnostics</button><button id="setup-reset-app" type="button" class="subtle">Reset app data</button></div>
+      <form id="source-form" autocomplete="off">
+        <label for="source-name">Source name <span class="hint">(optional)</span></label><input id="source-name" type="text" placeholder="My TV library" autocomplete="off" maxlength="80">
+        <label for="profile-accent">Source accent color</label><select id="profile-accent" aria-describedby="profile-accent-help"></select><p id="profile-accent-help" class="hint">Overrides the app color while this source is open. Saved only with Remember this source.</p>
+        <label for="source-kind">Source type</label>
+        <select id="source-kind"><option value="playlist">M3U playlist</option><option value="xtream">Xtream account</option><option value="direct">Direct stream</option></select>
+        <label id="url-label" for="source-url">Playlist address</label>
+        <input id="source-url" type="text" inputmode="url" spellcheck="false" autocomplete="off" placeholder="https://your-provider.example/playlist.m3u" maxlength="8192" required>
+        <div id="login-fields" hidden>
+          <label for="username">Username</label><input id="username" type="text" autocomplete="off" spellcheck="false" maxlength="1024">
+          <label for="password">Password</label><input id="password" type="password" autocomplete="off" maxlength="1024">
+        </div>
+        <button id="source-advanced-toggle" type="button" class="subtle" aria-expanded="false" aria-controls="source-advanced">Guide options</button><div id="source-advanced" hidden><label for="guide-url">XMLTV guide address <span class="hint">(optional)</span></label><input id="guide-url" type="text" inputmode="url" spellcheck="false" autocomplete="off" maxlength="8192" placeholder="https://your-provider.example/guide.xml.gz"><p class="hint">Overrides the built-in guide for this source. Channel IDs or names must match your playlist. Saved only with Remember this source.</p><label for="guide-offset">Guide timing correction</label><select id="guide-offset" aria-describedby="guide-offset-help"></select><p id="guide-offset-help" class="hint">Shift this source’s programme schedule if listings are early or late. Positive values move programmes later. Playlist channel shifts are added. Archive URLs keep the original provider time. Automatic estimates XMLTV guides without time zones; check the result in Settings against a known broadcast.</p></div>
+        <label class="check"><input id="remember" type="checkbox">Remember this source on this TV</label>
+        <label id="keep-library-field" class="check" hidden><input id="keep-library" type="checkbox" disabled>Keep the catalog for faster startup</label><p class="hint">Saved catalogs include titles and artwork addresses, expire after six hours, and can be cleared in Settings.</p>
+        <p id="playlist-cache-help" class="hint">A saved M3U catalog also includes stream and guide addresses, required headers and any playback keys. These may contain access tokens and are not encrypted on this TV. Enable catalog saving only on a TV you trust. Refresh reloads current access details; saving the catalog does not download video.</p>
+        <p class="hint">Save this source, favorites, and viewing progress. Saved addresses and passwords are not encrypted; leave this off on a shared TV.</p>
+        <div class="actions"><button id="connect" class="primary" type="submit">Open my streams</button><button id="cancel-load" type="button" hidden>Cancel</button><button id="return-catalog" type="button" hidden>Back to my streams</button><button id="forget" type="button" hidden>Forget all saved sources</button></div>
+      </form>
+    </section>
+    <section id="catalog" hidden>
+      <div class="heading"><div><p id="section-kicker" class="eyebrow">YOUR LIBRARY</p><h1 id="section-title">Home</h1></div><div class="actions"><button id="open-schedule" hidden>TV Guide</button><button id="view-all" aria-pressed="true">All streams</button><button id="refresh-catalog">Refresh</button><button id="change-source">Change source</button></div></div>
+      <div id="library-loading" class="library-loading" hidden><span id="index-status" role="status"></span><button id="index-toggle">Pause loading</button><p id="index-message"></p></div>
+      <div id="home-content">
+        <section class="hero"><img id="hero-art" alt="" hidden><div class="hero-shade"></div><div class="hero-copy"><p id="hero-kicker" class="eyebrow">MAKE YOURSELF AT HOME</p><h2 id="hero-title">Your evening starts here.</h2><p id="hero-meta">Live television, movies, and series. All in one place.</p><p id="hero-description" hidden></p><progress id="hero-progress" aria-label="Viewing progress" hidden></progress><button id="hero-play" class="primary">Browse Live TV</button></div></section>
+        <div id="home-rows"></div>
+        <div class="home-shortcuts"><button id="home-live">Live TV <span>On your screen, right now →</span></button><button id="home-movie">Movies <span>Find your next watch →</span></button><button id="home-series">Series <span>One more episode →</span></button></div>
+      </div>
+      <div id="browse-content">
+      <div id="browse-columns">
+      <aside id="category-sidebar" hidden><h2>Categories</h2><button id="categories-back" hidden>All categories</button><div id="category-list" class="category-grid" hidden></div></aside>
+      <div class="browse-main">
+      <div class="filters"><div><label for="search">Find a title</label><input id="search" type="search" placeholder="Search your library" autocomplete="off" maxlength="512"></div><div id="group-field"><label for="group">Category</label><select id="group"><option value="">All groups</option></select></div></div>
+      <div id="browse-options" class="browse-options"><label id="kind-field" for="media-filter">Show<select id="media-filter"><option value="">Everything</option><option value="live">Live TV</option><option value="movie">Movies</option><option value="series">Series &amp; episodes</option></select></label><label for="sort-order">Sort<select id="sort-order"><option value="provider">Provider order</option><option value="newest">Recently added</option><option value="rating">Rating · highest first</option><option value="name-asc">Name · A–Z</option><option value="name-desc">Name · Z–A</option></select></label><label id="language-field" for="language-filter" hidden>Title language<select id="language-filter" title="Based on provider title tags, not audio tracks"><option value="">All languages</option></select></label><label for="watched-filter">Watched<select id="watched-filter"><option value="all">All titles</option><option value="unwatched">Hide watched</option><option value="watched">Only watched</option></select></label><button id="reset-filters">Reset filters</button></div>
+      <p id="sort-note" class="hint" hidden></p>
+      <div class="actions"><button id="cancel-category" hidden>Cancel loading</button><button id="clear-history" hidden>Clear history</button></div>
+      <p id="result-count" class="muted"></p>
+      <div id="channels" class="grid"></div>
+      <div id="browse-empty" class="browse-empty" hidden><p class="eyebrow">ROOM FOR YOUR NEXT WATCH</p><h2 id="empty-title"></h2><p id="empty-description" class="hint"></p><div class="actions"><button id="empty-clear" hidden>Reset filters</button><button id="empty-load" hidden>Continue loading</button><button id="empty-home">Back to home</button></div></div>
+      <div id="pagination" class="pagination"><button id="previous">Previous page</button><span id="page-label"></span><label class="sr-only" for="page-jump">Go to page</label><input id="page-jump" type="number" min="1" max="1" value="1" inputmode="numeric"><button id="page-go">Go</button><button id="next">Next page</button></div>
+      </div>
+      <aside id="guide-panel" hidden><h2 id="guide-title">Choose a channel</h2><p id="guide-status" role="status"></p><p id="guide-description"></p><div class="actions"><button id="guide-watch" class="primary">▶ Watch</button><button id="guide-favorite">☆ Favorite</button><button id="guide-refresh">Refresh guide</button><button id="guide-match-open" hidden>Match guide channel</button></div><label class="guide-day-label" for="guide-day">Programme date<select id="guide-day"></select></label><div id="guide-programmes" tabindex="0" aria-label="Programme guide"></div><div class="guide-pages"><button id="guide-previous" aria-label="Earlier programmes">←</button><span id="guide-page"></span><button id="guide-next" aria-label="Later programmes">→</button></div></aside>
+      </div>
+      </div>
+    </section>
+    <section id="schedule" hidden></section>
+    <section id="visibility" class="settings-view category-visibility" hidden>
+      <p class="eyebrow">MAKE ROOM FOR YOUR FAVORITES</p><h1>Categories</h1>
+      <p class="hint">Choose what appears in this source’s guide, Home, search and saved lists. This does not delete titles or change what your provider loads.</p>
+      <div class="actions" role="group" aria-label="Library section"><button data-kind="live">Live TV</button><button data-kind="movie">Movies</button><button data-kind="series">Series</button></div>
+      <div class="visibility-body">
+        <div id="visibility-modes"><div role="group" aria-label="Category mode"><button data-mode="hide">Hide checked</button><button data-mode="select">Show only checked</button><button id="visibility-reset">Show all in this section</button></div><p id="visibility-instruction" class="hint"></p><p id="visibility-selection"></p><p id="visibility-loading" class="hint" role="status"></p><button id="visibility-retry" hidden>Retry</button></div>
+        <div id="visibility-directory"><div id="visibility-list" class="visibility-list"></div></div>
+      </div>
+      <p id="visibility-note" class="hint" role="status"></p>
+      <div class="actions"><button id="visibility-save" class="primary">Save categories</button><button id="visibility-cancel">Cancel</button></div>
+    </section>
+    <section id="layout" class="settings-view" hidden><p class="eyebrow">MAKE YOURSELF AT HOME</p><h1>Home screen</h1><p class="hint">Choose the rows you want and move them into your preferred order. Standard rows stay hidden when empty. Category rows let you open the full category. This layout applies to the current source.</p><div id="layout-rows"></div><section id="layout-add-panel" class="category-row-picker"><div class="category-picker-heading"><h2>Add a category row</h2><span id="layout-category-count"></span></div><div class="category-picker-fields"><label>Section<select id="layout-kind"><option value="movie">Movies</option><option value="series">Series</option><option value="live">Live TV</option></select></label><label>Find a category<input id="layout-search" type="search" maxlength="100" placeholder="Search category names"></label><label>Category<select id="layout-category"></select></label><label>Row title (optional)<input id="layout-title" maxlength="200" placeholder="Use the category name"></label></div><p id="layout-category-note" class="hint" role="status"></p><div class="actions"><button id="layout-add">Add row</button><button id="layout-refresh">Refresh choices</button></div></section><p id="layout-status" class="hint" role="status"></p><div class="actions"><button id="layout-save" class="primary">Save layout</button><button id="layout-reset">Use default rows</button><button id="layout-back">Cancel</button></div></section>
+    <section id="guide-match" class="settings-view" hidden><button id="guide-match-back" class="subtle">← Back to guide</button><p class="eyebrow">THE RIGHT SCHEDULE</p><h1 id="guide-match-title">Match guide channel</h1><p id="guide-match-current" class="hint"></p><p id="guide-match-storage" class="hint"></p><div class="guide-match-toolbar"><label>Find a guide channel<input id="guide-match-search" type="search" maxlength="100" placeholder="Search name or channel ID"></label><button id="guide-match-refresh">Search</button><button id="guide-match-automatic">Use automatic matching</button></div><p id="guide-match-status" class="hint" role="status"></p><div id="guide-match-list" aria-label="Guide channel choices"></div><div class="pagination"><button id="guide-match-previous">Previous page</button><span id="guide-match-page"></span><button id="guide-match-next">Next page</button></div><p class="hint">OK applies a match · Page/Channel keys change pages · Back returns without changing the match. Names and IDs come from your XMLTV feed.</p></section>
+    <section id="account" class="settings-view" hidden><p class="eyebrow">YOUR PROVIDER</p><h1>Account status</h1><p id="account-status" role="status"></p><dl id="account-values"></dl><div class="actions"><button id="account-back" class="primary">Back to settings</button><button id="account-retry">Refresh status</button></div></section>
+    <section id="settings" class="settings-view" hidden><h1>Settings</h1>
+      <div class="settings-list">
+        <button id="settings-source" class="settings-row"><span>Playlists</span><small>Manage your source</small></button>
+        <button id="settings-categories" class="settings-row"><span>Categories</span><small>Hide categories you never use, or pick a small set to focus on.</small></button>
+        <button id="settings-home" class="settings-row"><span>Home screen</span><small>Choose and reorder your rows</small></button>
+        <label class="settings-row" for="pref-language"><span>Interface language</span><select id="pref-language"></select></label>
+        <label class="settings-row" for="pref-theme"><span>Theme</span><select id="pref-theme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Follow device</option></select></label>
+        <label class="settings-row" for="pref-accent"><span>Accent color</span><select id="pref-accent"></select></label>
+        <label class="settings-row" for="source-accent"><span>Source accent color<small>Current source · App default follows the main setting</small></span><select id="source-accent"></select></label><p id="accent-note" class="hint" role="status"></p>
+        <label class="settings-row" for="pref-scale"><span>Interface size</span><select id="pref-scale"><option value="0.85">85%</option><option value="0.875">87.5%</option><option value="1">100%</option><option value="1.125">112.5%</option><option value="1.15">115%</option><option value="1.25">125%</option><option value="1.3">130%</option><option value="1.5">150%</option></select></label>
+        <label class="settings-row" for="pref-overscan"><span>Screen margins</span><select id="pref-overscan"></select></label>
+        <label class="settings-row" for="pref-motion"><span>Reduce animation</span><select id="pref-motion"><option value="false">Off</option><option value="true">On</option></select></label>
+        <label class="settings-row" for="pref-audio"><span>Preferred audio language</span><select id="pref-audio"></select></label>
+        <label class="settings-row" for="pref-subtitles"><span>Preferred subtitles</span><select id="pref-subtitles"></select></label>
+        <label class="settings-row" for="pref-grouping"><span>Group language versions</span><select id="pref-grouping"><option value="false">Off</option><option value="true">On · movies and series</option></select></label>
+        <label class="settings-row" for="pref-content"><span>Preferred content language</span><select id="pref-content"></select></label>
+        <label class="settings-row" for="pref-autonext"><span>Play next episode automatically</span><select id="pref-autonext"><option value="false">Off</option><option value="true">On · 10 second countdown</option></select></label>
+        <label class="settings-row" for="pref-clock"><span>Guide clock time zone</span><select id="pref-clock"></select></label>
+        <label class="settings-row" for="source-guide-offset"><span>Guide timing correction<small>Current source · positive moves programmes later</small></span><select id="source-guide-offset" aria-describedby="source-guide-offset-help guide-auto-help guide-auto-note"></select></label><p id="source-guide-offset-help" class="hint">Correct the programme schedule separately from the clock display. Playlist channel shifts are added. Saved with remembered sources; archive URLs keep the original provider time.</p><p id="guide-auto-help" class="hint">Automatic estimates XMLTV guides that omit time zones. Check the result against a known broadcast; use a manual correction if needed. Guides with explicit time zones are not automatically shifted.</p><p id="guide-auto-note" class="hint" hidden></p>
+        <button id="settings-backup" class="settings-row"><span>Backup and restore</span><small>Move saved sources and viewing progress</small></button>
+        <button id="settings-downloads" class="settings-row"><span>Downloads</span><small>Watch saved movies and episodes offline</small></button>
+        <button id="settings-manage" class="settings-row"><span>Manage viewing data</span><small>Review favorites, watched marks and history</small></button>
+        <button id="settings-account" class="settings-row"><span>Account status</span><small>Subscription and connection limits</small></button>
+        <button id="settings-diagnostics" class="settings-row"><span>Device &amp; playback diagnostics</span><small>Check support and review playback events</small></button>
+        <button id="settings-refresh" class="settings-row"><span>Refresh library</span><small>Reload your provider catalog</small></button>
+        <button id="settings-clear-cache" class="settings-row"><span>Clear saved catalogs</span><small>Keep sources and viewing progress</small></button>
+        <button id="settings-reset" class="settings-row"><span>Reset preferences</span><small>Restore appearance and language defaults</small></button>
+        <button id="settings-reset-app" class="settings-row"><span>Reset app data</span><small>Review what to remove and start over</small></button>
+        <label class="settings-row" for="pref-update-channel"><span>Update channel</span><select id="pref-update-channel"><option value="stable">Stable · published releases</option><option value="beta">Beta · include prereleases</option></select></label>
+        <button id="settings-updates" class="settings-row"><span>App updates</span><small>Installed build and developer-mode update guide</small></button>
+        <button id="settings-about" class="settings-row"><span>About Lanternfin TV</span><small>Version, credits, and playback support</small></button>
+      </div>
+      <p id="settings-note" class="hint" role="status"></p><p id="library-note" class="hint"></p><button id="settings-back">Back to home</button>
+    </section>
+    <section id="reset" class="settings-view reset-view" hidden aria-labelledby="reset-title">
+      <button id="reset-back" class="subtle">← Keep my data</button><p class="eyebrow">A FRESH START</p><h1 id="reset-title">Reset Lanternfin</h1>
+      <p class="hint">Remove saved data from this app on this TV. This cannot be undone. Save an encrypted backup first if you want to restore your sources and viewing library.</p>
+      <div class="reset-summary"><h2>What will be removed</h2><p>All saved sources and sign-in details, favorites, watchlist, viewing history and progress, watched marks, guide matches and corrections, Home layouts, browsing choices, saved catalogs and app preferences.</p><p class="hint">Your provider account and other TV apps are unaffected. Backups you have already saved elsewhere are kept.</p></div>
+      <div class="actions"><button id="reset-backup">Back up first</button><button id="reset-downloads">Review downloads</button></div>
+      <label class="check"><input id="reset-files" type="checkbox">Also remove downloaded videos and stop their transfers</label><p id="reset-download-note" class="hint"></p>
+      <label class="check reset-consent"><input id="reset-confirm" type="checkbox">I understand that the selected data will be permanently removed</label>
+      <p id="reset-status" class="hint" role="status"></p><div class="actions"><button id="reset-apply" disabled>Reset app data</button><button id="reset-restart" hidden>Restart app</button></div>
+    </section>
+    <section id="updates" class="settings-view" hidden>
+      <button id="updates-back" class="subtle">← Back</button><p class="eyebrow">KEEP YOUR PLAYER CURRENT</p><h1>App updates</h1><p id="updates-build" class="hint"></p><p id="updates-channel" class="hint"></p>
+      <div class="actions"><button id="updates-check" class="primary">Check updates</button><button id="updates-cancel" hidden>Cancel check</button></div><p id="updates-status" class="hint" role="status"></p>
+      <div class="update-result"><p id="updates-result"></p><div id="updates-packages"></div></div>
+      <div class="backup-columns"><div class="backup-card"><h2>Update a developer install</h2><ol class="update-steps"><li>Back up saved sources and viewing progress in Settings.</li><li>On your computer, open the Lanternfin fork in GitHub Desktop. Choose the TV branch, fetch changes and review before pulling.</li><li>Open Lanternfin TV Setup from that same folder. Build the current checkout; for Samsung, sign it with your existing TV certificate and device permission.</li><li>Reinstall the app on your paired TV, then check this screen’s build revision. Keep the app ID and signing identity unchanged.</li></ol><p class="hint">Rebuilding uses the files already on your computer. It does not fetch new source. An unsigned Samsung archive is not ready to install.</p></div><div class="backup-card"><h2>Keep a way back</h2><p class="hint">Keep the previous working installer and your encrypted backup before testing an update. Downloads are local to this TV and are not backed up. A reinstall, developer-session expiry or clearing app data may remove local data.</p><p class="hint">This developer build cannot silently replace itself. Store distribution and a signed update channel need separate vendor approval and release testing. Matching the source revision is not a claim of hardware certification.</p><div class="actions"><a id="updates-guide" target="_blank" rel="noopener noreferrer">TV setup guide</a><a id="updates-source" target="_blank" rel="noopener noreferrer">TV source branch</a><a id="updates-releases" target="_blank" rel="noopener noreferrer">Published releases</a></div></div></div>
+    </section>
+    <section id="downloads" class="settings-view" hidden>
+      <button id="downloads-back" class="subtle">← Back</button><p class="eyebrow">TAKE A LITTLE OFFLINE</p><h1>Downloads</h1>
+      <p id="downloads-support" class="hint"></p>
+      <div class="download-summary"><span id="downloads-count">0 saved entries</span><span id="downloads-size">0 MiB saved</span><span>2 GiB per file · 4 GiB library limit</span></div>
+      <div id="downloads-review" class="manage-confirmation" hidden><p class="eyebrow">SAVE ON THIS TV</p><h2 id="downloads-title"></h2><p class="hint">Download this file for offline viewing? Use content your provider allows you to save. Video and its title stay in this app’s private TV storage. Samsung’s transfer service receives the source address and any required headers. Downloads pause when the app leaves the foreground; resume manually when you return.</p><p class="hint">Protected streams and HLS/DASH playlists are unavailable. Available TV space may be lower than the limits above. Downloads are not included in backups.</p><div class="actions"><button id="downloads-cancel">Keep streaming</button><button id="downloads-start" class="primary">Download to this TV</button></div></div>
+      <div id="downloads-removal" class="manage-confirmation" hidden><h2 id="downloads-remove-title"></h2><p class="hint">This removes the local video and its offline viewing progress. You can download it again from your provider.</p><div class="actions"><button id="downloads-keep">Keep download</button><button id="downloads-remove">Remove from TV</button></div></div>
+      <div id="downloads-empty" class="downloads-empty"><h2>Your next watch, ready here.</h2><p class="hint">Open a movie and choose Download, or hold OK on an episode for more options. Saved videos appear here even without opening a source.</p></div>
+      <p id="downloads-status" class="hint" role="status"></p><div id="downloads-list"></div><button id="downloads-refresh">Check transfers</button>
+    </section>
+    <section id="backup" class="settings-view" hidden>
+      <p class="eyebrow">YOUR LIBRARY, WITH YOU</p><h1>Backup and restore</h1>
+      <p class="hint">Back up remembered sources, favorites, watchlist, viewing progress and preferences. Catalog caches and video are not included. Backups stay on this device until you save or copy them.</p>
+      <div class="backup-columns">
+        <div class="backup-card"><h2>Create a backup</h2><p class="hint">Choose a separate passphrase of at least 12 characters. It encrypts the backup, including saved provider passwords. Keep it safe; it cannot be recovered.</p>
+          <label for="backup-passphrase">Backup passphrase</label><input id="backup-passphrase" type="password" minlength="12" maxlength="256" autocomplete="off">
+          <label for="backup-confirm">Repeat backup passphrase</label><input id="backup-confirm" type="password" minlength="12" maxlength="256" autocomplete="off">
+          <button id="backup-export" class="primary">Create encrypted backup</button>
+          <div id="backup-created" hidden><div class="actions"><button id="backup-download">Save file</button><button id="backup-copy">Copy encrypted text</button></div><button id="backup-show-text" class="subtle" aria-expanded="false" aria-controls="backup-text">Show encrypted text</button><div id="backup-text" hidden><label for="backup-output">Encrypted backup text</label><textarea id="backup-output" readonly rows="3" spellcheck="false"></textarea></div></div>
+        </div>
+        <div class="backup-card"><h2>Restore a backup</h2><p class="hint">Choose a backup file where supported, or paste encrypted backup text with a keyboard. Restored sources are saved to this TV’s unencrypted app storage.</p>
+          <label for="backup-file">Backup file</label><input id="backup-file" type="file" accept=".lftv,.json,application/json">
+          <label for="backup-input">Paste encrypted backup text</label><textarea id="backup-input" rows="3" maxlength="12582912" spellcheck="false" autocomplete="off"></textarea>
+          <label for="restore-passphrase">Saved backup passphrase</label><input id="restore-passphrase" type="password" minlength="12" maxlength="256" autocomplete="off">
+          <button id="backup-decrypt">Review backup</button>
+          <div id="backup-review" hidden><p id="backup-summary"></p><label class="check"><input id="backup-library" type="checkbox" checked>Merge favorites, watchlist, viewing progress, source layouts and guide matches</label><label class="check"><input id="backup-preferences" type="checkbox">Use the backup’s preferences</label><p class="hint">Existing sources keep their names and settings. Favorites, watchlist and watched marks combine; the latest 100 history entries remain. Current season choices, source layouts and guide matches take priority. The app reopens after restore.</p><button id="backup-restore" class="primary">Restore to this TV</button></div>
+        </div>
+      </div><p id="backup-status" role="status" class="hint"></p><button id="backup-back">Back to settings</button>
+    </section>
+    <section id="manage" class="settings-view" hidden>
+      <button id="manage-back" class="subtle">← Back</button><p class="eyebrow">A FRESH START</p><h1>Manage viewing data</h1><p id="manage-source" class="muted"></p>
+      <p class="hint">Choose what to clear for this source. Review the totals before applying. Saved sources, provider catalogs and other libraries stay as they are.</p>
+      <button id="manage-backup">Create a backup first</button>
+      <div class="settings-list manage-choices">
+        <label class="settings-row check"><input id="manage-watchlist" type="checkbox"><span>Watchlist titles</span><small id="manage-watchlist-count"></small></label>
+        <label class="settings-row check"><input id="manage-favorites" type="checkbox"><span>Favorite marks</span><small id="manage-favorites-count"></small></label>
+        <label class="settings-row check"><input id="manage-history" type="checkbox"><span>Recently watched &amp; resume positions</span><small id="manage-history-count"></small></label>
+        <label class="settings-row check"><input id="manage-watched" type="checkbox"><span>Watched marks</span><small id="manage-watched-count"></small></label>
+        <label class="settings-row check"><input id="manage-seasons" type="checkbox"><span>Saved season choices</span><small id="manage-seasons-count"></small></label>
+      </div><button id="manage-review" disabled>Review selected data</button>
+      <div id="manage-confirmation" class="manage-confirmation" hidden><h2>Clear this data?</h2><p id="manage-summary"></p><p class="hint">Undo is available on this screen until you leave or change the library again. An encrypted backup is needed to restore it later.</p><div class="actions"><button id="manage-cancel" class="primary">Keep my data</button><button id="manage-apply">Clear selected data</button></div></div>
+      <p id="manage-status" class="hint" role="status"></p><button id="manage-undo" hidden>Undo this change</button>
+    </section>
+    <section id="diagnostics" class="settings-view" hidden>
+      <button id="diagnostics-back" class="subtle">← Back</button>
+      <p class="eyebrow">A CLEARER PICTURE</p><h1>Device &amp; playback diagnostics</h1><p id="diagnostics-build" class="muted"></p>
+      <p class="hint">Device reports are clues, not a playback guarantee. LG’s simulator cannot test DRM. A real TV and authorized provider access are needed to verify protected streams.</p>
+      <div class="diagnostics-columns">
+        <div class="diagnostics-card"><h2>This device</h2><dl id="diagnostics-facts"></dl></div>
+        <div class="diagnostics-card"><h2>Reported formats</h2><table class="diagnostics-codecs"><thead><tr><th>Format</th><th>Native video</th><th>Adaptive video</th></tr></thead><tbody id="diagnostics-codecs"></tbody></table><p class="hint">Reports cover example codec profiles. Other profiles, audio formats or resolutions may behave differently. Samsung AVPlay has separate native capabilities.</p></div>
+      </div>
+      <div class="diagnostics-card"><h2>Protected playback check</h2><p class="hint">Check Widevine, PlayReady and Clear Key on this device. Your TV may ask for permission. This checks H.264/AAC in MP4 with temporary licenses and no persistent state or device identifiers. Other codecs, security levels and native players can differ.</p><dl id="diagnostics-drm-results"></dl><div class="actions"><button id="diagnostics-drm-check">Check protected playback</button><button id="diagnostics-drm-cancel" hidden>Stop check</button></div><p id="diagnostics-drm-status" class="hint" role="status"></p><p class="hint">The app creates no keys or license sessions and sends no provider requests. Acceptance is not proof that a protected stream will play.</p></div>
+      <div class="diagnostics-card"><h2>Latest playback</h2><p id="diagnostics-playback"></p><p id="diagnostics-stats" class="hint"></p><pre id="diagnostics-events" tabindex="0"></pre></div>
+      <p class="hint">This report includes build details, capabilities, stream type, header counts and recent playback states. It omits source addresses, passwords, keys, header values and title names. Reports stay here until you choose to save or copy them.</p>
+      <div class="actions"><button id="diagnostics-refresh" class="primary">Refresh report</button><button id="diagnostics-copy">Copy report</button><button id="diagnostics-save">Save report</button><button id="diagnostics-show" aria-expanded="false" aria-controls="diagnostics-report">View report</button><button id="diagnostics-clear">Clear session diagnostics</button></div>
+      <div id="diagnostics-report" hidden><label for="diagnostics-text">Diagnostic report</label><textarea id="diagnostics-text" readonly rows="8" spellcheck="false"></textarea></div><p id="diagnostics-status" role="status" class="hint"></p>
+    </section>
+    <section id="detail" hidden>
+      <button id="detail-back" class="subtle">← Back to library</button>
+      <div class="detail-hero">
+        <img id="detail-backdrop" class="detail-backdrop" alt="" hidden><div class="detail-shade"></div>
+        <div class="detail-content"><img id="detail-poster" class="detail-poster" alt="" hidden>
+          <div class="detail-copy"><p id="detail-kind" class="eyebrow"></p><h1 id="detail-title"></h1><p id="detail-meta" class="muted"></p><p id="detail-description" tabindex="0"></p><p id="detail-credits" class="hint"></p>
+            <div id="detail-versions" hidden><label for="detail-version">Language version</label><select id="detail-version"></select><p class="hint">Grouped by matching provider titles and language tags. Each version keeps its own favorites and progress; audio tracks depend on the stream.</p></div>
+            <div class="actions"><button id="detail-play" class="primary">▶ Play</button><button id="detail-favorite" aria-pressed="false">☆ Add favorite</button><button id="detail-watchlist" aria-pressed="false">Save for later</button><button id="detail-download">Download</button><button id="detail-retry" hidden>Retry details</button></div>
+            <p id="detail-status" class="hint" role="status"></p>
+          </div>
+        </div>
+      </div>
+      <div id="detail-episodes" hidden><div class="episode-heading"><h2>Episodes</h2><div><label for="detail-season">Season</label><select id="detail-season"></select></div></div><div id="episode-grid" class="grid"></div><div class="pagination"><button id="episode-previous">Previous episodes</button><span id="episode-page"></span><button id="episode-next">More episodes</button></div></div>
+      <div id="detail-related" class="home-row"><div class="home-row-heading"><h2>Similar titles</h2><button id="detail-related-refresh">Refresh suggestions</button></div><p id="detail-related-note" class="row-note" role="status"></p><div id="detail-related-rail" class="poster-rail" aria-label="Similar titles"></div></div>
+    </section>
+    <section id="programme" class="info-panel" hidden><p class="eyebrow">PROGRAMME GUIDE</p><h1 id="programme-title"></h1><p id="programme-meta" class="muted"></p><p id="programme-description" tabindex="0"></p><div class="actions"><button id="programme-replay" class="primary" hidden>Watch replay</button><button id="programme-live">Watch live channel</button><button id="programme-back">Back to guide</button></div><div id="replay-options" class="replay-options" hidden><label for="replay-format">Archive format<select id="replay-format"><option value="hls">HLS</option><option value="ts">MPEG-TS</option><option value="legacy">Legacy provider</option></select></label><label for="replay-clock">Provider clock<select id="replay-clock"><option value="provider">Reported by provider</option></select></label></div><p id="programme-note" class="hint" role="status"></p></section>
+    <section id="playback" hidden>
+      <div id="zap-number" role="status" hidden></div>
+      <div id="controls" class="play-controls"><div class="playing-heading"><img id="playing-logo" alt="" referrerpolicy="no-referrer" hidden><div><p id="playback-kind" class="eyebrow">NOW WATCHING</p><h1 id="playing-title"></h1></div></div><p id="player-status" role="status"></p><div id="seek-controls" hidden><label for="seek-position" class="sr-only">Playback position</label><input id="seek-position" type="range" min="0" max="100" step="1" value="0" aria-valuetext="0:00"></div><div class="playback-times"><p id="playback-time" class="hint"></p><p id="playback-remaining" class="hint"></p></div><p id="episode-context-note" class="hint" role="status"></p><div id="playback-guide" hidden><h2 id="playing-programme"></h2><progress id="playing-programme-progress" aria-label="Programme progress"></progress><p id="playing-next" class="hint"></p></div><div class="actions playback-primary"><button id="channel-previous" hidden>Previous channel</button><button id="channel-next" hidden>Next channel</button><button id="play-series" hidden>Series details</button><button id="play-next" hidden>Next episode</button><button id="cancel-next" hidden>Cancel next episode</button><button id="toggle" class="primary">Pause</button><button id="rewind">Back 10 seconds</button><button id="forward">Forward 10 seconds</button></div><div class="actions playback-secondary"><button id="favorite" aria-pressed="false">☆ Add favorite</button><button id="retry" hidden>Retry stream</button><button id="tracks-open">Playback settings</button><button id="hide-controls">Hide controls</button><button id="stop">Back to streams</button></div><p class="hint">Left / right seek movies · Up / down or OK show controls · Channel +/− or numbers switch live channels · Back returns.</p></div>
+    </section>
+    <div id="playback-busy" role="status" hidden><span aria-hidden="true"></span>Buffering…</div>
+    <div id="scrub-osd" class="scrub-osd" hidden><div class="scrub-times"><span data-scrub-position></span><strong data-scrub-delta></strong><span data-scrub-remaining></span></div><progress aria-label="Playback progress"></progress></div>
+    <div id="track-menu" class="track-menu" role="dialog" aria-modal="true" aria-labelledby="tracks-title" hidden>
+      <h2 id="tracks-title">Playback settings</h2><p class="hint">Picture, language and playback options for this stream.</p>
+      <label for="audio-track">Audio</label><select id="audio-track"></select>
+      <label for="subtitle-track">Subtitles</label><select id="subtitle-track"></select>
+      <div id="mp4-subtitle-tools" hidden><div class="subtitle-actions"><button id="mp4-scan">Find embedded MP4 subtitles</button><button id="mp4-cancel" hidden>Cancel reading</button><button id="mp4-retry" hidden>Retry embedded captions</button></div><p id="mp4-status" class="hint" role="status"></p></div>
+      <button id="subtitle-add" class="subtitle-add" aria-expanded="false" aria-controls="subtitle-editor">Load subtitle file</button>
+      <div id="subtitle-editor" class="subtitle-editor" hidden>
+        <p class="hint">UTF-8 SRT, WebVTT, ASS or SSA, up to 2 MB. Timed from the start of this video. Text only; custom fonts, styles, positioning and animation are ignored. Drawings are omitted. Kept until this video stops.</p>
+        <label for="subtitle-method">Load from</label><select id="subtitle-method"><option value="url">Subtitle URL</option><option value="file">Local file · if supported</option></select>
+        <div id="subtitle-url-field"><label for="subtitle-url">Subtitle URL</label><input id="subtitle-url" type="url" maxlength="8192" placeholder="https://…/captions.vtt" autocomplete="off" spellcheck="false"><p class="hint">The server must allow this app to read the file. Provider login headers are not sent.</p></div>
+        <div id="subtitle-file-field" hidden><label for="subtitle-file">Subtitle file</label><input id="subtitle-file" type="file" accept=".srt,.vtt,.ass,.ssa,text/vtt,application/x-subrip,text/x-ass,text/x-ssa"><p class="hint">File picking depends on your TV or browser.</p></div>
+        <p id="subtitle-load-status" class="hint" role="status"></p><div class="subtitle-actions"><button id="subtitle-load">Load subtitles</button><button id="subtitle-cancel">Cancel</button></div>
+      </div>
+      <label for="subtitle-size">Text subtitle size</label><select id="subtitle-size"></select><label for="subtitle-delay">Subtitle timing</label><select id="subtitle-delay"></select>
+      <label for="quality-track">Video quality</label><select id="quality-track"></select><label for="aspect-mode">Picture size</label><select id="aspect-mode"></select><label for="playback-speed">Playback speed</label><select id="playback-speed"></select>
+      <p id="track-status" class="hint" role="status"></p><button id="tracks-close" class="primary">Done</button>
+    </div>
+    <div id="card-menu" class="card-menu" role="dialog" aria-modal="true" aria-labelledby="card-menu-title" hidden><h2 id="card-menu-title"></h2><button id="card-menu-play">Watch</button><button id="card-menu-favorite">Add favorite</button><button id="card-menu-watchlist" hidden>Save for later</button><button id="card-menu-watched" hidden>Mark as watched</button><button id="card-menu-download" hidden>Download</button><button id="card-menu-history" hidden>Remove from recently watched</button><p id="card-menu-note" class="hint" role="status"></p><button id="card-menu-close">Back</button></div>
+    <section id="resume" class="info-panel" hidden><p class="eyebrow">PICK UP WHERE YOU LEFT OFF</p><h1 id="resume-title"></h1><p id="resume-description"></p><div class="actions"><button id="resume-continue" class="primary">Continue watching</button><button id="resume-start">Start over</button><button id="resume-back">Back to streams</button></div></section>
+    <section id="about" class="info-panel" hidden>
+      <p class="eyebrow">AN INDEPENDENT FORK</p><h1>A little light for your screen.</h1>
+      <p>Lanternfin TV — LG / Samsung development build 0.1.0.</p>
+      <p>Based on Extreme InfiniTV by Ludovico Ferrara / infinitel8p and contributors. Original notice: Copyright (c) 2025 Ludovico Ferrara. The shared M3U parser, XMLTV guide reader and TV interface come from that project.</p>
+      <p>Free software under GPL-3.0-or-later. License and attribution are included in this app package. Corresponding source: github.com/jpaul-dev/Lanternfin-TV.</p>
+      <p>Includes Shaka Player 5.2.8, Copyright Google LLC, under Apache-2.0; mpegts.js 1.8.0 by Zheng Qian under Apache-2.0; MP4Box.js 2.4.1, Copyright Telecom ParisTech/TSI/MM/GPAC Cyril Concolato, under BSD-3-Clause; and fflate 0.8.3, Copyright Arjun Barrett, under MIT. Their licenses are included in this package. The TV layout adapts the original app’s sidebar, hero and artwork rows.</p>
+      <p>Hardware playback validation is ongoing. Programme guides are available for compatible sources. Samsung single-file offline downloads are implemented but still need hardware validation. Full Android feature parity remains in development.</p>
+      <p>Your TV connects to the source you enter. This app adds no analytics, account service or receiver. Update checks contact the public fork only when you request them; no update installs automatically.</p>
+      <button id="about-updates">App updates</button><button id="about-back" class="primary">Back</button>
+    </section>
+    <section id="exit" class="info-panel" hidden><h1>All done for now?</h1><p>Exit Lanternfin TV?</p><div class="actions"><button id="stay" class="primary">Keep watching</button><button id="leave">Exit app</button></div></section>
+    <p id="notice" role="status" aria-live="polite"></p>
+    <footer><span>Arrows to move · OK to select · Hold OK for options · Back to return</span><button id="about-open">About Lanternfin TV</button></footer>
+  </main>
+</body>
+</html>
