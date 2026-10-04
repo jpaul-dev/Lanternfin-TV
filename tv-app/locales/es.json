@@ -112,5 +112,9 @@
   "Searching categories…": "Buscando categorías…",
   "{count} category": "{count} categoría",
   "No matching categories": "No hay categorías coincidentes",
-  "{page} / {pages}": "{page} / {pages}"
+  "{page} / {pages}": "{page} / {pages}",
+  "Your current library stays available if loading fails or is cancelled.": "Tu biblioteca actual sigue disponible si la carga falla o se cancela.",
+  "Applying library…": "Aplicando biblioteca…",
+  "Refresh failed. Your current library is unchanged.": "Error al actualizar. Tu biblioteca actual no ha cambiado.",
+  "Refresh cancelled. Your current library is unchanged.": "Actualización cancelada. Tu biblioteca actual no ha cambiado."
 }

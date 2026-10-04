@@ -11,6 +11,7 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Use
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json' }
 const drmFixture = createDRMFixture({ port, directory: resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/tv-drm-demo') })
 const mp4Stats = { authorized: 0, denied: 0, ranges: 0 }
+const refreshDemos = new Map()
 createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1:4323').pathname)
@@ -106,16 +107,33 @@ createServer(async (request, response) => {
       const entries = Array.from({ length: 60 }, (_, index) => `#EXTINF:-1 tvg-type="movie" tvg-logo="http://127.0.0.1:${port}/_test/art.svg?n=${index}" group-title="UI test movies",${index % 2 ? 'FR' : 'EN'} - Movie ${index + 1}\nhttp://127.0.0.1:${port}/_test/unavailable.mp4?id=${index}\n`).join('')
       response.writeHead(200, { 'Content-Type': 'audio/x-mpegurl', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }); response.end('#EXTM3U\n' + entries); return
     }
-    if (fixtures && ['/_test/playlist.m3u', '/_test/large.m3u', '/_test/categories.m3u'].includes(pathname)) {
+    if (fixtures && ['/_test/playlist.m3u', '/_test/large.m3u', '/_test/categories.m3u', '/_test/refresh.m3u'].includes(pathname)) {
+      const refresh = pathname === '/_test/refresh.m3u'
+      let refreshAttempt = 0
+      if (refresh) {
+        const demo = new URL(request.url, `http://127.0.0.1:${port}`).searchParams.get('demo')?.slice(0, 80) || 'default'
+        refreshAttempt = (refreshDemos.get(demo) || 0) + 1
+        if (!refreshDemos.has(demo) && refreshDemos.size >= 20) refreshDemos.delete(refreshDemos.keys().next().value)
+        refreshDemos.set(demo, refreshAttempt)
+        if (refreshAttempt === 2) { response.writeHead(503, { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }); response.end('Fixture refresh unavailable'); return }
+        if (refreshAttempt === 4) {
+          await new Promise(done => {
+            const cancel = () => { clearTimeout(timer); done() }
+            const timer = setTimeout(() => { response.off('close', cancel); done() }, 30000)
+            response.once('close', cancel)
+          })
+          if (response.destroyed) return
+        }
+      }
       response.writeHead(200, { 'Content-Type': 'audio/x-mpegurl', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
       const manyCategories = pathname === '/_test/categories.m3u'
-      const count = pathname === '/_test/large.m3u' || manyCategories ? 120000 : 50
+      const count = pathname === '/_test/large.m3u' || manyCategories || refresh ? 120000 : 50
       let entry = 0
       response.write(`#EXTM3U x-tvg-url="http://127.0.0.1:${port}/_test/guide.xml"\n`)
       const write = () => {
         if (response.destroyed) return
         let chunk = ''
-        for (let n = 0; n < 500 && entry < count; n++, entry++) chunk += `#EXTINF:-1 tvg-id="demo-${entry}" tvg-logo="${manyCategories ? `http://127.0.0.1:${port}/_test/art.svg?n=${entry % 5}` : `https://images.example/${'x'.repeat(100)}`}" ${manyCategories ? 'tvg-type="movie" ' : ''}group-title="${manyCategories ? `Category ${String(entry % 10000 + 1).padStart(5, '0')}` : ['Nature', 'Cinema', 'Radio'][entry % 3]}",${entry === 0 ? '<b>Inert title</b>' : `Test stream ${entry + 1}`}\nhttp://127.0.0.1:${port}/_test/unavailable.mp4?id=${entry}\n`
+        for (let n = 0; n < 500 && entry < count; n++, entry++) chunk += `#EXTINF:-1 tvg-id="demo-${entry}" tvg-logo="${manyCategories || refresh ? `http://127.0.0.1:${port}/_test/art.svg?n=${entry % 5}` : `https://images.example/${'x'.repeat(100)}`}" ${manyCategories || refresh ? 'tvg-type="movie" ' : ''}group-title="${refresh ? 'Cinema' : manyCategories ? `Category ${String(entry % 10000 + 1).padStart(5, '0')}` : ['Nature', 'Cinema', 'Radio'][entry % 3]}",${refresh ? `${refreshAttempt >= 3 ? 'Updated ' : ''}Movie ${entry + 1}` : entry === 0 ? '<b>Inert title</b>' : `Test stream ${entry + 1}`}\nhttp://127.0.0.1:${port}/_test/unavailable.mp4?id=${entry}\n`
         const ready = response.write(chunk)
         if (entry === count) response.end()
         else if (ready) setImmediate(write)

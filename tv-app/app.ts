@@ -11,6 +11,7 @@ import { choiceDirection, settingsChoices } from './settings-choices'
 import { categoryBrowser, playlistCategories } from './category-browser'
 import { categoryEditor } from './category-editor'
 import { providerGroups, providerResolver } from './provider-browsing'
+import { libraryRefresh } from './library-refresh'
 import { groupPicker } from './group-picker'
 import { libraryUI } from './library-ui'
 import { TVDownloads, localDownload, type DownloadPlatform } from './downloads'
@@ -88,6 +89,8 @@ let progressSaveIssue = ''
 let libraryView: 'all' | 'favorites' | 'watchlist' | 'recent' = 'all'
 let nativeSelectOpen = false
 let browseView: 'home' | 'all' | 'search' | MediaKind = 'home'
+let refreshReturn: { screen: Screen; view: 'home' | 'all' | 'search' | MediaKind; library: 'all' | 'favorites' | 'watchlist' | 'recent' } | undefined
+const refreshDialog = libraryRefresh({ cancel() { cancelLoad(); notice(tr('Refresh cancelled. Your current library is unchanged.')) }, retry() { button('refresh-catalog').click() } })
 const browseHistory = new BrowseHistory()
 let browseGeneration = 0, enteringBrowse = 0, browseInputRevision = 0, temporaryBrowse = false
 let focusedBrowse: BrowseFocus | undefined, pendingBrowseVisit: BrowseVisit | undefined, catalogReturnVisit: BrowseVisit | undefined
@@ -294,9 +297,9 @@ function setBusy(busy: boolean) {
   for (const item of $('profile-list').querySelectorAll<HTMLButtonElement>('button')) item.disabled = busy
   input('keep-library').disabled = busy || !input('remember').checked
   $('cancel-load').hidden = !busy
-  if (busy) button('cancel-load').focus()
+  if (busy && screen === 'setup') button('cancel-load').focus()
 }
-function cancelLoad() { loading?.abort(); loading = undefined; setBusy(false) }
+function cancelLoad() { loading?.abort(); loading = undefined; refreshReturn = undefined; refreshDialog.close(); setBusy(false) }
 
 $('source-form').addEventListener('submit', async event => {
   event.preventDefault()
@@ -304,14 +307,17 @@ $('source-form').addEventListener('submit', async event => {
   let source: Source, override: string | undefined, offset: GuideCorrection, accent: Accent | undefined
   try { source = currentSource(); override = guideAddress(input('guide-url').value); offset = chosenGuideCorrection('guide-offset'); accent = sourceAccent(select('profile-accent').value) } catch (error) { notice((error as Error).message); return }
   const controller = new AbortController(); loading = controller
-  setBusy(true); notice('Opening your playlist…')
+  const refreshing = refreshReturn
+  const loadingNotice = refreshing ? refreshDialog.progress : notice
+  setBusy(true); loadingNotice('Opening your playlist…')
   const fresh = forceFresh; forceFresh = false
   const useCache = input('remember').checked && input('keep-library').checked && source.kind !== 'direct'
   let savedCatalog: CatalogSnapshot | undefined
   let savedPlaylist: (Catalog & { at: number }) | undefined
+  let applied = false
   try {
     if (useCache && !fresh) {
-      notice('Checking your saved library…')
+      loadingNotice('Checking your saved library…')
       try { if (source.kind === 'playlist') savedPlaylist = await catalogCache.loadPlaylist(source, controller.signal); else savedCatalog = await catalogCache.load(source, controller.signal) } catch { /* Live loading is the fallback for missing/corrupt/unavailable storage. */ }
     }
     if (controller.signal.aborted) return
@@ -319,16 +325,18 @@ $('source-form').addEventListener('submit', async event => {
     const catalog: Catalog = initialCategories ? { channels: [] as Channel[], skipped: 0 } : savedPlaylist || await loadCatalog(source, controller.signal, progress => {
       if (loading !== controller) return
       const megabytes = (progress.bytes / 1024 / 1024).toFixed(1)
-      notice(`Loading ${megabytes} MB${progress.total ? ` of ${(progress.total / 1024 / 1024).toFixed(1)} MB` : ''} · ${progress.channels.toLocaleString()} streams found. You can cancel at any time.`)
+      loadingNotice(`Loading ${megabytes} MB${progress.total ? ` of ${(progress.total / 1024 / 1024).toFixed(1)} MB` : ''} · ${progress.channels.toLocaleString()} streams found. You can cancel at any time.`)
     })
     if (loading !== controller) return
     let nextIndex = source.kind === 'xtream' ? new ProviderIndex(source, initialCategories || []) : undefined
     if (savedCatalog && nextIndex) {
-      notice(`Opening ${savedCatalog.entries.reduce((sum, entry) => sum + entry.channels.length, 0).toLocaleString()} saved titles…`)
+      loadingNotice(`Opening ${savedCatalog.entries.reduce((sum, entry) => sum + entry.channels.length, 0).toLocaleString()} saved titles…`)
       try { await nextIndex.restore(savedCatalog, controller.signal) }
       catch { if (loading !== controller || controller.signal.aborted) return; nextIndex = new ProviderIndex(source, initialCategories || []) }
     }
     if (loading !== controller || controller.signal.aborted) return
+    if (refreshing) refreshDialog.applying()
+    applied = true
     cancelBrowseEntry(); catalogReturnVisit = undefined; focusedBrowse = undefined; temporaryBrowse = false
     homeGeneration++; cancelHomeRows(); hero.reset(); $('home-rows').replaceChildren()
     channels = catalog.channels; page = 0; input('search').value = ''; libraryView = 'all'; browseView = 'home'
@@ -361,11 +369,24 @@ $('source-form').addEventListener('submit', async event => {
     libraryNote.set(library.persistent ? 'Favorites and recent streams are saved on this TV.' : persisted ? 'Your source is saved, but library changes last for this session. Reopen the source to retry saving them.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.')
     $('return-catalog').hidden = false
     // Credentials remain only in the form/session unless saving was explicitly chosen.
-    await updateGroups(); await filter(); if (loading !== controller || controller.signal.aborted) return; goHome()
+    await updateGroups(); await filter(); if (loading !== controller || controller.signal.aborted) return
+    if (refreshing) {
+      refreshReturn = undefined; refreshDialog.close(false)
+      if (refreshing.screen === 'settings') { show('settings'); button('settings-refresh').focus() }
+      else if (refreshing.view === 'home') goHome()
+      else if (refreshing.view === 'all') await browseLibrary(refreshing.library)
+      else await browse(refreshing.view)
+    } else goHome()
+    if (loading !== controller || controller.signal.aborted) return
     startIndex()
     savePlaylistCache()
     notice((catalog.skipped ? `${catalog.skipped} entries with invalid addresses were skipped.` : '') + storageMessage)
-  } catch (error) { if (loading === controller) notice((error as Error).message) }
+  } catch (error) {
+    if (loading === controller) {
+      if (refreshing && !applied) refreshDialog.failed((error as Error).message)
+      else { if (refreshing) { refreshReturn = undefined; refreshDialog.close(false); goHome() }; notice((error as Error).message) }
+    }
+  }
   finally { if (loading === controller) { loading = undefined; setBusy(false); if (screen === 'setup') button('connect').focus() } }
 })
 $('cancel-load').onclick = () => { cancelLoad(); notice('Loading cancelled.'); button('connect').focus() }
@@ -518,14 +539,16 @@ $('return-catalog').onclick = () => { cancelLoad(); show('catalog') }
 for (const view of ['all', 'favorites', 'watchlist', 'recent'] as const) $(`view-${view}`).onclick = () => void browseLibrary(view)
 $('clear-history').onclick = () => openLibraryManager('catalog', 'history')
 $('refresh-catalog').onclick = () => {
-  forceFresh = true
-  if (!activeSource) return
+  if (!activeSource || loading) return
+  forceFresh = true; rememberBrowsePosition()
   let profile: SourceProfile | undefined
   try { profile = readProfiles(localStorage).find(item => item.id === sourceId(activeSource!)) } catch { /* Session-only refresh. */ }
   select('profile-accent').value = activeAccent || ''; editingSource = activeSource; input('guide-url').value = activeGuideUrl || ''; select('guide-offset').value = String(activeGuideOffset); input('source-name').value = profile?.name || ''; input('remember').checked = !!profile; input('keep-library').checked = !!profile?.keepLibrary
   select('source-kind').value = activeSource.kind; input('source-url').value = activeSource.url
   input('username').value = activeSource.username; input('password').value = activeSource.password; sourceKind()
-  show('setup'); $('source-form').dispatchEvent(new Event('submit', { cancelable: true }))
+  if (refreshDialog.open()) refreshReturn = { screen, view: browseView, library: libraryView }
+  else show('setup')
+  $('source-form').dispatchEvent(new Event('submit', { cancelable: true }))
 }
 
 function controls() {

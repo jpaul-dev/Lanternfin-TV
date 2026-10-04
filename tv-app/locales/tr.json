@@ -112,5 +112,9 @@
   "Searching categories…": "Kategoriler aranıyor…",
   "{count} category": "{count} kategori",
   "No matching categories": "Eşleşen kategori yok",
-  "{page} / {pages}": "{page} / {pages}"
+  "{page} / {pages}": "{page} / {pages}",
+  "Your current library stays available if loading fails or is cancelled.": "Yükleme başarısız olursa veya iptal edilirse mevcut kitaplığınız kullanılabilir kalır.",
+  "Applying library…": "Kitaplık uygulanıyor…",
+  "Refresh failed. Your current library is unchanged.": "Yenileme başarısız oldu. Mevcut kitaplığınız değişmedi.",
+  "Refresh cancelled. Your current library is unchanged.": "Yenileme iptal edildi. Mevcut kitaplığınız değişmedi."
 }

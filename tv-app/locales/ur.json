@@ -112,5 +112,9 @@
   "Searching categories…": "زمرے تلاش کیے جا رہے ہیں…",
   "{count} category": "زمروں کی تعداد: {count}",
   "No matching categories": "کوئی مماثل زمرہ نہیں",
-  "{page} / {pages}": "{page} / {pages}"
+  "{page} / {pages}": "{page} / {pages}",
+  "Your current library stays available if loading fails or is cancelled.": "لوڈنگ ناکام ہونے یا منسوخ ہونے پر بھی آپ کی موجودہ لائبریری دستیاب رہے گی۔",
+  "Applying library…": "لائبریری لاگو کی جا رہی ہے…",
+  "Refresh failed. Your current library is unchanged.": "ریفریش ناکام ہو گیا۔ آپ کی موجودہ لائبریری میں کوئی تبدیلی نہیں ہوئی۔",
+  "Refresh cancelled. Your current library is unchanged.": "ریفریش منسوخ کر دیا گیا۔ آپ کی موجودہ لائبریری میں کوئی تبدیلی نہیں ہوئی۔"
 }

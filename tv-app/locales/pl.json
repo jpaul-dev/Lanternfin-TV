@@ -112,5 +112,9 @@
   "Searching categories…": "Wyszukiwanie kategorii…",
   "{count} category": "Liczba kategorii: {count}",
   "No matching categories": "Brak pasujących kategorii",
-  "{page} / {pages}": "{page} / {pages}"
+  "{page} / {pages}": "{page} / {pages}",
+  "Your current library stays available if loading fails or is cancelled.": "Bieżąca biblioteka pozostanie dostępna, jeśli wczytywanie się nie powiedzie lub zostanie anulowane.",
+  "Applying library…": "Stosowanie biblioteki…",
+  "Refresh failed. Your current library is unchanged.": "Odświeżanie nie powiodło się. Bieżąca biblioteka pozostaje bez zmian.",
+  "Refresh cancelled. Your current library is unchanged.": "Odświeżanie anulowane. Bieżąca biblioteka pozostaje bez zmian."
 }

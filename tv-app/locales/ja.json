@@ -112,5 +112,9 @@
   "Searching categories…": "カテゴリを検索中…",
   "{count} category": "{count} カテゴリ",
   "No matching categories": "一致するカテゴリがありません",
-  "{page} / {pages}": "{page} / {pages}"
+  "{page} / {pages}": "{page} / {pages}",
+  "Your current library stays available if loading fails or is cancelled.": "読み込みに失敗した場合やキャンセルした場合も、現在のライブラリは引き続き利用できます。",
+  "Applying library…": "ライブラリを適用中…",
+  "Refresh failed. Your current library is unchanged.": "更新に失敗しました。現在のライブラリは変更されていません。",
+  "Refresh cancelled. Your current library is unchanged.": "更新をキャンセルしました。現在のライブラリは変更されていません。"
 }

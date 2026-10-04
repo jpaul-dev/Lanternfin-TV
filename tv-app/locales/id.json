@@ -112,5 +112,9 @@
   "Searching categories…": "Mencari kategori…",
   "{count} category": "{count} kategori",
   "No matching categories": "Tidak ada kategori yang cocok",
-  "{page} / {pages}": "{page} / {pages}"
+  "{page} / {pages}": "{page} / {pages}",
+  "Your current library stays available if loading fails or is cancelled.": "Pustaka saat ini tetap tersedia jika pemuatan gagal atau dibatalkan.",
+  "Applying library…": "Menerapkan pustaka…",
+  "Refresh failed. Your current library is unchanged.": "Penyegaran gagal. Pustaka saat ini tidak berubah.",
+  "Refresh cancelled. Your current library is unchanged.": "Penyegaran dibatalkan. Pustaka saat ini tidak berubah."
 }

@@ -45,13 +45,13 @@ it('accepts reordered placeholders and rejects a changed English source', () => 
   expect(() => validatePortableTranslations({ [text]: 'changed' }, { [text]: text }, 'en')).toThrow()
 })
 
-it('packages every guide, channel finder and category search label with intact placeholders', async () => {
+it('packages every guide, finder, category search and refresh dialog label with intact placeholders', async () => {
   const labels = new Set<string>()
   const literal = (node: ts.Node) => {
     if (ts.isStringLiteral(node)) labels.add(node.text)
     else if (ts.isConditionalExpression(node)) { literal(node.whenTrue); literal(node.whenFalse) }
   }
-  for (const file of ['schedule', 'guide-finder', 'category-browser']) {
+  for (const file of ['schedule', 'guide-finder', 'category-browser', 'library-refresh']) {
     const source = ts.createSourceFile(file, await readFile('tv-app/' + file + '.ts', 'utf8'), ts.ScriptTarget.Latest, true)
     const visit = (node: ts.Node) => {
       if (ts.isCallExpression(node) && node.expression.getText(source) === 'tr' && node.arguments[0]) literal(node.arguments[0])

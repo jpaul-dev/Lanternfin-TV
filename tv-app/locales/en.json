@@ -112,5 +112,9 @@
   "Searching categories…": "Searching categories…",
   "{count} category": "{count} category",
   "No matching categories": "No matching categories",
-  "{page} / {pages}": "{page} / {pages}"
+  "{page} / {pages}": "{page} / {pages}",
+  "Your current library stays available if loading fails or is cancelled.": "Your current library stays available if loading fails or is cancelled.",
+  "Applying library…": "Applying library…",
+  "Refresh failed. Your current library is unchanged.": "Refresh failed. Your current library is unchanged.",
+  "Refresh cancelled. Your current library is unchanged.": "Refresh cancelled. Your current library is unchanged."
 }
