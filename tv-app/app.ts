@@ -973,6 +973,9 @@ function renderGuide() {
   if (focused) list.querySelector<HTMLElement>(`[data-programme="${focused}"]`)?.focus({ preventScroll: true })
   button('guide-previous').disabled = guidePage === 0; button('guide-next').disabled = (guidePage + 1) * 24 >= upcoming.length
   $('guide-page').textContent = upcoming.length ? `${guidePage + 1} / ${Math.ceil(upcoming.length / 24)}` : 'No listings'
+  // A delayed response can grow the heading above an already focused guide control.
+  // Keep it visible in the enlarged, scrolling panel without moving focus from elsewhere.
+  if (screen === 'catalog' && $('guide-panel').contains(document.activeElement)) (document.activeElement as HTMLElement).scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
 }
 function syncGuideDays() {
   guideDayStamp = `${preferences.guideClock}:${guideDate(Date.now(), preferences.guideClock)}`

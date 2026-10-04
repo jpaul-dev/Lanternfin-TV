@@ -37,5 +37,12 @@ it('shows complete past/future calendar days and date-specific empty states thro
   await choose(String(Date.UTC(2026, 9, 4))); expect(el('guide-status').textContent).toBe('No listings for this date.')
   await choose('now'); expect(el('guide-status').textContent).toContain('On now')
   expect(fetcher).toHaveBeenCalledTimes(2)
+  const keepVisible = vi.fn(); el('guide-programmes').scrollIntoView = keepVisible
+  el('guide-refresh').click(); el('guide-programmes').focus(); await vi.advanceTimersByTimeAsync(500)
+  expect(document.activeElement).toBe(el('guide-programmes'))
+  expect(keepVisible).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' })
+  keepVisible.mockClear()
+  el('guide-refresh').click(); el('search').focus(); await vi.advanceTimersByTimeAsync(500)
+  expect(document.activeElement).toBe(el('search')); expect(keepVisible).not.toHaveBeenCalled()
   window.dispatchEvent(new Event('pagehide')); vi.clearAllTimers()
 })
