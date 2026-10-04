@@ -2,26 +2,37 @@ import { LANGUAGE_TOKENS, parseNamePrefix, prefixQualityTokens } from '../src/sc
 import type { Channel } from './catalog'
 
 export type VariantGroup = { members: Channel[]; selected: Channel }
-const metadata = new WeakMap<Channel, { key: string; tag: string; quality: number }>()
-function meta(channel: Channel) {
-  let value = metadata.get(channel)
-  if (!value) {
-    const prefix = parseNamePrefix(channel.name)
-    // Conservative title identity: preserve years, editions, punctuation and accents.
-    // Untagged titles, live channels and episodes never collapse by guessed identity.
-    value = { key: prefix.tag && ['movie', 'series'].includes(channel.mediaKind || '') ? `${channel.mediaKind}:${prefix.rest.normalize('NFC').toLocaleLowerCase().replace(/\s+/g, ' ').trim()}` : '', tag: prefix.tag || '', quality: prefixQualityTokens(channel.name).length }
-    metadata.set(channel, value)
+function variantKey(channel: Channel) {
+  // No per-title metadata cache: a full provider library can remain alive for
+  // hours, so even weakly keyed cached objects would remain alive with it.
+  if (channel.mediaKind !== 'movie' && channel.mediaKind !== 'series') return ''
+  const prefix = parseNamePrefix(channel.name)
+  // Preserve years, editions, punctuation and accents. Never guess the identity
+  // of an untagged title, live channel or individual episode.
+  return prefix.tag ? `${channel.mediaKind}:${prefix.rest.normalize('NFC').toLocaleLowerCase().replace(/\s+/g, ' ').trim()}` : ''
+}
+function selection(members: Channel[], language: string) {
+  if (!members.length) throw new TypeError('At least one version is required.')
+  const requested = language.toLowerCase(), base = requested.split('-')[0]
+  let selected = members[0], best = Infinity, firstTag: string | undefined, different = false
+  for (const channel of members) {
+    const tag = parseNamePrefix(channel.name).tag || '', code = LANGUAGE_TOKENS[tag]?.bcp47?.toLowerCase()
+    const rank = (code === requested ? 0 : code?.split('-')[0] === base ? 1 : 2) * 100 + prefixQualityTokens(channel.name).length
+    if (firstTag === undefined) firstTag = tag; else if (tag !== firstTag) different = true
+    if (rank < best) { best = rank; selected = channel }
   }
-  return value
+  return { selected, different }
 }
-export function preferredVariant(members: Channel[], language: string) {
-  const base = language.toLowerCase().split('-')[0]
-  const rank = (channel: Channel) => { const info = meta(channel), code = LANGUAGE_TOKENS[info.tag]?.bcp47?.toLowerCase(); return (code === language.toLowerCase() ? 0 : code?.split('-')[0] === base ? 1 : 2) * 100 + info.quality }
-  return members.reduce((best, channel) => rank(channel) < rank(best) ? channel : best)
-}
-/** Yielding grouping for current search results; never rewrites IDs or viewing history. */
-export async function groupVariants(channels: Channel[], language: string, signal: AbortSignal) {
-  const buckets = new Map<string, Channel[]>(), groups = new WeakMap<Channel, VariantGroup>()
+export function preferredVariant(members: Channel[], language: string) { return selection(members, language).selected }
+
+/** Singleton titles cost one map entry; only actual duplicates allocate arrays.
+ * An overfull bucket becomes a marker immediately and never retains >100 titles.
+ * Optional membership is checked within the cooperative scan, not by making a
+ * second full-size category array or a generator that can block between yields.
+ */
+export async function indexVariants(channels: Channel[], language: string, signal: AbortSignal, include?: (channel: Channel) => boolean) {
+  const buckets = new Map<string, Channel | Channel[] | null>(), groups = new WeakMap<Channel, VariantGroup>()
+  let count = 0
   let started = performance.now(), operations = 0
   const check = () => { if (signal.aborted) throw new Error('Grouping cancelled.') }
   const yieldIfNeeded = async () => {
@@ -30,23 +41,46 @@ export async function groupVariants(channels: Channel[], language: string, signa
   }
   check()
   for (const channel of channels) {
-    const key = meta(channel).key
-    if (key) { let bucket = buckets.get(key); if (!bucket) buckets.set(key, bucket = []); bucket.push(channel) }
-    if (++operations % 512 === 0) await yieldIfNeeded()
-  }
-  for (const members of buckets.values()) {
-    if (members.length > 1 && members.length <= 100 && new Set(members.map(channel => meta(channel).tag)).size > 1) {
-      const group = { members, selected: preferredVariant(members, language) }
-      for (const channel of members) groups.set(channel, group)
+    const key = !include || include(channel) ? variantKey(channel) : ''
+    if (key) {
+      const bucket = buckets.get(key)
+      if (bucket === undefined) buckets.set(key, channel)
+      else if (bucket !== null) {
+        if (!Array.isArray(bucket)) buckets.set(key, [bucket, channel])
+        else if (bucket.length === 100) buckets.set(key, null)
+        else bucket.push(channel)
+      }
     }
     if (++operations % 512 === 0) await yieldIfNeeded()
   }
+  for (const members of buckets.values()) {
+    if (Array.isArray(members)) {
+      const choice = selection(members, language)
+      if (choice.different) {
+        const group = { members, selected: choice.selected }; count++
+        for (const channel of members) groups.set(channel, group)
+      }
+    }
+    if (++operations % 512 === 0) await yieldIfNeeded()
+  }
+  check(); return { groups, count }
+}
+
+/** Yielding grouping for current search results; never rewrites IDs or history.
+ * Without any collapsible versions, borrow the original array without copying.
+ */
+export async function groupVariants(channels: Channel[], language: string, signal: AbortSignal) {
+  const { groups, count } = await indexVariants(channels, language, signal)
+  if (signal.aborted) throw new Error('Grouping cancelled.')
+  if (!count) return { channels, groups }
   const result: Channel[] = [], seen = new Set<VariantGroup>()
+  let started = performance.now(), operations = 0
   for (const channel of channels) {
     const group = groups.get(channel)
     if (!group) result.push(channel)
     else if (!seen.has(group)) { seen.add(group); result.push(group.selected) }
-    if (++operations % 512 === 0) await yieldIfNeeded()
+    if (++operations % 512 === 0 && performance.now() - started >= 10) { await new Promise<void>(resolve => setTimeout(resolve, 0)); if (signal.aborted) throw new Error('Grouping cancelled.'); started = performance.now() }
   }
-  check(); return { channels: result, groups }
+  if (signal.aborted) throw new Error('Grouping cancelled.')
+  return { channels: result, groups }
 }

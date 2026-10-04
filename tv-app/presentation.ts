@@ -2,7 +2,7 @@
 // packaged TV apps: no Astro navigation, desktop bridge, or unsupported CSS.
 import type { Channel } from './catalog'
 import { channelId, type TVLibrary } from './library'
-import { groupVariants } from './variants'
+import { indexVariants } from './variants'
 import { tr } from './i18n'
 import { HOME_ROWS, DEFAULT_HOME_ROWS, type HomeRow } from './home-config'
 import { NewestTitles } from './discovery'
@@ -56,9 +56,10 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
   const token = ++rowGeneration
   activeRows = root; root.setAttribute('aria-busy', 'true'); root.dataset.loading = tr('Loading…')
   try {
-  let grouped: Awaited<ReturnType<typeof groupVariants>> | undefined
-  if (language) {
-    try { grouped = await groupVariants(channels, language, controller.signal) } catch { return }
+  let grouped: Awaited<ReturnType<typeof indexVariants>> | undefined
+  const groupMovies = layout.includes('movies') || layout.includes('new-movies'), groupSeries = layout.includes('series') || layout.includes('new-series')
+  if (language && (groupMovies || groupSeries)) {
+    try { grouped = await indexVariants(channels, language, controller.signal, channel => channel.mediaKind === 'movie' ? groupMovies : channel.mediaKind === 'series' && groupSeries) } catch { return }
     if (token !== rowGeneration) return
   }
   // One bounded pass, rather than separate full-catalog copies for every rail.
@@ -68,14 +69,15 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
   const newestMovies = new NewestTitles(), newestSeries = new NewestTitles()
   const wantMovies = layout.includes('new-movies'), wantSeries = layout.includes('new-series')
   const selectedCategories = categoryRows.filter(row => layout.includes(row.category.id))
-  const playlistRows = new Map<string, Map<string, Channel[]>>(), playlistEntries = new Map<string, Channel[]>()
-  for (const row of selectedCategories) if (row.category.group !== undefined) {
+  const playlistRows = new Map<string, Map<string, { entries: Channel[]; seen: Set<string> }>>(), playlistEntries = new Map<string, Channel[]>()
+  for (const row of selectedCategories) if (!language && row.category.group !== undefined) {
     let kinds = playlistRows.get(row.category.group); if (!kinds) playlistRows.set(row.category.group, kinds = new Map())
-    const entries: Channel[] = []; kinds.set(row.category.kind, entries); playlistEntries.set(row.category.id, entries)
+    const entries: Channel[] = []; kinds.set(row.category.kind, { entries, seen: new Set() }); playlistEntries.set(row.category.id, entries)
   }
   const seenRecent = new Set<string>(); let started = performance.now(), index = 0
   for (const channel of channels) {
-    playlistRows.get(channel.group)?.get(homeKind(channel))?.push(channel)
+    const custom = playlistRows.get(channel.group)?.get(homeKind(channel))
+    if (custom && custom.entries.length < 12) { const id = channelId(channel); if (!custom.seen.has(id)) { custom.seen.add(id); custom.entries.push(channel) } }
     if (library?.recent.size && library.lastPlayed(channel) && !seenRecent.has(channelId(channel))) { recent.push(channel); seenRecent.add(channelId(channel)) }
     if (library?.favorites.size && favorites.length < 12 && library.isFavorite(channel)) favorites.push(channel)
     if (library?.watchlist.size && watchlistOrder.has(channelId(channel)) && !seenWatchlist.has(channelId(channel))) { watchlist.push(channel); seenWatchlist.add(channelId(channel)) }
@@ -94,13 +96,19 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
   const rows = { continue: recent.filter(channel => !!library?.lastPlayed(channel)?.position).slice(0, 12), watchlist, recent: recent.slice(0, 12), favorites, live, movies, series, 'new-movies': newestMovies.channels, 'new-series': newestSeries.channels }
   const custom = new Map<string, { entries: Channel[]; groups?: WeakMap<Channel, VariantGroup>; row: CategoryHomeRow }>()
   for (const row of selectedCategories) {
-    let entries = playlistEntries.get(row.category.id) || row.channels || [], groups: WeakMap<Channel, VariantGroup> | undefined
+    const playlist = row.category.group !== undefined
+    const include = playlist && language ? (channel: Channel) => channel.group === row.category.group && homeKind(channel) === row.category.kind : undefined
+    const entries = playlist && language ? channels : playlistEntries.get(row.category.id) || row.channels || []
+    let groups: WeakMap<Channel, VariantGroup> | undefined
     // Group within this category, so a language version in a different category
     // cannot replace the user's selected provider membership.
-    if (language) { try { const result = await groupVariants(entries, language, controller.signal); entries = result.channels; groups = result.groups } catch { return } }
+    if (language) { try { groups = (await indexVariants(entries, language, controller.signal, include)).groups } catch { return } }
     const cards: Channel[] = [], seen = new Set<string>(); let scanned = 0
-    for (const channel of entries) {
-      const id = channelId(channel); if (!seen.has(id)) { seen.add(id); cards.push(channel); if (cards.length === 12) break }
+    for (const entry of entries) {
+      if (!include || include(entry)) {
+        const channel = groups?.get(entry)?.selected || entry
+        const id = channelId(channel); if (!seen.has(id)) { seen.add(id); cards.push(channel); if (cards.length === 12) break }
+      }
       if (++scanned % 512 === 0 && performance.now() - started >= 12) { await new Promise<void>(resolve => setTimeout(resolve, 0)); if (token !== rowGeneration) return; started = performance.now() }
     }
     if (token !== rowGeneration) return

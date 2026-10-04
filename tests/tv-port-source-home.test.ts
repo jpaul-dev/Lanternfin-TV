@@ -115,3 +115,20 @@ it('keeps category membership and language grouping local to each row, with empt
   await homeRows(root, [], undefined, () => {}, undefined, ['category-1'], [{ category: second, open }])
   expect(root.textContent).toContain('No titles loaded'); expect(document.activeElement).toBe(root.querySelector('[data-home-action="open"]'))
 })
+
+it('fills category rows after duplicates and finds preferred versions at the far end of a large library', async () => {
+  const root = document.createElement('div'); document.body.replaceChildren(root)
+  const english = { ...movie(1), name: 'EN - Feature (2026)' }, french = { ...movie(20001), name: 'FR - Feature (2026)' }, outside = { ...movie(20002, 'Other'), name: 'FR - Feature (2026)' }
+  const channels = [english, ...Array(2000).fill(english), ...Array.from({ length: 18000 }, (_, i) => movie(i + 2)), outside, french]
+  const category = [{ category: layout.categories[0], open: vi.fn() }]
+  await homeRows(root, channels, undefined, () => {}, undefined, ['category-0'], category)
+  expect(root.querySelectorAll('.channel')).toHaveLength(12)
+  expect([...root.querySelectorAll('.channel')].map(cardChannel)).toEqual([english, ...channels.slice(2001, 2012)])
+  // More than 100 repeated entries make this title intentionally ungrouped.
+  await homeRows(root, channels, undefined, () => {}, 'fr', ['category-0'], category)
+  expect(root.querySelectorAll('.channel')).toHaveLength(12); expect(cardChannel(root.querySelector('.channel')!)).toBe(english); expect(cardVersions(root.querySelector('.channel')!)).toBeUndefined()
+  const distinct = [english, ...channels.slice(2001)]
+  await homeRows(root, distinct, undefined, () => {}, 'fr', ['category-0'], category)
+  expect(cardChannel(root.querySelector('.channel')!)).toBe(french); expect(cardVersions(root.querySelector('.channel')!)).toEqual([english, french])
+  expect(root.querySelectorAll('.channel')).toHaveLength(12)
+})
