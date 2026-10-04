@@ -13,6 +13,7 @@ import { TVDownloads, localDownload, type DownloadPlatform } from './downloads'
 import { downloadsUI } from './downloads-ui'
 import { updatesUI } from './updates-ui'
 import { homeLayoutUI } from './home-layout'
+import { homeHero } from './home-hero'
 import { findHomeCategories, homeKind, type HomeCategory } from './source-home'
 import { canSeek, scrubOSD } from './playback-osd'
 import { subtitleUI, EXTERNAL_SUBTITLE } from './subtitle-ui'
@@ -145,6 +146,12 @@ navigationIcons($('tv-nav'))
 const translateStatic = staticTranslations($('app'))
 try { preferenceStorage = localStorage; preferences = readPreferences(localStorage) } catch { /* Session settings still work. */ }
 applyPreferences(preferences, document.documentElement, activeAccent)
+const hero = homeHero($('home-content'), {
+  active: () => screen === 'catalog' && browseView === 'home' && !away && $('card-menu').hidden === true,
+  reducedMotion: () => preferences.reducedMotion,
+  library: () => library, guide: () => guide, clock: () => preferences.guideClock,
+  activate: watch, browse: () => { void browse('live') },
+})
 
 const backups = backupUI($('backup'), () => localStorage, count => { try { sessionStorage.setItem('lanternfin.restored', String(count)) } catch {}; window.location.reload() })
 const diagnostics = diagnosticsUI($('diagnostics'), (): DiagnosticReport => ({ schema: 1, app: buildInfo(__TV_TARGET__), capabilities: capabilities(document.querySelector('video') || document.createElement('video')), samsungPlayer: !!window.webapis?.avplay, screenSaver: screenSaver.status, playback: playbackDiagnostics.snapshot() }), () => playbackDiagnostics.clear())
@@ -157,7 +164,7 @@ const resetFlow = resetUI($('reset'), async removeDownloads => {
   searching?.abort(); clearTimeout(searchTimer); clearTimeout(indexTimer); indexTimer = undefined
   providerIndex?.pause(); providerIndex = undefined; suspendedIndex = undefined
   keepActiveLibrary = false; cacheSaving?.abort(); library?.setStorage(null)
-  cancelHomeRows(); guide?.clear(); playbackGuideLoading?.abort(); accountLoading?.abort(); replayLoading?.abort()
+  cancelHomeRows(); hero.reset(); guide?.clear(); playbackGuideLoading?.abort(); accountLoading?.abort(); replayLoading?.abort()
   clearTimeout(holdTimer); clearTimeout(nextTimer); cancelZap(); episodeContext.clear(); browseHistory.forget()
   resetSubtitles(); player?.stop(); screenSaver.release(); downloads.suspend()
   await resetAppData(storage, session, catalogCache, removeDownloads ? () => downloads.removeAll() : undefined)
@@ -213,6 +220,7 @@ function show(next: Screen) {
   focus?.focus()
   if (returningToCatalog && catalogReturnVisit) { pendingBrowseVisit = catalogReturnVisit; void filter(false) }
   if (next === 'detail') void refreshRelated()
+  hero.sync()
 }
 function sourceKind() {
   const kind = select('source-kind').value
@@ -263,6 +271,7 @@ $('source-form').addEventListener('submit', async event => {
     }
     if (loading !== controller || controller.signal.aborted) return
     cancelBrowseEntry(); catalogReturnVisit = undefined; focusedBrowse = undefined; temporaryBrowse = false
+    homeGeneration++; cancelHomeRows(); hero.reset(); $('home-rows').replaceChildren()
     channels = catalog.channels; page = 0; input('search').value = ''; libraryView = 'all'; browseView = 'home'
     providerCategories = initialCategories ? { live: initialCategories } : {}; detailInfo = undefined; detailVariants = []; catalogVariants = new WeakMap()
     let storageMessage = '', persisted = false
@@ -848,7 +857,7 @@ bindLifecycle(document, window, () => {
   guideMatcher.close()
   downloads.suspend()
   updates.close()
-  away = true; screenSaver.release()
+  away = true; hero.sync(); screenSaver.release()
   suspendedIndex = providerIndex?.progress.running ? providerIndex : undefined
   providerIndex?.pause(); renderIndexStatus()
   const interrupted = !!loading || !!providerLoading
@@ -867,6 +876,7 @@ bindLifecycle(document, window, () => {
 }, () => {
   downloads.foreground()
   away = false; screenSaver.release()
+  hero.sync()
   syncGuideDays()
   const index = suspendedIndex; suspendedIndex = undefined
   if (index && index === providerIndex) startIndex()
@@ -1065,7 +1075,7 @@ function saveBrowseChoice() {
 function browseLayout(title: string) {
   select('sort-order').options[0].textContent = tr(libraryView === 'watchlist' ? 'Recently saved' : 'Provider order')
   document.documentElement.dataset.browse = browseView
-  cancelHomeRows()
+  cancelHomeRows(); hero.sync()
   $('home-content').hidden = true; $('browse-content').hidden = false
   $('category-list').hidden = !['live', 'movie', 'series'].includes(browseView); $('channels').hidden = $('pagination').hidden = false
   $('category-sidebar').hidden = !['live', 'movie', 'series'].includes(browseView)
@@ -1086,37 +1096,23 @@ function syncNav() {
     if (selected) element.setAttribute('aria-current', 'page'); else element.removeAttribute('aria-current')
   }
 }
-function refreshHomeRows(activate: (channel: Channel, versions?: Channel[]) => void) {
+async function refreshHomeRows(activate: (channel: Channel, versions?: Channel[]) => void) {
+  const token = ++homeGeneration
   const layout = library?.homeLayout || { rows: preferences.homeRows, categories: [] }, source = activeSource
   const categories = layout.categories.map(category => {
     const cached = category.categoryId ? providerIndex?.cached(category.kind, { id: category.categoryId, name: category.title })?.channels : undefined
     const current = browseCategory?.kind === category.kind && browseCategory.id === category.categoryId ? channels : undefined
     return { category, channels: cached || current, open: () => { if (activeSource === source) void openHomeCategory(category) } }
   })
-  return homeRows($('home-rows'), source?.kind === 'xtream' ? libraryPool() : channels, library, activate, preferences.groupLanguages ? contentLanguage() : undefined, layout.rows, categories)
+  await homeRows($('home-rows'), source?.kind === 'xtream' ? libraryPool() : channels, library, activate, preferences.groupLanguages ? contentLanguage() : undefined, layout.rows, categories)
+  if (token === homeGeneration && source === activeSource && screen === 'catalog' && browseView === 'home' && !away) hero.refresh()
 }
 async function openHomeCategory(category: HomeCategory) {
   await browse(category.kind, { id: category.categoryId || '', name: category.group || category.title })
 }
 function renderHome() {
-  const token = ++homeGeneration
-  const rows = refreshHomeRows(watch)
-  const pool = providerIndex?.items.length ? providerIndex.items : channels
-  const featured = [...knownLibraryChannels.values()].find(channel => library?.isFavorite(channel)) || pool.find(channel => channel.mediaKind === 'movie' && channel.logo) || pool.find(channel => channel.logo) || pool[0]
-  renderFeatured(featured)
-  void rows.then(groups => {
-    if (token !== homeGeneration || screen !== 'catalog' || browseView !== 'home' || !featured || library?.isFavorite(featured)) return
-    const group = groups?.get(featured); if (group) renderFeatured(group.selected, group.members)
-  })
-}
-function renderFeatured(featured?: Channel, versions?: Channel[]) {
-  $('hero-title').textContent = featured?.name || 'Your evening starts here.'
-  $('hero-meta').textContent = featured ? `${featured.group} · ${featured.mediaKind === 'movie' ? 'Movie' : featured.mediaKind === 'series' ? 'Series' : 'From your library'}` : 'Live television, movies, and series. All in one place.'
-  $('hero-kicker').textContent = featured ? 'FROM YOUR LIBRARY' : 'MAKE YOURSELF AT HOME'
-  const art = $<HTMLImageElement>('hero-art'); art.hidden = !featured?.logo
-  if (featured?.logo) { art.src = featured.logo; art.referrerPolicy = 'no-referrer'; art.onerror = () => { art.hidden = true } } else art.removeAttribute('src')
-  button('hero-play').textContent = featured ? featured.mediaKind === 'series' ? 'View episodes' : '▶ Watch now' : 'Browse Live TV'
-  button('hero-play').onclick = () => featured ? watch(featured, versions) : void browse('live')
+  void refreshHomeRows(watch)
+  hero.sync()
 }
 function rememberLibraryChannel(channel: Channel) {
   if (activeSource?.kind !== 'xtream') return

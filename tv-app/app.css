@@ -102,6 +102,10 @@ html.watching,.watching body{background:transparent}
 .hero-copy{position:relative;padding:2.2rem 2rem;max-width:70%;min-height:14rem;display:flex;align-items:flex-start;justify-content:flex-end;flex-direction:column}
 .hero h2{font-size:2.25rem;line-height:1.12;margin:.4rem 0;max-width:100%;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .hero-copy>p:not(.eyebrow){font-size:.72rem;color:#c2bfca;margin:.4rem 0 1rem}
+.hero #hero-meta,.hero #hero-description{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;max-width:100%;margin:.35rem 0 .65rem}
+#hero-progress{width:12rem;max-width:100%;height:.16rem;margin:0 0 .65rem;border:0;background:#ffffff30;color:var(--accent)}
+#hero-progress::-webkit-progress-bar{background:#ffffff30}
+#hero-progress::-webkit-progress-value{background:var(--accent)}
 .hero button{font-size:.72rem}
 .home-shortcuts{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin:1rem 0 1.3rem}
 .home-shortcuts button{text-align:left;font-weight:600;background:#1c1e29;border-color:#30303d;font-size:.8rem;padding:.85rem 1rem}
