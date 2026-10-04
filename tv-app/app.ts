@@ -200,7 +200,9 @@ function show(next: Screen) {
   if (next !== 'settings') preferenceChoices.close(false)
   if (next !== 'catalog') { groups.close(false); categoryList.suspend() }
   else if (browseView !== 'home') categoryList.resume()
-  const returningToCatalog = next === 'catalog' && screen !== 'catalog' && screen !== 'guide-match' && !enteringBrowse && browseView !== 'home'
+  // Programme/guide-match screens restore their own guide focus; a later catalog
+  // restoration would otherwise move it back to a channel or category.
+  const returningToCatalog = next === 'catalog' && !['catalog', 'guide-match', 'programme'].includes(screen) && !enteringBrowse && browseView !== 'home'
   if (screen === 'catalog' && next !== 'catalog') { rememberBrowsePosition(); cancelBrowseEntry(); cancelProviderLoad(); searching?.abort(); clearTimeout(searchTimer); searchTimer = undefined }
   if (screen === 'updates' && next !== 'updates') updates.close()
   if (screen === 'downloads' && next !== 'downloads') downloadView.close()
@@ -799,6 +801,7 @@ document.addEventListener('keydown', event => {
   if (active instanceof HTMLInputElement && active.type === 'checkbox' && (event.key === 'Enter' || event.keyCode === 13)) { event.preventDefault(); active.click(); return }
   if (active instanceof HTMLSelectElement && (event.key === 'Enter' || event.keyCode === 13)) { nativeSelectOpen = true; return }
   const action = keyAction(event.key, event.keyCode)
+  if (navigateGuide(event, action, active)) { event.preventDefault(); return }
   if (!action) return
   if (['detail-description', 'programme-description', 'guide-programmes', 'diagnostics-events'].some(id => active === $(id)) && ['up', 'down'].includes(action)) {
     const description = active as HTMLElement, remaining = description.scrollHeight - description.clientHeight - description.scrollTop
@@ -945,7 +948,7 @@ function cancelGuide() { clearTimeout(guideTimer); guideLoading?.abort(); guideL
 function selectGuide(channel?: Channel, refresh = false) {
   cancelGuide(); guideChannel = channel; guideItems = []; guidePage = 0
   $('guide-title').textContent = channel?.name || 'Choose a channel'
-  $('guide-programmes').replaceChildren(); $('guide-description').textContent = ''
+  $('guide-programmes').replaceChildren(); $('guide-programmes').tabIndex = 0; $('guide-description').textContent = ''
   button('guide-watch').disabled = button('guide-favorite').disabled = !channel
   button('guide-match-open').hidden = !guide?.canMatch
   button('guide-match-open').disabled = !channel
@@ -971,7 +974,9 @@ function renderGuide() {
   else if (window) $('guide-status').textContent = upcoming.length ? `${upcoming.length} programme${upcoming.length === 1 ? '' : 's'} · ${guideDate(window.fromMs, preferences.guideClock)}` : 'No listings for this date.'
   else $('guide-status').textContent = upcoming.length ? 'Coming up' : 'No programme guide for this channel.'
   $('guide-description').textContent = slot.current?.description || ''
-  const list = $('guide-programmes'), scroll = list.scrollTop, focused = list.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.programme : undefined; list.replaceChildren()
+  const list = $('guide-programmes'), scroll = list.scrollTop, active = document.activeElement
+  const focusedIndex = [...list.querySelectorAll('button')].indexOf(active as HTMLButtonElement), focused = (active as HTMLElement)?.dataset.programme
+  list.replaceChildren()
   guidePage = Math.min(guidePage, Math.max(0, Math.ceil(upcoming.length / 24) - 1))
   for (const item of upcoming.slice(guidePage * 24, (guidePage + 1) * 24)) {
     const entry = document.createElement('button'), title = document.createElement('h3'), time = document.createElement('p')
@@ -981,8 +986,11 @@ function renderGuide() {
     if (activeSource && guideChannel && canReplay(activeSource, guideChannel, item)) { const badge = document.createElement('small'); badge.textContent = '↶ Replay available'; entry.append(badge) }
     list.append(entry)
   }
-  list.scrollTop = scroll
-  if (focused) list.querySelector<HTMLElement>(`[data-programme="${focused}"]`)?.focus({ preventScroll: true })
+  const entries = [...list.querySelectorAll<HTMLButtonElement>('button')]
+  // A populated list is navigated through its buttons, not a competing container stop.
+  // An empty/loading guide remains focusable for its label and scroll behavior.
+  list.tabIndex = entries.length ? -1 : 0; list.scrollTop = scroll
+  if (focusedIndex >= 0) (entries.find(entry => entry.dataset.programme === focused) || entries[Math.min(focusedIndex, entries.length - 1)] || list).focus({ preventScroll: true })
   button('guide-previous').disabled = guidePage === 0; button('guide-next').disabled = (guidePage + 1) * 24 >= upcoming.length
   $('guide-page').textContent = upcoming.length ? `${guidePage + 1} / ${Math.ceil(upcoming.length / 24)}` : 'No listings'
   // A delayed response can grow the heading above an already focused guide control.
@@ -1008,7 +1016,35 @@ function selectedGuideWindow() {
 }
 syncGuideDays()
 select('guide-day').onchange = () => { guidePage = 0; selectGuide(guideChannel) }
-for (const [id, delta] of [['guide-previous', -1], ['guide-next', 1]] as const) $(id).onclick = () => { guidePage += delta; renderGuide(); $('guide-programmes').querySelector<HTMLElement>('button')?.focus() }
+function focusGuideEntry(element: HTMLElement) { element.focus(); element.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }) }
+function changeGuidePage(delta: -1 | 1) {
+  if (button(delta < 0 ? 'guide-previous' : 'guide-next').disabled) return false
+  guidePage += delta; renderGuide()
+  const entries = [...$('guide-programmes').querySelectorAll<HTMLButtonElement>('button')]
+  focusGuideEntry(entries[delta < 0 ? entries.length - 1 : 0] || $('guide-programmes'))
+  return true
+}
+function navigateGuide(event: KeyboardEvent, action: string, active: Element | null): boolean {
+  const list = $('guide-programmes')
+  if (screen !== 'catalog' || $('guide-panel').hidden || !active || !list.contains(active)) return false
+  const entries = [...list.querySelectorAll<HTMLButtonElement>('button')]
+  if (!entries.length) return false
+  const activate = event.key === 'Enter' || event.keyCode === 13 || event.key === ' '
+  const vertical = ['up', 'down', 'channel-up', 'channel-down'].includes(action)
+  // Focus may already be on the loading container when an asynchronous response fills it.
+  if (active === list && (activate || vertical)) { focusGuideEntry(entries[action.endsWith('up') ? entries.length - 1 : 0]); return true }
+  const index = entries.indexOf(active as HTMLButtonElement)
+  if (index < 0 || !vertical) return false
+  const delta = action.endsWith('up') ? -1 : 1, next = index + delta
+  if (action.startsWith('channel-') || next < 0 || next >= entries.length) {
+    if (!changeGuidePage(delta)) {
+      if (action === 'up' && index === 0) focusGuideEntry(select('guide-day'))
+      else focusGuideEntry(entries[delta < 0 ? 0 : entries.length - 1])
+    }
+  } else focusGuideEntry(entries[next])
+  return true
+}
+for (const [id, delta] of [['guide-previous', -1], ['guide-next', 1]] as const) $(id).onclick = () => { changeGuidePage(delta) }
 function openProgramme(programme: Programme) {
   if (!guideChannel || !activeSource) return
   selectedProgramme = programme; programmeChannel = guideChannel
@@ -1021,7 +1057,10 @@ function openProgramme(programme: Programme) {
   $('programme-note').textContent = replay ? 'Available within your provider’s archive. Format and playback support depend on this TV.' : programme.start > Date.now() ? 'This programme has not started yet.' : 'Your provider does not advertise a replay for this programme.'
   show('programme')
 }
-function returnFromProgramme() { show('catalog'); (selectedProgramme && $('guide-programmes').querySelector<HTMLElement>(`[data-programme="${selectedProgramme.start}"]`) || button('guide-watch')).focus() }
+function returnFromProgramme() {
+  show('catalog'); render(); renderGuide()
+  focusGuideEntry(selectedProgramme && $('guide-programmes').querySelector<HTMLElement>(`[data-programme="${selectedProgramme.start}"]`) || $('guide-programmes').querySelector<HTMLElement>('button') || button('guide-watch'))
+}
 $('programme-back').onclick = returnFromProgramme
 $('programme-live').onclick = () => { if (programmeChannel) { playbackReturn = 'programme'; liveQueue.reset(libraryPool(), programmeChannel); startWatching(programmeChannel) } }
 $('programme-replay').onclick = async () => {
