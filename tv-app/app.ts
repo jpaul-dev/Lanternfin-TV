@@ -859,6 +859,7 @@ document.addEventListener('focusin', () => {
 for (const event of ['pointerdown', 'keydown']) document.addEventListener(event, () => { browseInputRevision++; pendingBrowseVisit = undefined }, { capture: true })
 bindLifecycle(document, window, () => {
   preferenceChoices.close(false)
+  diagnostics.suspend()
   guideMatcher.close()
   downloads.suspend()
   updates.close()

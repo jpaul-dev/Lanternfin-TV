@@ -1,5 +1,6 @@
 import type { Media } from './media'
 import type { State } from './player'
+import type { DRMReport } from './drm-support'
 
 export type PlayerStats = { engine?: 'html' | 'shaka' | 'mpegts' | 'samsung'; width?: number; height?: number; decodedFrames?: number; droppedFrames?: number; bandwidth?: number; bufferedSeconds?: number }
 export function safeStats(raw: PlayerStats = {}): PlayerStats {
@@ -67,7 +68,7 @@ export function capabilities(video: HTMLVideoElement, win = window, nav = naviga
     }),
   }
 }
-export type DiagnosticReport = { schema: 1; app: { version: string; target: string; commit: string; modified: boolean }; capabilities: ReturnType<typeof capabilities>; samsungPlayer: boolean; screenSaver: string; playback: ReturnType<PlaybackDiagnostics['snapshot']> }
+export type DiagnosticReport = { schema: 1; app: { version: string; target: string; commit: string; modified: boolean }; capabilities: ReturnType<typeof capabilities>; samsungPlayer: boolean; screenSaver: string; playback: ReturnType<PlaybackDiagnostics['snapshot']>; drm?: DRMReport }
 declare const __TV_BUILD__: { version: string; commit: string; dirty: boolean }
 export function buildInfo(target: 'webos' | 'tizen' | 'browser') {
   const build = typeof __TV_BUILD__ === 'undefined' ? { version: '0.1.0', commit: '', dirty: true } : __TV_BUILD__
