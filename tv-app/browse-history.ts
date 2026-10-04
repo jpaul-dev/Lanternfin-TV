@@ -38,7 +38,7 @@ export class BrowseHistory {
 }
 
 /** Find the same card after sorting/library changes, without blocking a large TV catalog. */
-export async function resolveBrowseVisit(items: Channel[], visit: BrowseVisit, pageSize: number, complete: boolean, signal: AbortSignal) {
+export async function resolveBrowseVisit(items: Channel[], visit: Pick<BrowseVisit, 'page' | 'focus'>, pageSize: number, complete: boolean, signal: AbortSignal) {
   const check = () => { if (signal.aborted) throw new Error('Navigation cancelled.') }
   check(); let page = visit.page, missing = false, moved = false
   if (visit.focus?.kind === 'title') {

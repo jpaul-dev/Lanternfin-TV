@@ -82,6 +82,7 @@ let channels: Channel[] = [], filtered: Channel[] = [], page = 0, lastChannel = 
 let state: State = 'idle', player: Player | undefined, loading: AbortController | undefined
 let controlsTimer: ReturnType<typeof setTimeout> | undefined
 let searching: AbortController | undefined, searchTimer: ReturnType<typeof setTimeout> | undefined
+let searchResetPending = false
 let library: TVLibrary | undefined, activeSource: Source | undefined
 let currentChannel: Channel | undefined, pendingChannel: Channel | undefined
 let lastTimeline = { position: 0, duration: 0 }, lastSaved = 0
@@ -418,12 +419,14 @@ $('forget').onclick = async () => {
 }
 
 async function filter(resetPage = true) {
+  searchResetPending ||= resetPage
+  resetPage = searchResetPending
   searching?.abort(); clearTimeout(searchTimer); searchTimer = undefined
   if (resetPage) { pendingBrowseVisit = undefined; focusedBrowse = document.activeElement instanceof HTMLElement && $('browse-content').contains(document.activeElement) ? browseFocus(document.activeElement) : undefined }
   const controller = new AbortController(); searching = controller
   $('browse-empty').hidden = true
   $('result-count').textContent = 'Searching your streams…'
-  button('previous').disabled = button('next').disabled = true
+  setSearchBusy(true)
   try {
     const tags = new Set<string>(), language = browseView === 'live' ? '' : select('language-filter').value
     const include = (channel: Channel) => {
@@ -455,22 +458,40 @@ async function filter(resetPage = true) {
     $('language-field').hidden = !language && ![...tags].some(tag => tag !== 'untagged')
     if (libraryView === 'recent' && select('sort-order').value === 'provider') matches.sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
     if (libraryView === 'watchlist' && select('sort-order').value === 'provider') { const order = new Map([...(library?.watchlist || [])].reverse().map((id, index) => [id, index])); matches.sort((a, b) => order.get(channelId(a))! - order.get(channelId(b))!) }
-    const visit = pendingBrowseVisit
     const complete = !providerIndex || !!browseCategory || providerIndex.progress.complete
-    const restored = visit ? await resolveBrowseVisit(matches, visit, PAGE_SIZE, complete, controller.signal) : undefined
-    if (searching !== controller) return
+    let visit: BrowseVisit | undefined, restored: Awaited<ReturnType<typeof resolveBrowseVisit>> | undefined
+    // Resolve the current focus, not the card selected when indexing started.
+    // If the user moves during a cooperative scan, reconsider that new anchor.
+    while (true) {
+      visit = pendingBrowseVisit
+      const active = !resetPage && screen === 'catalog' && document.activeElement instanceof HTMLElement && $('channels').contains(document.activeElement) ? document.activeElement : undefined
+      const focus = active && browseFocus(active), anchor = visit || (focus?.kind === 'title' ? { page, focus } : undefined)
+      restored = anchor ? await resolveBrowseVisit(matches, anchor, PAGE_SIZE, complete, controller.signal) : undefined
+      if (searching !== controller || controller.signal.aborted) return
+      if (visit ? pendingBrowseVisit !== visit : active && document.activeElement !== active) continue
+      break
+    }
+    searching = undefined; searchResetPending = false
     filtered = matches; page = restored?.page ?? (resetPage ? 0 : Math.min(page, Math.max(0, Math.ceil(matches.length / PAGE_SIZE) - 1))); render()
     if (visit && restored && pendingBrowseVisit === visit && !restored.pending && screen === 'catalog') {
       // Until indexing finishes, keep the anchor as new sorted titles arrive.
       // Any remote/pointer input or changed query relinquishes this restoration.
       pendingBrowseVisit = complete ? undefined : visit; restoreBrowsePosition(visit, restored.missing || restored.moved)
-    }
+    } else if (restored?.moved && document.activeElement instanceof HTMLElement && $('channels').contains(document.activeElement)) document.activeElement.scrollIntoView?.({ block: 'nearest' })
   } catch { /* Superseded searches do not replace current results. */ }
-  finally { if (searching === controller) searching = undefined }
+  finally { if (searching === controller) { searching = undefined; setSearchBusy(!!searchTimer) } }
+}
+function setSearchBusy(busy: boolean) {
+  $('channels').setAttribute('aria-busy', String(busy))
+  const wait = busy && (searchResetPending || !!enteringBrowse)
+  button('previous').disabled = wait || page === 0
+  button('next').disabled = wait || (page + 1) * PAGE_SIZE >= filtered.length
+  button('page-go').disabled = wait || filtered.length <= PAGE_SIZE
 }
 function render() {
   groups.sync()
   const grid = $('channels'), focused = grid.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.channel : undefined
+  const focusedIndex = focused ? [...grid.querySelectorAll('button')].indexOf(document.activeElement as HTMLButtonElement) : -1
   grid.textContent = ''
   const live = browseView === 'live' && libraryView === 'all'
   grid.classList.toggle('live-rows', live)
@@ -489,18 +510,22 @@ function render() {
     : filtered.some(channel => channel.addedAt || catalogVariants.get(channel)?.members.some(member => member.addedAt))
     ? 'Newest provider additions first. Series may use update dates; titles without dates follow.'
     : 'This source has no added dates for these titles. Provider order is shown.')
-  input('page-jump').max = String(Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))); input('page-jump').value = String(page + 1)
-  button('page-go').disabled = filtered.length <= PAGE_SIZE
+  input('page-jump').max = String(Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)))
+  if (document.activeElement !== input('page-jump')) input('page-jump').value = String(page + 1)
   $('page-label').textContent = `Page ${page + 1} of ${Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))}`
   $('pagination').hidden = !filtered.length
-  button('previous').disabled = page === 0; button('next').disabled = (page + 1) * PAGE_SIZE >= filtered.length
+  setSearchBusy(!!searching || !!searchTimer)
   for (const view of ['all', 'favorites', 'watchlist', 'recent']) button(`view-${view}`).setAttribute('aria-pressed', String(libraryView === view))
   const category = activeSource?.kind === 'xtream' ? browseCategory?.id : select('group').value
   categoryList.mark()
   button('categories-back').setAttribute('aria-pressed', String(!category))
   $('clear-history').hidden = libraryView !== 'recent'
   renderEmpty()
-  if (focused) grid.querySelector<HTMLElement>(`[data-channel="${focused}"]`)?.focus({ preventScroll: true })
+  if (focused) {
+    const items = grid.querySelectorAll<HTMLElement>('button')
+    const target = grid.querySelector<HTMLElement>(`[data-channel="${focused}"]`) || items[Math.min(Math.max(0, focusedIndex), items.length - 1)]
+    target?.focus({ preventScroll: true })
+  }
   if (focused && !filtered.length && !$('browse-empty').hidden) ($('browse-empty').querySelector<HTMLElement>('button:not([hidden])'))?.focus()
 }
 function renderEmpty() {
@@ -520,12 +545,12 @@ function renderEmpty() {
 $('empty-clear').onclick = () => button('reset-filters').click()
 $('empty-home').onclick = goHome
 $('empty-load').onclick = () => { startIndex(); renderEmpty() }
-input('search').oninput = () => { pendingBrowseVisit = undefined; focusedBrowse = { kind: 'control', id: 'search' }; searching?.abort(); searchTimer && clearTimeout(searchTimer); searchTimer = setTimeout(filter, 180) }
+input('search').oninput = () => { pendingBrowseVisit = undefined; focusedBrowse = { kind: 'control', id: 'search' }; searchResetPending = true; searching?.abort(); clearTimeout(searchTimer); searchTimer = setTimeout(filter, 180); setSearchBusy(true); $('result-count').textContent = 'Searching your streams…' }
 select('group').onchange = () => { void filter() }
 for (const id of ['media-filter', 'sort-order', 'watched-filter', 'language-filter']) $(id).onchange = () => { saveBrowseChoice(); void filter() }
 for (const [id, delta] of [['previous', -1], ['next', 1]] as const) $(id).onclick = () => changePage(page + delta)
 function changePage(next: number, x?: number) {
-  if (searching || next < 0 || next * PAGE_SIZE >= filtered.length || next === page) return
+  if (searchResetPending || enteringBrowse || searchTimer || next < 0 || next * PAGE_SIZE >= filtered.length || next === page) return
   pendingBrowseVisit = undefined; focusedBrowse = undefined
   const direction = next > page ? 'down' : 'up'; page = next; render()
   const items = [...$('channels').querySelectorAll<HTMLElement>('button')], index = x === undefined ? 0 : pageEntry(items.map(item => item.getBoundingClientRect()), x, direction)
@@ -1175,14 +1200,17 @@ function browseSignature() { return JSON.stringify([select('sort-order').value, 
 function rememberBrowsePosition() {
   const section = browseSection()
   if (!activeSource || screen !== 'catalog' || !section || enteringBrowse) return
-  const busy = !!searching || !!searchTimer
+  // Background indexing keeps the same query; its visible title is a valid
+  // return anchor even while that next result set is still being scanned.
+  const busy = searchResetPending
   const visit: BrowseVisit = pendingBrowseVisit || { query: input('search').value, group: select('group').value, categories: categoryList.position, ...(browseCategory && ['live', 'movie', 'series'].includes(browseView) ? { category: { id: browseCategory.id, name: browseCategory.name } } : {}), page: busy ? 0 : page, focus: busy && focusedBrowse?.kind === 'title' ? undefined : focusedBrowse, scroll: window.scrollY, gridScroll: $('channels').scrollTop, categoryScroll: $('category-sidebar').scrollTop, signature: browseSignature() }
   catalogReturnVisit = visit
   if (!temporaryBrowse) browseHistory.remember(sourceId(activeSource), section, visit)
 }
-function cancelBrowseEntry() { browseGeneration++; enteringBrowse = 0; pendingBrowseVisit = undefined; categoryDirectory?.abort(); categoryList.suspend(); groups.stop() }
+function cancelBrowseEntry() { browseGeneration++; enteringBrowse = 0; pendingBrowseVisit = undefined; searchResetPending = false; categoryDirectory?.abort(); categoryList.suspend(); groups.stop() }
 function beginBrowse(section: BrowseSection, temporary = false, fresh = false) {
   rememberBrowsePosition(); cancelProviderLoad(); cancelGuide(); searching?.abort(); clearTimeout(searchTimer); searchTimer = undefined
+  searchResetPending = false
   categoryDirectory?.abort(); categoryList.clear(); groups.stop()
   const visit = activeSource && !temporary && !fresh ? browseHistory.recall(sourceId(activeSource), section) : undefined
   const generation = ++browseGeneration; enteringBrowse = generation; temporaryBrowse = temporary

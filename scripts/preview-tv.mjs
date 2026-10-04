@@ -12,6 +12,7 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 const drmFixture = createDRMFixture({ port, directory: resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/tv-drm-demo') })
 const mp4Stats = { authorized: 0, denied: 0, ranges: 0 }
 const refreshDemos = new Map()
+const growingDemos = new Map()
 createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1:4323').pathname)
@@ -53,6 +54,27 @@ createServer(async (request, response) => {
       const stamp = seconds => `0:${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}.00`
       response.writeHead(200, { 'Content-Type': 'text/x-ass; charset=utf-8', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
       response.end('[Script Info]\nScriptType: v4.00+\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n' + Array.from({ length: 120 }, (_, n) => `Dialogue: 0,${stamp(n * 5)},${stamp(n * 5 + 5)},Default,,0,0,0,,{\\i1}Lanternfin caption check{\\i0}\\NASS dialogue, cue ${n + 1}{\\p1}m 0 0 l 100 100{\\p0}\n`).join('')); return
+    }
+    if (fixtures && pathname === '/_test/growing-provider/player_api.php') {
+      const params = new URL(request.url, `http://127.0.0.1:${port}`).searchParams, action = params.get('action'), category = params.get('category_id')
+      const demo = (params.get('username') || 'demo').slice(0, 80)
+      if (action === 'get_vod_streams' && category === '2') {
+        const attempt = (growingDemos.get(demo) || 0) + 1
+        if (!growingDemos.has(demo) && growingDemos.size >= 20) growingDemos.delete(growingDemos.keys().next().value)
+        growingDemos.set(demo, attempt)
+        if (attempt === 1) { response.writeHead(503, { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }); response.end(); return }
+        if (attempt === 2) {
+          await new Promise(done => {
+            const cancel = () => { clearTimeout(timer); done() }
+            const timer = setTimeout(() => { response.off('close', cancel); done() }, 20000)
+            response.once('close', cancel)
+          })
+          if (response.destroyed) return
+        }
+      }
+      const data = !action ? { user_info: { auth: 1 } } : action === 'get_vod_categories' ? [{ category_id: '1', category_name: 'First movies' }, { category_id: '2', category_name: 'Later movies' }]
+        : action === 'get_vod_streams' ? Array.from({ length: 48 }, (_, i) => ({ stream_id: (category === '2' ? 100 : 0) + i + 1, name: `${category === '2' ? 'Alpha' : 'Zebra'} ${String(i + 1).padStart(2, '0')}`, stream_icon: `http://127.0.0.1:${port}/_test/art.svg?n=${i % 5}`, container_extension: 'mp4' })) : []
+      response.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(data)); return
     }
     if (fixtures && ['/_test/provider/player_api.php', '/_test/large-provider/player_api.php', '/_test/shared-provider/player_api.php'].includes(pathname)) {
       const params = new URL(request.url, `http://127.0.0.1:${port}`).searchParams
