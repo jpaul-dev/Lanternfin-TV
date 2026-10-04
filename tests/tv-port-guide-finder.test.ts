@@ -60,3 +60,13 @@ it('debounces names, handles IME input, keeps provider markup inert and reports 
   expect(document.getElementById('schedule-find-status')?.textContent).toBe('No matching channels'); expect(results.children).toHaveLength(0)
   ui.close()
 })
+it('keeps the same channel focused when provider updates move it across a result page boundary', async () => {
+  vi.useFakeTimers(); document.body.innerHTML = '<div id="finder"></div>'
+  let channels = Array.from({ length: 35 }, (_, index) => channel(index + 1))
+  const ui = guideFinder(document.getElementById('finder')!, { channels: () => channels, scope: () => 'All channels', choose: vi.fn(), back: vi.fn() })
+  ui.open(); await vi.advanceTimersByTimeAsync(0)
+  document.querySelector<HTMLButtonElement>('[data-index="15"]')!.focus()
+  channels = [channel(999), ...channels]; ui.refresh(); await vi.advanceTimersByTimeAsync(0)
+  expect(document.activeElement?.textContent).toBe('17Channel 16'); expect(document.getElementById('schedule-find-page')?.textContent).toBe('2 / 3')
+  ui.close()
+})
