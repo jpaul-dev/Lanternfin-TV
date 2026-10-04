@@ -1,10 +1,10 @@
 import type { Channel, Source } from './catalog'
 import { channelId } from './library'
-import { groupVariants } from './variants'
+import { groupVariants, type VariantPreference } from './variants'
 
 export type RelatedTitle = { channel: Channel; versions?: Channel[] }
 /** Category-local suggestions, like the original TV detail rail; no external recommendation service. */
-export async function relatedTitles(current: Channel, pool: Channel[], source: Source['kind'], language: string | undefined, signal: AbortSignal): Promise<RelatedTitle[]> {
+export async function relatedTitles(current: Channel, pool: Channel[], source: Source['kind'], language: VariantPreference | undefined, signal: AbortSignal): Promise<RelatedTitle[]> {
   const check = () => { if (signal.aborted) throw new Error('Related titles canceled.') }
   check()
   if (!['movie', 'series'].includes(current.mediaKind || '')) return []

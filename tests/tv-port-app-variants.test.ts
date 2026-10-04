@@ -12,7 +12,7 @@ it('groups home and catalog movies, chooses the preferred language, and keeps al
   const click = async (id: string) => { el<HTMLButtonElement>(id).click(); await vi.advanceTimersByTimeAsync(0) }
   const change = async (id: string, value: string) => { el<HTMLSelectElement>(id).value = value; el(id).dispatchEvent(new Event('change')); await vi.advanceTimersByTimeAsync(0) }
   el<HTMLInputElement>('source-url').value = 'https://example.com/list.m3u'; await click('connect')
-  await click('nav-settings'); await change('pref-grouping', 'true'); await change('pref-content', 'fr'); await click('settings-back')
+  await click('nav-settings'); await change('pref-grouping', 'true'); await change('pref-content', 'FR'); await click('settings-back')
   expect(el('home-rows').querySelectorAll('button')).toHaveLength(2); expect(el('home-rows').textContent).toContain('2 versions')
   expect(el('hero-title').textContent).toBe('FR - Film (2020)')
   await click('hero-play'); expect(el('detail-versions').hidden).toBe(false); expect(el('detail-title').textContent).toBe('FR - Film (2020)')

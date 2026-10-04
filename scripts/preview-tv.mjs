@@ -71,8 +71,9 @@ createServer(async (request, response) => {
       const programmes = Array.from({ length: 50 }, (_, channel) => `<channel id="demo-${channel}"><display-name>Test stream ${channel + 1}</display-name></channel>` + Array.from({ length: 360 }, (_, index) => { const hour = index - 240; return `<programme channel="demo-${channel}" start="${stamp(now + hour * 3600000)}" stop="${stamp(now + (hour + 1) * 3600000)}"><title>XMLTV programme ${hour + 1}</title><desc>Local XMLTV demonstration for channel ${channel + 1}. Generated hourly listings cover previous and future days.</desc></programme>` }).join('')).join('')
       response.writeHead(200, { 'Content-Type': 'application/xml', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }); response.end(`<tv>${programmes}</tv>`); return
     }
-    if (fixtures && pathname === '/_test/variants.m3u') {
-      const entries = ['EN - Evening Light (2026)', 'FR - Evening Light (2026)', '4K-FR - Evening Light (2026)', 'EN - Evening Light (2021)', 'EN - Open Water', 'ES - Open Water'].map((name, index) => `#EXTINF:-1 tvg-type="movie" tvg-logo="http://127.0.0.1:${port}/_test/art.svg?n=${index}" group-title="Language version demo",${name}\nhttp://127.0.0.1:${port}/_test/unavailable.mp4?id=${index}\n`).join('')
+    if (fixtures && ['/_test/variants.m3u', '/_test/content-languages.m3u'].includes(pathname)) {
+      const names = pathname.endsWith('content-languages.m3u') ? ['EN', 'FR', 'QC', 'SC', 'UR', 'PK', 'HI', 'IN', 'SE', 'NO', 'KR', '4K-QC'].map(tag => `${tag} - Evening Light (2026)`) : ['EN - Evening Light (2026)', 'FR - Evening Light (2026)', '4K-FR - Evening Light (2026)', 'EN - Evening Light (2021)', 'EN - Open Water', 'ES - Open Water']
+      const entries = names.map((name, index) => `#EXTINF:-1 tvg-type="movie" tvg-logo="http://127.0.0.1:${port}/_test/art.svg?n=${index}" group-title="Language version demo",${name}\nhttp://127.0.0.1:${port}/_test/unavailable.mp4?id=${index}\n`).join('')
       response.writeHead(200, { 'Content-Type': 'audio/x-mpegurl', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }); response.end('#EXTM3U\n' + entries); return
     }
     if (fixtures && pathname === '/_test/browse.m3u') {

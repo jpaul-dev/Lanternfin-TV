@@ -8,7 +8,7 @@ import { HOME_ROWS, DEFAULT_HOME_ROWS, type HomeRow } from './home-config'
 import { NewestTitles } from './discovery'
 import { runtimeLabel } from './provider-runtime'
 import { homeKind, type HomeCategory, type HomeRowId } from './source-home'
-import type { VariantGroup } from './variants'
+import type { VariantGroup, VariantPreference } from './variants'
 export type CategoryHomeRow = { category: HomeCategory; channels?: Channel[]; open: () => void }
 const cardChannels = new WeakMap<HTMLElement, Channel>()
 const cardVariantGroups = new WeakMap<HTMLElement, Channel[]>()
@@ -51,7 +51,7 @@ let rowGeneration = 0
 let grouping: AbortController | undefined
 let activeRows: HTMLElement | undefined
 export function cancelHomeRows() { rowGeneration++; grouping?.abort(); activeRows?.setAttribute('aria-busy', 'false') }
-export async function homeRows(root: HTMLElement, channels: Channel[], library: TVLibrary | undefined, activate: (channel: Channel, versions?: Channel[]) => void, language?: string, layout: readonly HomeRowId[] = DEFAULT_HOME_ROWS, categoryRows: CategoryHomeRow[] = []) {
+export async function homeRows(root: HTMLElement, channels: Channel[], library: TVLibrary | undefined, activate: (channel: Channel, versions?: Channel[]) => void, language?: VariantPreference, layout: readonly HomeRowId[] = DEFAULT_HOME_ROWS, categoryRows: CategoryHomeRow[] = []) {
   grouping?.abort(); const controller = new AbortController(); grouping = controller
   const token = ++rowGeneration
   activeRows = root; root.setAttribute('aria-busy', 'true'); root.dataset.loading = tr('Loading…')

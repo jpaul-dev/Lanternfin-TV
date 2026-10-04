@@ -37,6 +37,8 @@ Home and language grouping now avoid persistent per-title metadata, singleton ve
 
 M3U playlists now also support explicitly opted-in saved catalogs, six-hour expiry, forced refresh and atomic replacement recovery. Full playback requirements remain intact; setup discloses the additional unencrypted addresses, headers and possible keys. The desktop 120,000-title fixture reopened with its source server stopped. See [retention, privacy and validation boundaries](TV_PORTS.md#saved-m3u-catalogs).
 
+Preferred content language includes every original provider tag, with regional/alias choices, old-TV label fallbacks and automatic selection following the active interface language. Earlier portable choices migrate in storage and backups; separate audio and subtitle preferences are unchanged. See [selection order and validation](TV_PORTS.md#provider-content-language-choices).
+
 ## Screen saver and background work
 
 Samsung's documented [AppCommon API](https://developer.samsung.com/smarttv/develop/api-references/samsung-product-api-references/appcommon-api.html) is called with OFF only during foreground playback (including bounded buffering after playback starts). Pause, stop, errors and leaving the app request ON. Delayed OFF callbacks are corrected after a pause or background transition. Missing/failed APIs do not crash playback; the TV's own Auto Protection Time setting still applies. LG's [Type 2 configuration](https://webostv.developer.lge.com/develop/guides/screensaver) covers the player's on-screen controls on supported OLED models; no private power service is used.

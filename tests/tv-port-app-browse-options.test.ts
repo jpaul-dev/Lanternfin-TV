@@ -29,7 +29,7 @@ it('ranks the displayed language version and keeps section/source filters separa
   el<HTMLInputElement>('username').value = 'demo'; el<HTMLInputElement>('password').value = 'demo'; el<HTMLInputElement>('remember').checked = true
   await click('connect'); await click('nav-movie'); await change('sort-order', 'rating')
   expect(names()).toEqual(['EN - Film (2024)', 'EN - Another film', 'FR - Film (2024)', 'Unrated film'])
-  await click('nav-settings'); await change('pref-grouping', 'true'); await change('pref-content', 'fr'); await click('nav-movie')
+  await click('nav-settings'); await change('pref-grouping', 'true'); await change('pref-content', 'FR'); await click('nav-movie')
   expect(names()).toEqual(['EN - Another film', 'FR - Film (2024)', 'Unrated film'])
   await change('watched-filter', 'unwatched'); await change('language-filter', 'FR')
   expect(names()).toEqual(['FR - Film (2024)'])

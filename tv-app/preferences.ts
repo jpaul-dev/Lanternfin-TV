@@ -2,6 +2,7 @@ import { ACCENTS, isAccent, resolveAccent, type Accent, type AccentChoice } from
 export { ACCENTS } from './accent'
 export const LANGUAGES = { auto: 'Automatic', en: 'English', es: 'Español', fr: 'Français', de: 'Deutsch', it: 'Italiano', 'pt-BR': 'Português', nl: 'Nederlands', pl: 'Polski', tr: 'Türkçe', ru: 'Русский', ar: 'العربية', hi: 'हिन्दी', ja: '日本語', zh: '中文' } as const
 import { INTERFACE_LANGUAGES } from './i18n'
+import { normalizeContentLanguage } from './content-language'
 import { DEFAULT_HOME_ROWS, normalizeHomeRows, type HomeRow } from './home-config'
 export type UpdateChannel = 'stable' | 'beta'
 export type Preferences = { theme: 'dark' | 'light' | 'system'; accent: AccentChoice; scale: number; overscan: number; reducedMotion: boolean; audio: string; subtitles: string; guideClock: string; autoNext: boolean; groupLanguages: boolean; contentLanguage: string; interfaceLanguage: string; homeRows: HomeRow[]; updateChannel: UpdateChannel }
@@ -19,7 +20,7 @@ export function normalizePreferences(raw: unknown): Preferences {
   if (typeof value.reducedMotion === 'boolean') result.reducedMotion = value.reducedMotion
   if (typeof value.autoNext === 'boolean') result.autoNext = value.autoNext
   if (typeof value.groupLanguages === 'boolean') result.groupLanguages = value.groupLanguages
-  if (owns(LANGUAGES, value.contentLanguage || '')) result.contentLanguage = value.contentLanguage!
+  result.contentLanguage = normalizeContentLanguage(value.contentLanguage)
   if (owns(INTERFACE_LANGUAGES, value.interfaceLanguage || '')) result.interfaceLanguage = value.interfaceLanguage!
   if (owns(LANGUAGES, value.audio || '')) result.audio = value.audio!
   if (value.subtitles === 'off' || owns(LANGUAGES, value.subtitles || '')) result.subtitles = value.subtitles!

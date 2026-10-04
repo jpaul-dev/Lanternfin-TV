@@ -25,7 +25,8 @@ import { TrackPreferences } from './track-preferences'
 import { relatedTitles, type RelatedTitle } from './related-titles'
 import { DEFAULT_BROWSE_CHOICE, type BrowseChoice, type BrowseView } from './browse-options'
 import { BrowseHistory, browseFocus, resolveBrowseVisit, type BrowseFocus, type BrowseSection, type BrowseVisit } from './browse-history'
-import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } from './i18n'
+import { INTERFACE_LANGUAGES, interfaceLocale, setInterfaceLanguage, staticTranslations, tr } from './i18n'
+import { contentLanguageChoices, contentLanguageTags } from './content-language'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
 import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, saveGuideOffset, saveSourceAccent, sourceId, type SourceProfile } from './profiles'
@@ -1523,7 +1524,14 @@ select('source-accent').onchange = () => {
 }
 for (let value = 0; value <= 8; value++) select('pref-overscan').add(new Option(value ? `${value}%` : 'Off', String(value)))
 select('pref-subtitles').add(new Option('Off', 'off'))
-for (const [code, label] of Object.entries(LANGUAGES)) { select('pref-audio').add(new Option(label, code)); select('pref-subtitles').add(new Option(label, code)); select('pref-content').add(new Option(label, code)) }
+for (const [code, label] of Object.entries(LANGUAGES)) { select('pref-audio').add(new Option(label, code)); select('pref-subtitles').add(new Option(label, code)) }
+function syncContentLanguages() {
+  const picker = select('pref-content')
+  picker.replaceChildren(new Option(tr('Automatic · interface language'), 'auto'))
+  for (const choice of contentLanguageChoices(interfaceLocale())) picker.add(new Option(choice.label, choice.value))
+  picker.value = preferences.contentLanguage
+}
+syncContentLanguages()
 for (const [code, label] of Object.entries(INTERFACE_LANGUAGES)) select('pref-language').add(new Option(label, code))
 select('pref-clock').add(new Option('Device time zone', 'auto'))
 for (let offset = -720; offset <= 840; offset += 30) select('pref-clock').add(new Option(`UTC${offset < 0 ? '−' : '+'}${String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0')}:${String(Math.abs(offset) % 60).padStart(2, '0')}`, String(offset)))
@@ -1568,6 +1576,7 @@ async function applyInterfaceLanguage() {
   try {
     if (!await setInterfaceLanguage(requested)) return
     translateStatic()
+    syncContentLanguages()
     for (const id of ['pref-accent', 'profile-accent', 'source-accent']) for (const option of select(id).options) option.text = tr(option.value ? option.value[0].toUpperCase() + option.value.slice(1) : 'App default')
     syncAccent()
     select('pref-overscan').options[0].text = tr('Off')
@@ -1576,7 +1585,7 @@ async function applyInterfaceLanguage() {
   } catch { $('settings-note').textContent = 'This language file could not be loaded. The current interface language is still available; reinstall the complete package to try again.' }
 }
 void applyInterfaceLanguage()
-function contentLanguage() { return preferences.contentLanguage === 'auto' ? navigator.language || 'en' : preferences.contentLanguage }
+function contentLanguage() { return contentLanguageTags(preferences.contentLanguage, interfaceLocale()) }
 window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change', () => applyPreferences(preferences, document.documentElement, activeAccent))
 function applyTrackPreferences() {
   if (!player || !currentChannel || screen !== 'playback' || away || !['playing', 'paused'].includes(state)) return
