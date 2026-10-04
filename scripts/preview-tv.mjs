@@ -53,12 +53,13 @@ createServer(async (request, response) => {
       response.writeHead(200, { 'Content-Type': 'text/x-ass; charset=utf-8', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
       response.end('[Script Info]\nScriptType: v4.00+\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n' + Array.from({ length: 120 }, (_, n) => `Dialogue: 0,${stamp(n * 5)},${stamp(n * 5 + 5)},Default,,0,0,0,,{\\i1}Lanternfin caption check{\\i0}\\NASS dialogue, cue ${n + 1}{\\p1}m 0 0 l 100 100{\\p0}\n`).join('')); return
     }
-    if (fixtures && ['/_test/provider/player_api.php', '/_test/large-provider/player_api.php'].includes(pathname)) {
+    if (fixtures && ['/_test/provider/player_api.php', '/_test/large-provider/player_api.php', '/_test/shared-provider/player_api.php'].includes(pathname)) {
       const params = new URL(request.url, `http://127.0.0.1:${port}`).searchParams
       const action = params.get('action') || ''
       const art = `http://127.0.0.1:${port}/_test/art.svg`
       const count = pathname.includes('/large-provider/') ? 20000 : 10
-      const categories = [{ category_id: '1', category_name: 'UI test library' }]
+      const shared = pathname.includes('/shared-provider/')
+      const categories = shared ? [{ category_id: '1', category_name: 'Everything' }, { category_id: '2', category_name: 'Sports' }, { category_id: '3', category_name: 'Sports' }] : [{ category_id: '1', category_name: 'UI test library' }]
       const info = { plot: 'A sample title for checking the TV detail page. Artwork, credits and episodes come from a local test provider. No media or subscriptions are included in this fixture.', movie_image: art, cover: art, backdrop_path: [`http://127.0.0.1:${port}/_test/backdrop.svg?n=${Number(params.get('vod_id') || params.get('series_id')) || 0}`], releasedate: '2026-01-01', genre: 'UI demonstration', duration: '01:30:00', rating: '8.2', cast: 'Demo cast', director: 'Demo director' }
       const episodeNames = ['The arrival', 'A new direction', 'Between the lines', 'The long way home', 'An unexpected visitor', 'Open water']
       const seasonEpisodes = (season, length) => Array.from({ length }, (_, i) => ({ id: season * 100 + i + 1, season, episode_num: i + 1, title: `${episodeNames[i % episodeNames.length]}${i >= episodeNames.length ? ` · Part ${Math.floor(i / episodeNames.length) + 1}` : ''}`, container_extension: 'mp4', info: { duration_secs: 2500 + i * 17, movie_image: `${art}?n=${i}`, plot: 'A locally generated episode synopsis for checking the series screen, remote navigation and viewing progress. No playable media is included.' } }))
@@ -66,6 +67,11 @@ createServer(async (request, response) => {
       const now = Math.floor(Date.now() / 3600000) * 3600
       const epg = { epg_listings: Array.from({ length: 13 }, (_, n) => { const index = n - 5; return { has_archive: index <= 0 ? 1 : 0, start_timestamp: now + index * 3600, stop_timestamp: now + (index + 1) * 3600, title: Buffer.from(index ? `${index < 0 ? "Earlier" : "Next"} programme ${Math.abs(index)}` : 'Morning on Lanternfin').toString('base64'), description: Buffer.from('A generated programme listing for checking the guide. This is local test data.').toString('base64') } }) }
       const data = !action ? { user_info: { auth: 1 }, server_info: { timestamp_now: Math.floor(Date.now() / 1000), time_now: new Date().toISOString().slice(0, 19).replace('T', ' '), timezone: 'UTC' } } : action.includes('epg') || action.includes('data_table') || action.includes('date_table') ? epg : action.endsWith('_categories') ? categories : action === 'get_series_info' ? { info, episodes } : action === 'get_vod_info' ? { info } : Array.from({ length: count }, (_, index) => ({ stream_id: index + 1, year: 2000 + index % 26, rating: (6 + index % 10 * .35).toFixed(1), ...(index ? { added: String(now - (count - 1 - index) * 60) } : {}), tv_archive: 1, tv_archive_duration: 7, series_id: index + 1, name: `${action === 'get_series' ? 'Series' : action === 'get_vod_streams' ? 'Movie' : 'Channel'} sample ${index + 1}`, stream_icon: art + `?n=${index}`, cover: art + `?n=${index}`, container_extension: 'mp4' }))
+      // Categories 1/2 deliberately share titles. Category 3 has the same label
+      // as 2 but distinct IDs, exercising visible membership and group selection.
+      if (shared && ['get_live_streams', 'get_vod_streams', 'get_series'].includes(action) && params.get('category_id') === '3') {
+        for (const entry of data) { entry.stream_id += count; entry.series_id += count; entry.name = entry.name.replace(/\d+$/, String(entry.stream_id)) }
+      }
       response.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(data)); return
     }
     if (fixtures && pathname === '/_test/guide-floating.xml') {

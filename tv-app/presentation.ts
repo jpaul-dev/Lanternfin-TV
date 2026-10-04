@@ -51,7 +51,7 @@ let rowGeneration = 0
 let grouping: AbortController | undefined
 let activeRows: HTMLElement | undefined
 export function cancelHomeRows() { rowGeneration++; grouping?.abort(); activeRows?.setAttribute('aria-busy', 'false') }
-export async function homeRows(root: HTMLElement, channels: Channel[], library: TVLibrary | undefined, activate: (channel: Channel, versions?: Channel[]) => void, language?: VariantPreference, layout: readonly HomeRowId[] = DEFAULT_HOME_ROWS, categoryRows: CategoryHomeRow[] = [], include?: (channel: Channel) => boolean) {
+export async function homeRows(root: HTMLElement, channels: Channel[], library: TVLibrary | undefined, activate: (channel: Channel, versions?: Channel[]) => void, language?: VariantPreference, layout: readonly HomeRowId[] = DEFAULT_HOME_ROWS, categoryRows: CategoryHomeRow[] = [], include?: (channel: Channel) => boolean, resolve?: (channel: Channel) => Channel | undefined) {
   grouping?.abort(); const controller = new AbortController(); grouping = controller
   const token = ++rowGeneration
   activeRows = root; root.setAttribute('aria-busy', 'true'); root.dataset.loading = tr('Loading…')
@@ -60,7 +60,7 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
   const visible = include || ((channel: Channel) => library?.isVisible(channel) !== false)
   const groupMovies = layout.includes('movies') || layout.includes('new-movies'), groupSeries = layout.includes('series') || layout.includes('new-series')
   if (language && (groupMovies || groupSeries)) {
-    try { grouped = await indexVariants(channels, language, controller.signal, channel => visible(channel) && (channel.mediaKind === 'movie' ? groupMovies : channel.mediaKind === 'series' && groupSeries)) } catch { return }
+    try { grouped = await indexVariants(channels, language, controller.signal, channel => visible(channel) && (channel.mediaKind === 'movie' ? groupMovies : channel.mediaKind === 'series' && groupSeries), resolve) } catch { return }
     if (token !== rowGeneration) return
   }
   // One bounded pass, rather than separate full-catalog copies for every rail.
@@ -76,9 +76,10 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
     const entries: Channel[] = []; kinds.set(row.category.kind, { entries, seen: new Set() }); playlistEntries.set(row.category.id, entries)
   }
   const seenRecent = new Set<string>(); let started = performance.now(), index = 0
-  for (const channel of channels) {
+  for (const original of channels) {
     if (++index % 512 === 0 && performance.now() - started >= 12) { await new Promise<void>(resolve => setTimeout(resolve, 0)); if (token !== rowGeneration) return; started = performance.now() }
-    if (!visible(channel)) continue
+    const channel = resolve ? resolve(original) : original
+    if (!channel || !visible(channel)) continue
     const custom = playlistRows.get(channel.group)?.get(homeKind(channel))
     if (custom && custom.entries.length < 12) { const id = channelId(channel); if (!custom.seen.has(id)) { custom.seen.add(id); custom.entries.push(channel) } }
     if (library?.recent.size && library.lastPlayed(channel) && !seenRecent.has(channelId(channel))) { recent.push(channel); seenRecent.add(channelId(channel)) }

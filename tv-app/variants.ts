@@ -32,7 +32,7 @@ export function preferredVariant(members: Channel[], language: VariantPreference
  * Optional membership is checked within the cooperative scan, not by making a
  * second full-size category array or a generator that can block between yields.
  */
-export async function indexVariants(channels: Channel[], language: VariantPreference, signal: AbortSignal, include?: (channel: Channel) => boolean) {
+export async function indexVariants(channels: Channel[], language: VariantPreference, signal: AbortSignal, include?: (channel: Channel) => boolean, resolve?: (channel: Channel) => Channel | undefined) {
   const buckets = new Map<string, Channel | Channel[] | null>(), groups = new WeakMap<Channel, VariantGroup>()
   let count = 0
   let started = performance.now(), operations = 0
@@ -42,9 +42,10 @@ export async function indexVariants(channels: Channel[], language: VariantPrefer
     check()
   }
   check()
-  for (const channel of channels) {
-    const key = !include || include(channel) ? variantKey(channel) : ''
-    if (key) {
+  for (const original of channels) {
+    const channel = resolve ? resolve(original) : original
+    const key = channel && (!include || include(channel)) ? variantKey(channel) : ''
+    if (key && channel) {
       const bucket = buckets.get(key)
       if (bucket === undefined) buckets.set(key, channel)
       else if (bucket !== null) {

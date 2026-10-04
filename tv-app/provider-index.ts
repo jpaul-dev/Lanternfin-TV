@@ -15,8 +15,8 @@ export class ProviderIndex {
   private controller?: AbortController
   private cache = new Map<string, Catalog>()
   private seen = new Map<string, IndexedTitle>()
-  // Only duplicate titles need another set; the ordinary index retains no per-title copy.
-  private memberships = new Map<string, Set<string>>()
+  // Only duplicate titles need a membership map; values reuse cached channel records.
+  private memberships = new Map<string, Map<string, Channel>>()
   private retained = 0
   private records = 0
   cachedAt?: number
@@ -30,7 +30,31 @@ export class ProviderIndex {
   has(channel: Channel) { const found = this.indexed(`${channel.mediaKind}:${channel.providerId}`); return !!found && (found === channel || found.url === channel.url) }
   categoryOf(channel: Channel) {
     const key = channel.mediaKind === 'episode' ? `series:${channel.seriesId}` : `${channel.mediaKind}:${channel.providerId}`
-    return this.memberships.get(key) || channel.categoryId || this.indexed(key)?.categoryId
+    return this.memberships.get(key)?.keys() || channel.categoryId || this.indexed(key)?.categoryId
+  }
+  /** Reuse cached records for each membership instead of copying the title catalog. */
+  *categoryChannels(channel: Channel): Iterable<Channel> {
+    const episode = channel.mediaKind === 'episode'
+    const key = episode ? `series:${channel.seriesId}` : `${channel.mediaKind}:${channel.providerId}`
+    const primary = this.indexed(key)
+    const first = episode && primary ? primary : channel
+    yield first
+    // An old bookmark may have lost its category. Enrich only the same media address.
+    if (primary && primary !== first && primary.url === first.url && primary.categoryId !== first.categoryId) yield primary
+    for (const member of this.memberships.get(key)?.values() || []) {
+      if (member.categoryId === first.categoryId || member === primary) continue
+      if (episode || member.url === channel.url) yield member
+    }
+  }
+  representative(channel: Channel, accept: (candidate: Channel) => boolean): Channel | undefined {
+    if (channel.mediaKind !== 'episode' && channel.categoryId && accept(channel)) return channel
+    let identified = false
+    for (const candidate of this.categoryChannels(channel)) {
+      if (!candidate.categoryId) continue
+      identified = true
+      if (accept(candidate)) return channel.mediaKind === 'episode' ? channel : candidate
+    }
+    return !identified && accept(channel) ? channel : undefined
   }
   async restore(snapshot: CatalogSnapshot, signal?: AbortSignal) {
     if (this.items.length || this.controller) throw new Error('A saved catalog can only initialize an empty index.')
@@ -39,7 +63,7 @@ export class ProviderIndex {
     const check = () => { if (controller.signal.aborted || signal?.aborted) throw new Error('Saved library loading canceled.') }
     // Stage the complete snapshot off-screen. Cancellation or a budget failure
     // leaves the previous index untouched, including its original live categories.
-    const cache = new Map<string, Catalog>(), seen = new Map<string, IndexedTitle>(), items: Channel[] = [], memberships = new Map<string, Set<string>>()
+    const cache = new Map<string, Catalog>(), seen = new Map<string, IndexedTitle>(), items: Channel[] = [], memberships = new Map<string, Map<string, Channel>>()
     let retained = 0, records = 0, started = performance.now()
     try {
       check()
@@ -52,8 +76,8 @@ export class ProviderIndex {
           if (!existing) { seen.set(id, { channel: item, index: items.length }); items.push(item) }
           else {
             let ids = memberships.get(id)
-            if (!ids) memberships.set(id, ids = new Set(existing.channel.categoryId ? [existing.channel.categoryId] : []))
-            ids.add(entry.category.id)
+            if (!ids) memberships.set(id, ids = new Map(existing.channel.categoryId ? [[existing.channel.categoryId, existing.channel]] : []))
+            ids.set(entry.category.id, item)
           }
           if (records % 512 === 0 && performance.now() - started >= 10) { await new Promise<void>(resolve => setTimeout(resolve, 0)); started = performance.now() }
         }
@@ -74,7 +98,7 @@ export class ProviderIndex {
     const budgetError = () => new IndexBudgetError('The library reached this TV’s memory budget. Loaded titles remain searchable; other categories can still be opened individually.')
     check(); if (this.records + result.channels.length > this.budget.records) throw budgetError()
     const base = this.items, seen = this.seen, pending = new Map<string, IndexedTitle>(), additions: Channel[] = []
-    const memberships = new Map<string, Set<string>>()
+    const memberships = new Map<string, Map<string, Channel>>()
     let characters = 0, processed = 0, started = performance.now()
     const yieldIfNeeded = async () => {
       if (performance.now() - started >= 10) { await new Promise<void>(resolve => setTimeout(resolve, 0)); started = performance.now() }
@@ -90,10 +114,10 @@ export class ProviderIndex {
         } else {
           let ids = memberships.get(id)
           if (!ids) {
-            const first = (pending.get(id)?.channel || this.indexed(id))?.categoryId
-            memberships.set(id, ids = new Set(this.memberships.get(id) || (first ? [first] : [])))
+            const first = pending.get(id)?.channel || this.indexed(id)
+            memberships.set(id, ids = new Map(this.memberships.get(id) || (first?.categoryId ? [[first.categoryId, first]] : [])))
           }
-          ids.add(category.id)
+          ids.set(category.id, item)
         }
         if (++processed % 512 === 0) { await yieldIfNeeded(); check() }
       }

@@ -14,26 +14,26 @@ export function groupPicker(select: HTMLSelectElement) {
   const heading = document.createElement('div'); heading.className = 'settings-choice-header'; heading.append(title, cancel); dialog.append(heading, all, list); document.body.append(dialog)
   const browser = categoryBrowser(dialog, list, 'group', () => select.value)
   let entries: Category[] = [], loading: AbortController | undefined, revision = 0, release: string | undefined
-  const sync = () => { open.textContent = select.value || tr('All groups'); open.setAttribute('aria-label', tr('Category: {name}', { name: open.textContent })) }
+  const sync = () => { open.textContent = select.value ? select.selectedOptions[0]?.textContent || select.value : tr('All groups'); open.setAttribute('aria-label', tr('Category: {name}', { name: open.textContent })) }
   const key = (event: KeyboardEvent) => String(event.keyCode || event.key)
   const swallow = (event: Event) => { event.preventDefault(); event.stopImmediatePropagation() }
   function close(restore = true) {
     browser.suspend(); if (dialog.open) dialog.close(); open.setAttribute('aria-expanded', 'false')
     if (restore && !open.closest('[hidden]')) open.focus()
   }
-  function value(name: string) {
-    if (name && ![...select.options].some(option => option.value === name)) {
+  function value(id: string, previousLabel?: string) {
+    if (id && ![...select.options].some(option => option.value === id)) {
       if (select.hidden) select.replaceChildren(new Option(tr('All groups'), ''))
-      select.add(new Option(name, name))
+      select.add(new Option(entries.find(entry => entry.id === id)?.name || previousLabel || id, id))
     }
-    select.value = name; sync(); browser.mark()
+    select.value = id; sync(); browser.mark()
   }
   const choose = (name: string) => { close(); if (select.value === name) return; value(name); select.dispatchEvent(new Event('change', { bubbles: true })) }
   open.onclick = () => {
     if (dialog.open || open.disabled) return
     title.textContent = tr('Choose a category'); cancel.textContent = tr('Cancel'); all.textContent = tr('All groups')
     try { dialog.showModal() } catch { return }
-    open.setAttribute('aria-expanded', 'true'); void browser.set(entries, entry => choose(entry.name), undefined, select.value)
+    open.setAttribute('aria-expanded', 'true'); void browser.set(entries, entry => choose(entry.id), undefined, select.value)
     dialog.querySelector<HTMLInputElement>('#group-search')!.focus()
   }
   cancel.onclick = () => close(); all.onclick = () => choose('')
@@ -66,21 +66,22 @@ export function groupPicker(select: HTMLSelectElement) {
   document.addEventListener('keyup', keyup, true)
   return {
     value, sync, close,
-    async refresh(channels: Channel[], include?: (channel: Channel) => boolean) {
+    refresh(channels: Channel[], include?: (channel: Channel) => boolean) { return this.refreshDirectory(signal => playlistCategories(channels, signal, undefined, include)) },
+    async refreshDirectory(load: (signal: AbortSignal) => Promise<Category[]>) {
       loading?.abort(); const request = new AbortController(), token = ++revision; loading = request
       try {
-        const values = await playlistCategories(channels, request.signal, undefined, include)
+        const values = await load(request.signal)
         if (token !== revision) return
         entries = values
-        const selected = select.value, focused = document.activeElement === select || document.activeElement === open
+        const selected = select.value, label = select.selectedOptions[0]?.textContent || '', focused = document.activeElement === select || document.activeElement === open
         select.replaceChildren(new Option(tr('All groups'), ''))
         const large = values.length > 200
-        if (!large) for (const entry of [...values].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) select.add(new Option(entry.name, entry.name))
-        select.hidden = large; open.hidden = !large; value(selected)
+        if (!large) for (const entry of [...values].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) select.add(new Option(entry.name, entry.id))
+        select.hidden = large; open.hidden = !large; value(selected, label)
         if (focused) (large ? open : select).focus({ preventScroll: true })
         if (dialog.open) {
           if (!large) { close(false); if (!select.closest('[hidden]')) select.focus() }
-          else await browser.set(entries, entry => choose(entry.name), browser.position)
+          else await browser.set(entries, entry => choose(entry.id), browser.position)
         }
       } catch { /* Source changes abandon their directory. */ }
       finally { if (loading === request) loading = undefined }

@@ -10,6 +10,7 @@ import { diagnosticsUI } from './diagnostics-ui'
 import { choiceDirection, settingsChoices } from './settings-choices'
 import { categoryBrowser, playlistCategories } from './category-browser'
 import { categoryEditor } from './category-editor'
+import { providerGroups, providerResolver } from './provider-browsing'
 import { groupPicker } from './group-picker'
 import { libraryUI } from './library-ui'
 import { TVDownloads, localDownload, type DownloadPlatform } from './downloads'
@@ -196,8 +197,8 @@ const schedule = scheduleUI($('schedule'), {
     const categoryChannels = category && activeSource.kind === 'xtream' ? (providerIndex?.cached('live', category) || await loadCategory(activeSource, 'live', category, signal)).channels : undefined
     const pool = categoryChannels || (activeSource.kind === 'xtream' ? libraryPool() : channels), result: Channel[] = []
     for (let index = 0; index < pool.length; index++) {
-      const channel = pool[index]
-      if (visibleChannel(channel) && homeKind(channel) === 'live' && (!category || activeSource.kind === 'xtream' || channel.group === category.name)) result.push(channel)
+      const channel = resolveChannel(pool[index])
+      if (channel && homeKind(channel) === 'live' && (!category || activeSource.kind === 'xtream' || channel.group === category.name)) result.push(channel)
       if (index % 2048 === 0) { if (signal.aborted) throw new Error('Cancelled'); if (index) await new Promise<void>(resolve => setTimeout(resolve, 0)) }
     }
     return result
@@ -418,7 +419,8 @@ async function filter(resetPage = true) {
     }
     const pool = activeSource?.kind === 'xtream' && (libraryView !== 'all' || ['search', 'all'].includes(browseView)) ? libraryPool() : channels
     const order = browseView === 'live' ? 'provider' : select('sort-order').value
-    let matches = await searchCatalog(pool, input('search').value, select('group').value, controller.signal, include)
+    const resolve = activeSource?.kind === 'xtream' ? providerResolver(providerIndex, allowedCategory, select('group').value) : undefined
+    let matches = await searchCatalog(pool, input('search').value, resolve ? '' : select('group').value, controller.signal, include, resolve)
     if (order !== 'rating') matches = await sortCatalog(matches, order, controller.signal)
     let variants = new WeakMap<Channel, VariantGroup>()
     if (preferences.groupLanguages && libraryView === 'all' && browseView !== 'live') { const grouped = await groupVariants(matches, contentLanguage(), controller.signal); matches = grouped.channels; variants = grouped.groups }
@@ -557,7 +559,9 @@ function report(next: State, detail?: string) {
   if (screen === 'playback') { if (!keepControlsHidden) controls(); if (['error', 'ended'].includes(next)) button('stop').focus() }
 }
 function watch(channel: Channel, versions?: Channel[]) {
-  if (!visibleChannel(channel)) { notice('This category is hidden. Change Categories in Settings to show it.'); return }
+  const resolved = resolveChannel(channel)
+  if (!resolved) { notice('This category is hidden. Change Categories in Settings to show it.'); return }
+  channel = resolved
   if (!versions && document.activeElement instanceof HTMLElement && cardChannel(document.activeElement) === channel) versions = cardVersions(document.activeElement)
   if (channel.mediaKind === 'series' || channel.mediaKind === 'movie') { void openTitle(channel, versions); return }
   playChannel(channel)
@@ -616,7 +620,7 @@ function startWatching(channel: Channel, position = 0) {
       player = tvPlayer(video, report, { api: window.webapis!.avplay!, surface: object })
     } else player = tvPlayer(video, report)
   }
-  if (screen !== 'playback' && screen !== 'schedule' && channel.mediaKind === 'live') liveQueue.reset(browseView === 'live' && filtered.some(item => channelId(item) === channelId(channel)) ? filtered : libraryPool(), channel, visibleChannel)
+  if (screen !== 'playback' && screen !== 'schedule' && channel.mediaKind === 'live') liveQueue.reset(browseView === 'live' && filtered.some(item => channelId(item) === channelId(channel)) ? filtered : libraryPool(), channel, visibleChannel, resolveChannel)
   cancelZap(); playbackGuideLoading?.abort(); playbackProgrammes = []
   currentAspect = 'fit'; $('seek-controls').hidden = true; input('seek-position').value = String(position)
   $('playback-time').textContent = $('playback-remaining').textContent = ''
@@ -987,6 +991,10 @@ for (const key of ['MediaPlay', 'MediaPause', 'MediaPlayPause', 'MediaStop', 'Me
 }
 function updateGroups() {
   const pool = providerIndex && ['search', 'all'].includes(browseView) ? libraryPool() : channels
+  if (activeSource?.kind === 'xtream') {
+    const index = providerIndex, activeLibrary = library
+    return groups.refreshDirectory(signal => providerGroups(pool, index, (kind, id) => activeLibrary?.categoryVisible(kind, id) !== false, signal))
+  }
   return groups.refresh(pool, visibleChannel)
 }
 function cancelGuide() { clearTimeout(guideTimer); guideLoading?.abort(); guideLoading = undefined }
@@ -1108,7 +1116,7 @@ function returnFromProgramme() {
   focusGuideEntry(selectedProgramme && $('guide-programmes').querySelector<HTMLElement>(`[data-programme="${selectedProgramme.start}"]`) || $('guide-programmes').querySelector<HTMLElement>('button') || button('guide-watch'))
 }
 $('programme-back').onclick = returnFromProgramme
-$('programme-live').onclick = () => { if (programmeChannel) { playbackReturn = 'programme'; liveQueue.reset(libraryPool(), programmeChannel, visibleChannel); startWatching(programmeChannel) } }
+$('programme-live').onclick = () => { if (programmeChannel) { playbackReturn = 'programme'; liveQueue.reset(libraryPool(), programmeChannel, visibleChannel, resolveChannel); startWatching(programmeChannel) } }
 $('programme-replay').onclick = async () => {
   if (!activeSource || !programmeChannel || !selectedProgramme || replayLoading) return
   const controller = new AbortController(); replayLoading = controller; button('programme-replay').disabled = true; $('programme-note').textContent = 'Opening the provider archive…'
@@ -1235,7 +1243,7 @@ async function refreshHomeRows(activate: (channel: Channel, versions?: Channel[]
     const current = browseCategory?.kind === category.kind && browseCategory.id === category.categoryId ? channels : undefined
     return { category, channels: cached || current, open: () => { if (activeSource === source) void openHomeCategory(category) } }
   })
-  await homeRows($('home-rows'), source?.kind === 'xtream' ? libraryPool() : channels, library, activate, preferences.groupLanguages ? contentLanguage() : undefined, layout.rows, categories, visibleChannel)
+  await homeRows($('home-rows'), source?.kind === 'xtream' ? libraryPool() : channels, library, activate, preferences.groupLanguages ? contentLanguage() : undefined, layout.rows, categories, visibleChannel, resolveChannel)
   if (token === homeGeneration && source === activeSource && screen === 'catalog' && browseView === 'home' && !away) hero.refresh()
 }
 async function openHomeCategory(category: HomeCategory) {
@@ -1559,7 +1567,13 @@ async function showAccount() {
 $('settings-account').onclick = showAccount; $('account-retry').onclick = showAccount; $('account-back').onclick = () => show('settings')
 $('nav-settings').onclick = () => { cancelProviderLoad(); show('settings'); syncNav() }
 $('settings-back').onclick = goHome
-function visibleChannel(channel: Channel) { return library?.isVisible(channel, providerIndex?.categoryOf(channel)) !== false }
+function allowedCategory(kind: MediaKind, id: string) { return library?.categoryVisible(kind, id) !== false }
+function visibleMembership(channel: Channel) { return allowedCategory(homeKind(channel), channel.categoryId || '') }
+function resolveChannel(channel: Channel) {
+  if (activeSource?.kind === 'xtream') return providerIndex ? providerIndex.representative(channel, visibleMembership) : visibleMembership(channel) ? channel : undefined
+  return library?.isVisible(channel) !== false ? channel : undefined
+}
+function visibleChannel(channel: Channel) { return !!resolveChannel(channel) }
 async function sourceCategories(kind: MediaKind, signal: AbortSignal) {
   if (!activeSource || activeSource.kind === 'direct') return []
   return activeSource.kind === 'xtream' ? providerIndex?.categories[kind] || providerCategories[kind] || await loadCategories(activeSource, kind, signal) : playlistCategories(channels, signal, kind)
