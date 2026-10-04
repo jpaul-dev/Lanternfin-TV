@@ -20,7 +20,7 @@ import { TitlePreviews } from './title-previews'
 import { findHomeCategories, type HomeCategory } from './source-home'
 import { canSeek, scrubOSD } from './playback-osd'
 import { subtitleUI, EXTERNAL_SUBTITLE } from './subtitle-ui'
-import { mp4SubtitleUI, MP4_SUBTITLE } from './mp4-subtitle-ui'
+import { mp4SubtitleUI, MP4_SUBTITLE, MKV_SUBTITLE } from './mp4-subtitle-ui'
 import { TrackPreferences } from './track-preferences'
 import { relatedTitles, type RelatedTitle } from './related-titles'
 import { DEFAULT_BROWSE_CHOICE, type BrowseChoice, type BrowseView } from './browse-options'
@@ -1765,7 +1765,7 @@ for (const kind of ['audio', 'subtitle'] as const) select(`${kind}-track`).oncha
   const id = select(`${kind}-track`).value
   trackPreferences.manual(kind)
   if (kind === 'subtitle') embeddedSubtitles.cancelAutomatic()
-  if (kind === 'subtitle' && id.startsWith(MP4_SUBTITLE)) { externalSubtitles.close(); const selected = embeddedSubtitles.select(id); refreshTracks(); if (!selected) $('track-status').textContent = tr('This embedded subtitle track could not be selected.'); return }
+  if (kind === 'subtitle' && (id.startsWith(MP4_SUBTITLE) || id.startsWith(MKV_SUBTITLE))) { externalSubtitles.close(); const selected = embeddedSubtitles.select(id); refreshTracks(); if (!selected) $('track-status').textContent = tr('This embedded subtitle track could not be selected.'); return }
   const success = kind === 'subtitle' && id === EXTERNAL_SUBTITLE ? externalSubtitles.select() : kind === 'subtitle' && id === 'off' && externalSubtitles.active ? true : player?.selectTrack?.(kind, id)
   if (success && kind === 'subtitle' && id !== EXTERNAL_SUBTITLE) externalSubtitles.deselect()
   if (success && kind === 'subtitle') embeddedSubtitles.deactivate()

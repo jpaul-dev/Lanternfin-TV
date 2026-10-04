@@ -14,13 +14,13 @@ createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1:4323').pathname)
     if (fixtures && await drmFixture(request, response)) return
-    if (fixtures && ['/_test/subtitled.mp4', '/_test/webvtt.mp4'].includes(pathname)) {
+    if (fixtures && ['/_test/subtitled.mp4', '/_test/webvtt.mp4', '/_test/subtitled.mkv'].includes(pathname)) {
       // Optional locally generated video, never copied into a TV package.
-      const data = await readFile(resolve(dirname(fileURLToPath(import.meta.url)), pathname === '/_test/webvtt.mp4' ? '../artifacts/tv-mp4-webvtt-demo.mp4' : '../artifacts/tv-mp4-text-demo.mp4'))
+      const data = await readFile(resolve(dirname(fileURLToPath(import.meta.url)), pathname === '/_test/subtitled.mkv' ? '../artifacts/tv-mkv-text-demo.mkv' : pathname === '/_test/webvtt.mp4' ? '../artifacts/tv-mp4-webvtt-demo.mp4' : '../artifacts/tv-mp4-text-demo.mp4'))
       const range = /^bytes=(\d+)-(\d*)$/.exec(request.headers.range || '')
       const start = range ? Number(range[1]) : 0, end = range?.[2] ? Math.min(Number(range[2]), data.length - 1) : data.length - 1
       if (start > end || !Number.isSafeInteger(start)) { response.writeHead(416, { 'Content-Range': `bytes */${data.length}` }); response.end(); return }
-      response.writeHead(range ? 206 : 200, { 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1, 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'Access-Control-Expose-Headers': 'Content-Range', ...(range ? { 'Content-Range': `bytes ${start}-${end}/${data.length}` } : {}) })
+      response.writeHead(range ? 206 : 200, { 'Content-Type': pathname.endsWith('.mkv') ? 'video/x-matroska' : 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1, 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'Access-Control-Expose-Headers': 'Content-Range', ...(range ? { 'Content-Range': `bytes ${start}-${end}/${data.length}` } : {}) })
       response.end(data.subarray(start, end + 1)); return
     }
     if (fixtures && pathname === '/_test/captions.vtt') {

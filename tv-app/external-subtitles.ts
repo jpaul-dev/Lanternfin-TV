@@ -21,7 +21,7 @@ function assTimestamp(value: string): number {
   return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(match[4]) / 100
 }
 
-function assText(value: string, defaultWrap: number): string {
+export function assText(value: string, defaultWrap: number): string {
   let text = '', drawing = false, wrap = defaultWrap
   for (let i = 0; i < value.length; i++) {
     if (value[i] === '{') {

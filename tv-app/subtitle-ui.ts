@@ -69,7 +69,7 @@ export function subtitleUI(root: HTMLElement, overlay: HTMLElement, options: {
     embedded(id: string, next: SubtitleTimeline, update = false) {
       if (update ? !active || loadedId !== id : !options.allowed() || !options.silence()) return false
       timeline = next; loadedId = id; active = true
-      if (!update) presentation = { delay: 0, scale: 1 }
+      if (!update) presentation = { delay: 0, scale: presentation.scale }
       clearInterval(interval); interval = setInterval(render, 250); render(); return true
     },
     presentation(): SubtitlePresentation | undefined { return active ? { ...presentation } : undefined },
