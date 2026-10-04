@@ -3,6 +3,7 @@ import { localDownload } from './downloads'
 import type { Media } from './media'
 import type { PlayerStats } from './diagnostics'
 import { interfaceLocale } from './i18n'
+import { samsungPlayReady, samsungPlayReadyPlan } from './samsung-drm'
 export type State = 'loading' | 'playing' | 'paused' | 'buffering' | 'ended' | 'error' | 'idle'
 export type Report = (state: State, detail?: string) => void
 export type PlayerTrack = { id: string; kind: 'audio' | 'subtitle'; label: string; language?: string; active: boolean; disabled?: boolean }
@@ -23,6 +24,7 @@ export interface AVPlay {
   setDisplayMethod(method: string): void
   setSpeed?(rate: number): void
   setStreamingProperty?(name: string, value: string): void
+  setDrm?(type: 'PLAYREADY', operation: 'SetProperties' | 'InstallLicense', value: string): string | boolean | void
   getTotalTrackInfo?(): NativeTrack[]; getCurrentStreamInfo?(): NativeTrack[]
   setSelectTrack?(type: 'AUDIO' | 'TEXT', index: number): void; setSilentSubtitle?(hidden: boolean): void
   setListener(listener: Record<string, (...args: any[]) => void>): void
@@ -33,13 +35,15 @@ const PLAYBACK_ERROR = 'This stream could not play. Check your network and provi
 
 export function samsungPlayer(api: AVPlay, report: Report): Player {
   let generation = 0, timer: ReturnType<typeof setTimeout> | undefined, seeking = false
+  let drmSession: ReturnType<typeof samsungPlayReady> | undefined
   let subtitlesHidden = true, dash = false, speed = 1, live = false
   const close = () => {
     generation++; seeking = false; speed = 1; clearTimeout(timer)
+    drmSession?.close(); drmSession = undefined
     try { if (['READY', 'PLAYING', 'PAUSED'].includes(api.getState())) api.stop() } catch { /* close still releases the decoder */ }
     try { api.close() } catch { /* NONE is already closed */ }
   }
-  const fail = () => { close(); report('error', PLAYBACK_ERROR) }
+  const fail = (message = PLAYBACK_ERROR) => { close(); report('error', message) }
   return {
     play(url, position = 0) {
       close()
@@ -47,7 +51,8 @@ export function samsungPlayer(api: AVPlay, report: Report): Player {
       try {
         const media = typeof url === 'string' ? { url } : url
         live = media.mediaKind === 'live'
-        if (media.playback?.drm || media.playback?.problem) throw new Error('Use the adaptive player for DRM.')
+        const drmPlan = samsungPlayReadyPlan(media)
+        if (media.playback?.problem || media.playback?.drm && (!drmPlan || !api.setDrm)) throw new Error('Unsupported native DRM configuration.')
         api.open(localDownload(media) || httpUrl(media.url))
         dash = /\.mpd(?:\?|$)/i.test(media.url) || ['mpd', 'dash'].includes(media.playback?.manifestType || '')
         subtitlesHidden = true
@@ -64,7 +69,13 @@ export function samsungPlayer(api: AVPlay, report: Report): Player {
           onbufferingcomplete: () => { if (token === generation) { const state = api.getState(); if (['PAUSED', 'PLAYING'].includes(state)) clearTimeout(timer); report(state === 'PAUSED' ? 'paused' : state === 'PLAYING' ? 'playing' : 'loading') } },
           onstreamcompleted: () => { if (token === generation) { close(); report('ended') } },
           onerror: () => { if (token === generation) fail() },
+          ondrmevent: (type, data) => { if (token === generation) drmSession?.event(type, data) },
         })
+        if (drmPlan) {
+          drmSession = samsungPlayReady(api, drmPlan, message => { if (token === generation) fail(message) })
+          drmSession.configure()
+          if (token !== generation) return
+        }
         report('loading')
         timer = setTimeout(() => { if (token === generation) fail() }, 30000)
         api.prepareAsync(() => {

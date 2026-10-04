@@ -4,6 +4,7 @@ import { wrapLicense, unwrapLicense } from './license-format'
 import { transportPlayer, transportType, loadTransportRuntime } from './transport-player'
 import { safeStats, type PlayerStats } from './diagnostics'
 import { localDownload } from './downloads'
+import { needsSamsungPlayReady } from './samsung-drm'
 
 type Request = { headers: Record<string, string>; body?: ArrayBuffer | ArrayBufferView | string | null }
 type AdaptiveTrack = { id?: number; active: boolean; language: string; label?: string; roles?: string[]; channelsCount?: number; codecs?: string; spatialAudio?: boolean }
@@ -199,7 +200,7 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
       video.style.objectFit = 'contain'
       mediaForFallback = media; fallbackPosition = position || 0
       const nativeHeaders = Object.keys(media.playback?.headers || {}).every(name => ['user-agent', 'cookie'].includes(name.toLowerCase()))
-      const useNative = !!samsung && !media.playback?.drm && !media.playback?.problem && nativeHeaders
+      const useNative = !!samsung && !media.playback?.problem && nativeHeaders && (!media.playback?.drm || !!native?.api.setDrm && needsSamsungPlayReady(media))
       const begin = () => {
         if (token !== generation) return
         current = useNative ? samsung! : transportType(media) ? transport : needsAdaptivePlayer(media) ? adaptive : html

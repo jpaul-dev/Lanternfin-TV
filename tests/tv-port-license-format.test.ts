@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { licenseFormat, wrapLicense, unwrapLicense } from '../tv-app/license-format'
 const challenge = new Uint8Array([0, 255, 128, 65]), encoded = 'AP+AQQ=='
 const text = (value: Uint8Array) => new TextDecoder().decode(value)
@@ -23,4 +23,15 @@ it('fails on missing fields, malformed bytes and oversized input without leaking
   expect(() => unwrapLicense('{"license":"漢"}', 'Jlicense')).toThrow()
   expect(() => wrapLicense(new Uint8Array(512 * 1024 + 1), 'b{SSM}')).toThrow()
   expect(() => unwrapLicense('x'.repeat(4 * 1024 * 1024 + 1), 'B')).toThrow()
+})
+it('enforces the expanded byte budget before materializing repeated challenge templates', () => {
+  const encode = vi.spyOn(TextEncoder.prototype, 'encode'), template = 'b{SSM}'.repeat(12)
+  try {
+    expect(() => wrapLicense(new Uint8Array(512 * 1024), template)).toThrow('provider license format')
+    expect(encode.mock.calls.every(([text]) => (text?.length || 0) <= template.length)).toBe(true)
+  } finally { encode.mockRestore() }
+  const exact = 'b{SSM}'.repeat(1024), raw = new Uint8Array(3072)
+  expect(wrapLicense(raw, exact).byteLength).toBe(4 * 1024 * 1024)
+  expect(() => wrapLicense(raw, exact + '漢')).toThrow('provider license format')
+  expect(text(wrapLicense(challenge, '漢b{SSM}|B{SSM}|D{SSM}é'))).toBe('漢AP+AQQ==|AP%2BAQQ%3D%3D|0,255,128,65é')
 })

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
 import { adaptivePlayer, canUseNativeHls, playbackError, tvPlayer } from '../tv-app/adaptive-player'
+import type { AVPlay } from '../tv-app/player'
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers() })
 function harness(pending = false) {
   vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
@@ -89,6 +90,32 @@ it('never falls back by silently dropping DRM or required headers', () => {
   for (const playback of [{ headers: { Authorization: 'secret' } }, { drm: { system: 'com.widevine.alpha' } }, { problem: 'Unsupported options' }]) {
     expect(canUseNativeHls({ url: 'https://example.com/live.m3u8', playback }, video)).toBe(false)
   }
+})
+it('selects native PlayReady for supported native-only headers and keeps ordinary DRM on Shaka', async () => {
+  vi.useFakeTimers(); vi.stubGlobal('navigator', { requestMediaKeySystemAccess: vi.fn() })
+  const h = harness(), video = document.createElement('video'), surface = document.createElement('object')
+  let listener: Record<string, (...args: any[]) => void> = {}
+  const api: AVPlay = { open: vi.fn(), close: vi.fn(), stop: vi.fn(), play: vi.fn(), pause: vi.fn(), getState: () => 'IDLE', getDuration: () => 100000, getCurrentTime: () => 0, setDisplayRect: vi.fn(), setDisplayMethod: vi.fn(), setDrm: vi.fn(), setStreamingProperty: vi.fn(), setListener: value => { listener = value }, prepareAsync: vi.fn(), seekTo: vi.fn() }
+  const player = tvPlayer(video, h.report, { api, surface }, async () => h.runtime as any)
+  const drm = { system: 'com.microsoft.playready', licenseUrl: 'https://license.example/rights', headers: { Authorization: 'license-token' } }
+  player.play({ url: 'https://example.com/native.mpd', playback: { headers: { Cookie: 'media-cookie' }, drm } }); await settle()
+  expect(api.open).toHaveBeenCalledWith('https://example.com/native.mpd'); expect(api.setDrm).toHaveBeenCalledOnce(); expect(h.engine.load).not.toHaveBeenCalled(); expect(video.hidden).toBe(true); expect(surface.hidden).toBe(false); expect(player.diagnostics?.()).toEqual({ engine: 'samsung' })
+  const old = listener
+  player.play({ url: 'https://example.com/eme.mpd', playback: { drm } }); await settle()
+  expect(h.engine.load).toHaveBeenCalledWith('https://example.com/eme.mpd', undefined, undefined); expect(video.hidden).toBe(false); expect(surface.hidden).toBe(true)
+  const fetcher = vi.fn(); vi.stubGlobal('fetch', fetcher); old.ondrmevent('PLAYREADY', { name: 'Challenge', challenge: 'AQ==' }); expect(fetcher).not.toHaveBeenCalled()
+  player.stop(); await settle(); vi.clearAllTimers()
+})
+it('does not try unprotected playback when native DRM is unsupported or fails', async () => {
+  vi.useFakeTimers(); const h = harness(), video = document.createElement('video'), surface = document.createElement('object')
+  vi.spyOn(video, 'canPlayType').mockReturnValue('probably')
+  const api: AVPlay = { open: vi.fn(), close: vi.fn(), stop: vi.fn(), play: vi.fn(), pause: vi.fn(), getState: () => 'IDLE', getDuration: () => 100000, getCurrentTime: () => 0, setDisplayRect: vi.fn(), setDisplayMethod: vi.fn(), setStreamingProperty: vi.fn(), setListener: vi.fn(), prepareAsync: vi.fn(), seekTo: vi.fn() }
+  const player = tvPlayer(video, h.report, { api, surface }, async () => h.runtime as any)
+  const protectedMedia = { url: 'https://example.com/native.mpd', playback: { headers: { Cookie: 'media-secret' }, drm: { system: 'com.microsoft.playready', licenseUrl: 'https://license.example/rights' } } }
+  player.play(protectedMedia); await settle(); expect(api.open).not.toHaveBeenCalled(); expect(h.engine.load).not.toHaveBeenCalled(); expect(h.report).toHaveBeenLastCalledWith('error', expect.stringContaining('Cookie'))
+  api.setDrm = vi.fn(() => false); player.play(protectedMedia); await settle(); await settle()
+  expect(api.open).toHaveBeenCalledOnce(); expect(api.prepareAsync).not.toHaveBeenCalled(); expect(h.engine.load).not.toHaveBeenCalled(); expect(video.hasAttribute('src')).toBe(false); expect(h.report).toHaveBeenLastCalledWith('error', expect.stringContaining('configure PlayReady'))
+  player.stop(); await settle(); vi.clearAllTimers()
 })
 it('selects Shaka audio by track properties and can turn subtitles off', async () => {
   vi.useFakeTimers(); const h = harness()

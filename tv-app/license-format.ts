@@ -34,15 +34,25 @@ function decodeBase64(value: string): Uint8Array {
   try { return Uint8Array.from(atob(encoded), char => char.charCodeAt(0)) } catch { throw invalid() }
 }
 export function wrapLicense(value: ArrayBuffer | ArrayBufferView | string | null | undefined, template: string): Uint8Array {
+  if (typeof value === 'string' && value.length > 512 * 1024) throw invalid()
   const data = bytes(value)
   if (data.byteLength > 512 * 1024) throw invalid()
   // Validate again at the trust boundary, including manually supplied Media objects.
   if (licenseFormat(template).request !== template) throw invalid()
-  let encoded: string | undefined
-  const body = template.replace(/([bBD])\{SSM\}/g, (_match, prefix) => prefix === 'D' ? data.join(',') : prefix === 'B' ? encodeURIComponent(encoded ??= base64(data)) : encoded ??= base64(data))
-  const result = new TextEncoder().encode(body)
-  if (result.byteLength > LIMIT) throw invalid()
-  return result
+  let encoded: string | undefined, decimal: string | undefined, escaped: string | undefined
+  const encoder = new TextEncoder(), parts: string[] = [], markers = /([bBD])\{SSM\}/g
+  let offset = 0, length = 0, match: RegExpExecArray | null
+  while ((match = markers.exec(template))) {
+    const literal = template.slice(offset, match.index), prefix = match[1]
+    const replacement = prefix === 'D' ? decimal ??= data.join(',') : prefix === 'B' ? escaped ??= encodeURIComponent(encoded ??= base64(data)) : encoded ??= base64(data)
+    // Reject expansion before concatenating or encoding the amplified template.
+    length += encoder.encode(literal).byteLength + replacement.length
+    if (length > LIMIT) throw invalid()
+    parts.push(literal, replacement); offset = match.index + match[0].length
+  }
+  const tail = template.slice(offset)
+  if (length + encoder.encode(tail).byteLength > LIMIT) throw invalid()
+  parts.push(tail); return encoder.encode(parts.join(''))
 }
 export function unwrapLicense(value: ArrayBuffer | ArrayBufferView | string, format: string): Uint8Array {
   if (licenseFormat('', format).response !== format) throw invalid()
