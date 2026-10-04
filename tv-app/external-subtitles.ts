@@ -1,5 +1,6 @@
 import { httpUrl } from './catalog'
 import { plainCaptionText as plainText } from './caption-text'
+import { cancelSubtitleResponse, fetchSubtitleResponse, readSubtitleBytes } from './subtitle-stream'
 
 export class SubtitleError extends Error {}
 export const SUBTITLE_BYTES = 2 * 1024 * 1024
@@ -172,31 +173,19 @@ export async function loadSubtitles(source: string | File, signal: AbortSignal):
   const controller = new AbortController(), cancel = () => controller.abort()
   signal.addEventListener('abort', cancel, { once: true })
   const timer = setTimeout(cancel, 30000)
-  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
+  let response: Response | undefined
   try {
     let bytes: Uint8Array
     if (typeof source === 'string') {
       if (source.length > 8192) throw invalid()
       let url: string
       try { url = httpUrl(source) } catch { throw new SubtitleError('Enter an HTTP or HTTPS subtitle URL without a username or password in its address.') }
-      let response: Response
-      try { response = await fetch(url, { signal: controller.signal, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store' }) }
+      try { response = await fetchSubtitleResponse(url, { signal: controller.signal, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store' }) }
       catch { throw new SubtitleError('Cannot load this subtitle URL. Check the address and server cross-origin access. Provider login headers are not sent.') }
       if (!response.ok) throw new SubtitleError('The subtitle server did not return a file. Check the address and your access.')
       if (Number(response.headers.get('content-length')) > SUBTITLE_BYTES) throw new SubtitleError('Subtitle files must be 2 MB or smaller.')
       if (!response.body) throw new SubtitleError('This browser cannot safely read the subtitle response.')
-      reader = response.body.getReader()
-      const chunks: Uint8Array[] = []; let size = 0
-      while (true) {
-        stopped(controller.signal)
-        const { value, done } = await reader.read()
-        if (done) break
-        size += value.byteLength
-        if (size > SUBTITLE_BYTES) throw new SubtitleError('Subtitle files must be 2 MB or smaller.')
-        chunks.push(value)
-      }
-      bytes = new Uint8Array(size); let offset = 0
-      for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length }
+      bytes = await readSubtitleBytes(response.body, SUBTITLE_BYTES, controller.signal, () => new SubtitleError('Subtitle files must be 2 MB or smaller.'))
     } else {
       if (source.size > SUBTITLE_BYTES) throw new SubtitleError('Subtitle files must be 2 MB or smaller.')
       bytes = new Uint8Array(await readFile(source, controller.signal))
@@ -213,7 +202,7 @@ export async function loadSubtitles(source: string | File, signal: AbortSignal):
     throw new SubtitleError('The subtitle file could not be read. Check the file and connection, then retry.')
   } finally {
     clearTimeout(timer); signal.removeEventListener('abort', cancel); controller.abort()
-    void reader?.cancel().catch(() => {})
+    cancelSubtitleResponse(response)
   }
 }
 
