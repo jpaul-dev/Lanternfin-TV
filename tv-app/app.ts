@@ -14,6 +14,7 @@ import { downloadsUI } from './downloads-ui'
 import { updatesUI } from './updates-ui'
 import { homeLayoutUI } from './home-layout'
 import { homeHero } from './home-hero'
+import { TitlePreviews } from './title-previews'
 import { findHomeCategories, homeKind, type HomeCategory } from './source-home'
 import { canSeek, scrubOSD } from './playback-osd'
 import { subtitleUI, EXTERNAL_SUBTITLE } from './subtitle-ui'
@@ -90,6 +91,7 @@ const detailTrail: DetailVisit[] = []
 let detailGeneration = 0, relatedLoading: AbortController | undefined, relatedFor: Channel | undefined, relatedPool: Channel[] | undefined
 let relatedItems: RelatedTitle[] = [], relatedTask: Promise<void> = Promise.resolve()
 let homeGeneration = 0
+let titlePreviews: TitlePreviews | undefined
 let playbackReturn: 'catalog' | 'detail' | 'programme' | 'downloads' = 'catalog'
 let providerIndex: ProviderIndex | undefined, indexTimer: ReturnType<typeof setTimeout> | undefined
 let browseCategory: (Category & { kind: MediaKind }) | undefined, guide: TVGuide | undefined, guideChannel: Channel | undefined
@@ -150,6 +152,7 @@ const hero = homeHero($('home-content'), {
   active: () => screen === 'catalog' && browseView === 'home' && !away && $('card-menu').hidden === true,
   reducedMotion: () => preferences.reducedMotion,
   library: () => library, guide: () => guide, clock: () => preferences.guideClock,
+  previews: () => titlePreviews,
   activate: watch, browse: () => { void browse('live') },
 })
 
@@ -164,7 +167,7 @@ const resetFlow = resetUI($('reset'), async removeDownloads => {
   searching?.abort(); clearTimeout(searchTimer); clearTimeout(indexTimer); indexTimer = undefined
   providerIndex?.pause(); providerIndex = undefined; suspendedIndex = undefined
   keepActiveLibrary = false; cacheSaving?.abort(); library?.setStorage(null)
-  cancelHomeRows(); hero.reset(); guide?.clear(); playbackGuideLoading?.abort(); accountLoading?.abort(); replayLoading?.abort()
+  cancelHomeRows(); hero.reset(); titlePreviews?.clear(); titlePreviews = undefined; guide?.clear(); playbackGuideLoading?.abort(); accountLoading?.abort(); replayLoading?.abort()
   clearTimeout(holdTimer); clearTimeout(nextTimer); cancelZap(); episodeContext.clear(); browseHistory.forget()
   resetSubtitles(); player?.stop(); screenSaver.release(); downloads.suspend()
   await resetAppData(storage, session, catalogCache, removeDownloads ? () => downloads.removeAll() : undefined)
@@ -288,6 +291,7 @@ $('source-form').addEventListener('submit', async event => {
     cacheSaving?.abort(); cacheSaving = undefined; cacheAttempted = undefined; keepActiveLibrary = useCache && persisted
     if (!keepActiveLibrary) void catalogCache.forget(source).catch(() => { notice('The saved catalog could not be removed. Use Clear saved catalogs in Settings.') })
     activeSource = source; activeGuideUrl = override; activeGuideOffset = offset; episodeContext.clear()
+    titlePreviews?.clear(); titlePreviews = source.kind === 'xtream' ? new TitlePreviews(source) : undefined
     activeAccent = accent; applyPreferences(preferences, document.documentElement, activeAccent)
     providerIndex?.pause(); clearTimeout(indexTimer); indexTimer = undefined
     providerIndex = nextIndex; pooledLibrary = undefined
@@ -322,6 +326,7 @@ $('forget').onclick = async () => {
   pooledLibrary = undefined; knownLibraryVersion++
   keepActiveLibrary = false; cacheSaving?.abort()
   episodeContext.clear()
+  titlePreviews?.clear(); titlePreviews = undefined; hero.reset(); cancelHomeRows(); $('home-rows').replaceChildren()
   cancelGuide(); guide?.clear(); guide = undefined; guideChannel = undefined; guideItems = []
   providerIndex?.pause(); providerIndex = undefined; clearTimeout(indexTimer); indexTimer = undefined; cancelDetails(); detailInfo = undefined
   try { forgetProfiles(localStorage); forgetLibraries(localStorage); library = undefined; activeSource = undefined; editingSource = undefined; activeGuideUrl = undefined; knownLibraryChannels.clear(); providerCategories = {}; channels = []; filtered = []; $('return-catalog').hidden = true; input('remember').checked = false; input('source-name').value = input('source-url').value = input('username').value = input('password').value = input('guide-url').value = ''; renderProfiles(); await catalogCache.forget(); notice('Saved sources, catalogs, favorites, and history removed.'); input('source-url').focus() }
@@ -1255,13 +1260,15 @@ async function openTitle(channel: Channel, versions?: Channel[], navigation: 'ne
   relatedItems = []; relatedFor = undefined; relatedPool = undefined; $('detail-related-rail').replaceChildren(); $('detail-related-rail').scrollLeft = 0
   button('detail-back').textContent = tr(detailTrail.length ? '← Back to previous title' : '← Back to library')
   detailVariants = versions?.includes(channel) && versions.length > 1 ? versions : []
-  detailInfo = basicDetails(channel); episodePage = 0; select('detail-season').replaceChildren()
+  const cached = titlePreviews?.read(channel)
+  detailInfo = cached || basicDetails(channel); episodePage = 0; select('detail-season').replaceChildren()
   renderDetails(); show('detail'); button('detail-play').focus()
   const controller = new AbortController(); detailLoading = controller
   $('detail-status').textContent = 'Loading details…'; $('detail-retry').hidden = true
   try {
-    const result = await loadTitleDetails(activeSource, channel, controller.signal)
+    const result = cached && channel.mediaKind === 'movie' ? cached : await loadTitleDetails(activeSource, channel, controller.signal)
     if (detailLoading !== controller) return false
+    if (!cached || channel.mediaKind !== 'movie') titlePreviews?.remember(result)
     detailLoading = undefined; detailInfo = result; renderDetails(); $('detail-status').textContent = ''
   } catch (error) { if (detailLoading === controller) { $('detail-status').textContent = (error as Error).message; $('detail-retry').hidden = false } }
   finally { if (detailLoading === controller) { detailLoading = undefined; renderEpisodes() } }

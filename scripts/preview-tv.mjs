@@ -36,7 +36,7 @@ createServer(async (request, response) => {
       const art = `http://127.0.0.1:${port}/_test/art.svg`
       const count = pathname.includes('/large-provider/') ? 20000 : 10
       const categories = [{ category_id: '1', category_name: 'UI test library' }]
-      const info = { plot: 'A sample title for checking the TV detail page. Artwork, credits and episodes come from a local test provider. No media or subscriptions are included in this fixture.', movie_image: art, cover: art, backdrop_path: [art], releasedate: '2026-01-01', genre: 'UI demonstration', duration: '01:30:00', rating: '8.2', cast: 'Demo cast', director: 'Demo director' }
+      const info = { plot: 'A sample title for checking the TV detail page. Artwork, credits and episodes come from a local test provider. No media or subscriptions are included in this fixture.', movie_image: art, cover: art, backdrop_path: [`http://127.0.0.1:${port}/_test/backdrop.svg?n=${Number(params.get('vod_id') || params.get('series_id')) || 0}`], releasedate: '2026-01-01', genre: 'UI demonstration', duration: '01:30:00', rating: '8.2', cast: 'Demo cast', director: 'Demo director' }
       const episodeNames = ['The arrival', 'A new direction', 'Between the lines', 'The long way home', 'An unexpected visitor', 'Open water']
       const seasonEpisodes = (season, length) => Array.from({ length }, (_, i) => ({ id: season * 100 + i + 1, season, episode_num: i + 1, title: `${episodeNames[i % episodeNames.length]}${i >= episodeNames.length ? ` · Part ${Math.floor(i / episodeNames.length) + 1}` : ''}`, container_extension: 'mp4', info: { duration_secs: 2500 + i * 17, movie_image: `${art}?n=${i}`, plot: 'A locally generated episode synopsis for checking the series screen, remote navigation and viewing progress. No playable media is included.' } }))
       const episodes = { 1: seasonEpisodes(1, 30), 2: seasonEpisodes(2, 8) }
@@ -49,6 +49,12 @@ createServer(async (request, response) => {
       const now = Date.now(), stamp = ms => new Date(ms).toISOString().replace(/[-:T]/g, '').slice(0, 14)
       const entries = Array.from({ length: 50 }, (_, index) => `<channel id="demo-${index}"><display-name>Test stream ${index + 1}</display-name></channel><programme channel="demo-${index}" start="${stamp(now + 115 * 60000)}" stop="${stamp(now + 125 * 60000)}"><title>Floating-time guide demo</title><desc>Generated two hours ahead without a time zone, for checking automatic schedule correction.</desc></programme>`).join('')
       response.writeHead(200, { 'Content-Type': 'application/xml', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }); response.end(`<tv>${entries}</tv>`); return
+    }
+    if (fixtures && pathname === '/_test/backdrop.svg') {
+      const index = Number(new URL(request.url, `http://127.0.0.1:${port}`).searchParams.get('n')) || 0
+      const color = ['#716497', '#a37760', '#467f93', '#7d759a', '#668474'][Math.abs(Math.trunc(index)) % 5] || '#716497'
+      response.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-store' })
+      response.end(`<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080"><defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="${color}"/><stop offset="1" stop-color="#131726"/></linearGradient></defs><path fill="url(#sky)" d="M0 0h1920v1080H0z"/><circle cx="1450" cy="310" r="180" fill="#ffffff28"/><path d="M0 900L630 190 1050 700 1470 520 1920 850V1080H0z" fill="#181d3788"/><path d="M0 1000L1100 590 1570 930 1920 640V1080H0z" fill="#121a2bb0"/><text x="1450" y="1020" fill="#c4c6d2" font-family="sans-serif" font-size="20" letter-spacing="3">LOCAL BACKDROP DEMO</text></svg>`); return
     }
     if (fixtures && pathname === '/_test/art.svg') {
       const index = Number(new URL(request.url, `http://127.0.0.1:${port}`).searchParams.get('n')) || 0

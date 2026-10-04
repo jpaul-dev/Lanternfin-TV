@@ -129,7 +129,7 @@ export async function loadEpisodes(source: Source, series: Channel, signal: Abor
 export function basicDetails(channel: Channel): TitleDetails {
   return { channel, description: channel.description || '', poster: channel.logo, metadata: [channel.year, channel.rating ? `${channel.rating.toFixed(1)} / 10` : '', channel.group].filter(Boolean) as string[], cast: '', director: '' }
 }
-export async function loadTitleDetails(source: Source, channel: Channel, signal: AbortSignal): Promise<TitleDetails> {
+export async function loadTitleDetails(source: Source, channel: Channel, signal: AbortSignal, previewOnly = false): Promise<TitleDetails> {
   if (source.kind !== 'xtream' || !channel.providerId || !['movie', 'series'].includes(channel.mediaKind || '')) return basicDetails(channel)
   const series = channel.mediaKind === 'series'
   const response = record(await request(source, series ? 'get_series_info' : 'get_vod_info', signal, { [series ? 'series_id' : 'vod_id']: identifier(channel.providerId) }, 8 * 1024 * 1024))
@@ -142,6 +142,6 @@ export async function loadTitleDetails(source: Source, channel: Channel, signal:
   const rating = titleRating(info.rating, info.rating_5based) ?? titleRating(data.rating, data.rating_5based) ?? channel.rating
   const duration = runtimeLabel(providerRuntime(info.duration_secs, info.duration) ?? providerRuntime(data.duration_secs, data.duration) ?? channel.durationSeconds) || detailText(64, info.duration, data.duration), genre = detailText(200, info.genre, data.genre)
   details.metadata = [year, genre || channel.group, duration, rating ? `${rating.toFixed(1)} / 10` : ''].filter(Boolean) as string[]
-  if (series) details.episodes = parseEpisodes(source, channel, response).channels
+  if (series && !previewOnly) details.episodes = parseEpisodes(source, channel, response).channels
   return details
 }

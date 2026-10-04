@@ -9,7 +9,7 @@ it('browses related movies/series, restores detail history and season pages, and
   let late: ((response: Response) => void) | undefined, delayDetails = false
   const fetch = vi.fn(async (url: string) => {
     const params = new URL(url).searchParams, action = params.get('action')
-    if (delayDetails && action === 'get_vod_info' && params.get('vod_id') === '2') return new Promise<Response>(resolve => { late = resolve })
+    if (delayDetails && action === 'get_vod_info' && params.get('vod_id') === '3') return new Promise<Response>(resolve => { late = resolve })
     const data = action === 'get_live_categories' ? []
       : action === 'get_vod_categories' ? [{ category_id: '1', category_name: 'Drama' }, { category_id: '2', category_name: 'Drama' }]
       : action === 'get_series_categories' ? [{ category_id: '3', category_name: 'Series' }]
@@ -46,7 +46,9 @@ it('browses related movies/series, restores detail history and season pages, and
   expect(el<HTMLSelectElement>('detail-season').value).toBe('Season 2'); expect(el('episode-page').textContent).toBe('Page 2 of 2')
   expect(document.activeElement).toBe(card('detail-related-rail', 'Second series'))
   await click('nav-movie'); card('channels', 'First movie').click(); await vi.advanceTimersByTimeAsync(0)
-  delayDetails = true; card('detail-related-rail', 'Second movie').click(); await vi.advanceTimersByTimeAsync(0)
+  // First/Second movie are cached now. Leave a genuinely uncached request pending.
+  delayDetails = true; card('detail-related-rail', 'Third movie').click(); await vi.advanceTimersByTimeAsync(0)
+  expect(late).toBeTypeOf('function')
   await click('nav-home'); late!(new Response(JSON.stringify({ info: { plot: 'Stale description' } }))); await vi.advanceTimersByTimeAsync(0)
   expect(el('catalog').hidden).toBe(false); expect(el('detail').hidden).toBe(true)
   delayDetails = false; await click('nav-movie'); card('channels', 'First movie').click(); await vi.advanceTimersByTimeAsync(0)
