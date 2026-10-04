@@ -8,6 +8,8 @@ import { ScreenSaver, bindLifecycle, type AppCommon } from './lifecycle'
 import { PlaybackDiagnostics, capabilities, buildInfo, type DiagnosticReport } from './diagnostics'
 import { diagnosticsUI } from './diagnostics-ui'
 import { settingsChoices } from './settings-choices'
+import { categoryBrowser, playlistCategories } from './category-browser'
+import { groupPicker } from './group-picker'
 import { libraryUI } from './library-ui'
 import { TVDownloads, localDownload, type DownloadPlatform } from './downloads'
 import { downloadsUI } from './downloads-ui'
@@ -15,7 +17,7 @@ import { updatesUI } from './updates-ui'
 import { homeLayoutUI } from './home-layout'
 import { homeHero } from './home-hero'
 import { TitlePreviews } from './title-previews'
-import { findHomeCategories, homeKind, type HomeCategory } from './source-home'
+import { findHomeCategories, type HomeCategory } from './source-home'
 import { canSeek, scrubOSD } from './playback-osd'
 import { subtitleUI, EXTERNAL_SUBTITLE } from './subtitle-ui'
 import { mp4SubtitleUI, MP4_SUBTITLE } from './mp4-subtitle-ui'
@@ -175,6 +177,9 @@ const resetFlow = resetUI($('reset'), async removeDownloads => {
 }, () => window.location.reload())
 const updates = updatesUI($('updates'), __TV_TARGET__, undefined, () => preferences.updateChannel)
 const preferenceChoices = settingsChoices($('settings'))
+const groups = groupPicker(select('group'))
+const categoryList = categoryBrowser($('category-sidebar'), $('category-list'), 'category', () => activeSource?.kind === 'xtream' ? browseCategory?.id : select('group').value)
+let categoryDirectory: AbortController | undefined
 const guideMatcher = guideMatchUI($('guide-match'), (query, page, signal) => {
   if (!matching || away) throw new Error('Return to the guide and reopen matching to try again.')
   return matching.guide.choices(query, page, signal)
@@ -189,6 +194,8 @@ if (away) downloads.suspend()
 function show(next: Screen) {
   if (resetFlow.locked && next !== 'reset') return
   if (next !== 'settings') preferenceChoices.close(false)
+  if (next !== 'catalog') { groups.close(false); categoryList.suspend() }
+  else if (browseView !== 'home') categoryList.resume()
   const returningToCatalog = next === 'catalog' && screen !== 'catalog' && screen !== 'guide-match' && !enteringBrowse && browseView !== 'home'
   if (screen === 'catalog' && next !== 'catalog') { rememberBrowsePosition(); cancelBrowseEntry(); cancelProviderLoad(); searching?.abort(); clearTimeout(searchTimer); searchTimer = undefined }
   if (screen === 'updates' && next !== 'updates') updates.close()
@@ -290,6 +297,7 @@ $('source-form').addEventListener('submit', async event => {
     } else try { library.setStorage(storage) } catch { storageMessage += ' Library changes could not be saved.' }
     cacheSaving?.abort(); cacheSaving = undefined; cacheAttempted = undefined; keepActiveLibrary = useCache && persisted
     if (!keepActiveLibrary) void catalogCache.forget(source).catch(() => { notice('The saved catalog could not be removed. Use Clear saved catalogs in Settings.') })
+    groups.clear(); categoryList.clear()
     activeSource = source; activeGuideUrl = override; activeGuideOffset = offset; episodeContext.clear()
     titlePreviews?.clear(); titlePreviews = source.kind === 'xtream' ? new TitlePreviews(source) : undefined
     activeAccent = accent; applyPreferences(preferences, document.documentElement, activeAccent)
@@ -301,7 +309,7 @@ $('source-form').addEventListener('submit', async event => {
     $('library-note').textContent = persisted ? 'Favorites and recent streams are saved on this TV.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.'
     $('return-catalog').hidden = false
     // Credentials remain only in the form/session unless saving was explicitly chosen.
-    updateGroups(); await filter(); if (loading !== controller || controller.signal.aborted) return; goHome()
+    await updateGroups(); await filter(); if (loading !== controller || controller.signal.aborted) return; goHome()
     startIndex()
     notice((catalog.skipped ? `${catalog.skipped} entries with invalid addresses were skipped.` : '') + storageMessage)
   } catch (error) { if (loading === controller) notice((error as Error).message) }
@@ -323,6 +331,7 @@ $('forget').onclick = async () => {
   activeAccent = undefined; select('profile-accent').value = ''; applyPreferences(preferences)
   activeGuideOffset = 0; select('guide-offset').value = '0'
   browseHistory.forget(); cancelBrowseEntry(); catalogReturnVisit = undefined
+  groups.clear(); categoryList.clear()
   pooledLibrary = undefined; knownLibraryVersion++
   keepActiveLibrary = false; cacheSaving?.abort()
   episodeContext.clear()
@@ -383,6 +392,7 @@ async function filter(resetPage = true) {
   finally { if (searching === controller) searching = undefined }
 }
 function render() {
+  groups.sync()
   const grid = $('channels'), focused = grid.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.channel : undefined
   grid.textContent = ''
   const live = browseView === 'live' && libraryView === 'all'
@@ -409,7 +419,7 @@ function render() {
   button('previous').disabled = page === 0; button('next').disabled = (page + 1) * PAGE_SIZE >= filtered.length
   for (const view of ['all', 'favorites', 'watchlist', 'recent']) button(`view-${view}`).setAttribute('aria-pressed', String(libraryView === view))
   const category = activeSource?.kind === 'xtream' ? browseCategory?.id : select('group').value
-  for (const item of $('category-list').querySelectorAll<HTMLElement>('button')) item.setAttribute('aria-pressed', String(!!category && item.dataset.category === category))
+  categoryList.mark()
   button('categories-back').setAttribute('aria-pressed', String(!category))
   $('clear-history').hidden = libraryView !== 'recent'
   renderEmpty()
@@ -446,7 +456,7 @@ function changePage(next: number, x?: number) {
 }
 $('page-go').onclick = () => { const value = Number(input('page-jump').value); if (Number.isInteger(value)) changePage(Math.max(0, Math.min(Math.ceil(filtered.length / PAGE_SIZE) - 1, value - 1))) }
 input('page-jump').onkeydown = event => { if (event.key === 'Enter') { event.preventDefault(); button('page-go').click() } }
-$('reset-filters').onclick = () => { input('search').value = ''; select('group').value = ''; restoreBrowseChoice(true); saveBrowseChoice(); void filter() }
+$('reset-filters').onclick = () => { input('search').value = ''; groups.value(''); restoreBrowseChoice(true); saveBrowseChoice(); void filter() }
 $('change-source').onclick = () => { cancelProviderLoad(); show('setup') }
 $('return-catalog').onclick = () => { cancelLoad(); show('catalog') }
 for (const view of ['all', 'favorites', 'watchlist', 'recent'] as const) $(`view-${view}`).onclick = () => void browseLibrary(view)
@@ -892,7 +902,7 @@ bindLifecycle(document, window, () => {
   if (screen === 'detail') void refreshRelated()
   if (screen === 'catalog') {
     if (browseView === 'home') renderHome()
-    else { pendingBrowseVisit = catalogReturnVisit; void filter(false); if (browseView === 'live' && guideChannel) selectGuide(guideChannel) }
+    else { categoryList.resume(); void updateGroups(); pendingBrowseVisit = catalogReturnVisit; void filter(false); if (browseView === 'live' && guideChannel) selectGuide(guideChannel) }
   }
 })
 window.addEventListener('offline', () => { if (screen === 'playback' && !(currentChannel && localDownload(currentChannel))) { saveProgress(); player?.stop(); report('error', 'The TV is offline. Reconnect to your network, then choose Retry stream.') } })
@@ -900,14 +910,8 @@ for (const key of ['MediaPlay', 'MediaPause', 'MediaPlayPause', 'MediaStop', 'Me
   try { window.tizen?.tvinputdevice?.registerKey(key) } catch { /* not every remote has every key */ }
 }
 function updateGroups() {
-  const selected = select('group').value
-  const group = select('group'); group.replaceChildren(new Option('All groups', ''))
   const pool = providerIndex && ['search', 'all'].includes(browseView) ? libraryPool() : channels
-  const groups = new Set<string>(); for (const channel of pool) groups.add(channel.group)
-  for (const name of Array.from(groups).sort()) group.add(new Option(name, name))
-  // Keep an unloaded/removed selection visible instead of silently showing all groups.
-  if (selected && ![...group.options].some(option => option.value === selected)) group.add(new Option(selected, selected))
-  group.value = selected
+  return groups.refresh(pool)
 }
 function cancelGuide() { clearTimeout(guideTimer); guideLoading?.abort(); guideLoading = undefined }
 function selectGuide(channel?: Channel, refresh = false) {
@@ -1025,13 +1029,14 @@ function rememberBrowsePosition() {
   const section = browseSection()
   if (!activeSource || screen !== 'catalog' || !section || enteringBrowse) return
   const busy = !!searching || !!searchTimer
-  const visit: BrowseVisit = pendingBrowseVisit || { query: input('search').value, group: select('group').value, ...(browseCategory && ['live', 'movie', 'series'].includes(browseView) ? { category: { id: browseCategory.id, name: browseCategory.name } } : {}), page: busy ? 0 : page, focus: busy && focusedBrowse?.kind === 'title' ? undefined : focusedBrowse, scroll: window.scrollY, gridScroll: $('channels').scrollTop, categoryScroll: $('category-sidebar').scrollTop, signature: browseSignature() }
+  const visit: BrowseVisit = pendingBrowseVisit || { query: input('search').value, group: select('group').value, categories: categoryList.position, ...(browseCategory && ['live', 'movie', 'series'].includes(browseView) ? { category: { id: browseCategory.id, name: browseCategory.name } } : {}), page: busy ? 0 : page, focus: busy && focusedBrowse?.kind === 'title' ? undefined : focusedBrowse, scroll: window.scrollY, gridScroll: $('channels').scrollTop, categoryScroll: $('category-sidebar').scrollTop, signature: browseSignature() }
   catalogReturnVisit = visit
   if (!temporaryBrowse) browseHistory.remember(sourceId(activeSource), section, visit)
 }
-function cancelBrowseEntry() { browseGeneration++; enteringBrowse = 0; pendingBrowseVisit = undefined }
+function cancelBrowseEntry() { browseGeneration++; enteringBrowse = 0; pendingBrowseVisit = undefined; categoryDirectory?.abort(); categoryList.suspend(); groups.stop() }
 function beginBrowse(section: BrowseSection, temporary = false, fresh = false) {
   rememberBrowsePosition(); cancelProviderLoad(); cancelGuide(); searching?.abort(); clearTimeout(searchTimer); searchTimer = undefined
+  categoryDirectory?.abort(); categoryList.clear(); groups.stop()
   const visit = activeSource && !temporary && !fresh ? browseHistory.recall(sourceId(activeSource), section) : undefined
   const generation = ++browseGeneration; enteringBrowse = generation; temporaryBrowse = temporary
   pendingBrowseVisit = undefined; focusedBrowse = undefined; catalogReturnVisit = undefined; page = lastChannel = 0
@@ -1039,8 +1044,7 @@ function beginBrowse(section: BrowseSection, temporary = false, fresh = false) {
   return { generation, revision: browseInputRevision, visit }
 }
 function prepareBrowseVisit(visit?: BrowseVisit) {
-  input('search').value = visit?.query || ''; select('group').value = ''
-  if (visit?.group) { if (![...select('group').options].some(option => option.value === visit.group)) select('group').add(new Option(visit.group, visit.group)); select('group').value = visit.group }
+  input('search').value = visit?.query || ''; groups.value(visit?.group || '')
   if (visit && visit.signature !== browseSignature()) return { ...visit, page: 0, focus: undefined, scroll: 0, gridScroll: 0, categoryScroll: 0, signature: browseSignature() }
   return visit
 }
@@ -1064,7 +1068,8 @@ function finishBrowse(entry: ReturnType<typeof beginBrowse>, visit?: BrowseVisit
 async function browseLibrary(view: typeof libraryView) {
   const entry = beginBrowse(view); libraryView = view; browseView = 'all'; browseCategory = undefined
   restoreBrowseChoice(); const visit = prepareBrowseVisit(entry.visit)
-  browseLayout(tr(view === 'all' ? 'All streams' : view === 'favorites' ? 'Favorites' : view === 'watchlist' ? 'Watchlist' : 'Recently watched')); updateGroups()
+  browseLayout(tr(view === 'all' ? 'All streams' : view === 'favorites' ? 'Favorites' : view === 'watchlist' ? 'Watchlist' : 'Recently watched')); await updateGroups()
+  if (browseGeneration !== entry.generation) return
   pendingBrowseVisit = visit
   try { await filter(false) } finally { finishBrowse(entry, visit) }
 }
@@ -1191,15 +1196,20 @@ async function browse(kind: 'search' | MediaKind, categoryToOpen?: Category, fre
   const title = { live: 'Live TV', movie: 'Movies', series: 'Series', search: 'Search' }[kind]
   browseLayout(tr(title))
   if (activeSource?.kind !== 'xtream' || kind === 'search') {
-    updateGroups()
+    await updateGroups()
+    if (browseGeneration !== entry.generation) return
     if (categoryToOpen) {
       // A removed playlist group must show an empty result, never all titles.
-      if (![...select('group').options].some(option => option.value === categoryToOpen.name)) select('group').add(new Option(categoryToOpen.name, categoryToOpen.name))
-      select('group').value = categoryToOpen.name
+      groups.value(categoryToOpen.name)
     }
     if (kind !== 'search') {
-      const list = $('category-list'); list.replaceChildren()
-      for (const group of new Set(channels.filter(channel => homeKind(channel) === kind).map(channel => channel.group))) { const item = document.createElement('button'); item.textContent = group; item.dataset.category = group; item.onclick = () => { select('group').value = group; void filter() }; list.append(item) }
+      const request = new AbortController(); categoryDirectory = request
+      try {
+        const categories = await playlistCategories(channels, request.signal, kind)
+        if (browseGeneration !== entry.generation) return
+        await categoryList.set(categories, category => { groups.value(category.name); void filter() }, visit?.categories, visit?.focus?.kind === 'category' ? visit.focus.id : categoryToOpen?.name || (!visit?.categories ? visit?.group : undefined))
+        if (browseGeneration !== entry.generation) return
+      } catch { return } finally { if (categoryDirectory === request) categoryDirectory = undefined }
       $('categories-back').hidden = false
     }
     pendingBrowseVisit = visit
@@ -1208,17 +1218,18 @@ async function browse(kind: 'search' | MediaKind, categoryToOpen?: Category, fre
   }
   const controller = new AbortController(); providerLoading = controller; $('cancel-category').hidden = false
   if (visit?.category) browseCategory = { ...visit.category, kind }
-  channels = browseCategory ? [] : providerIndex?.items.filter(channel => channel.mediaKind === kind) || []; updateGroups(); await filter(false)
+  channels = browseCategory ? [] : providerIndex?.items.filter(channel => channel.mediaKind === kind) || []; await updateGroups()
+  if (browseGeneration !== entry.generation || providerLoading !== controller) return
+  await filter(false)
   if (browseGeneration !== entry.generation || providerLoading !== controller) return
   $('result-count').textContent = 'Loading categories…'
   try {
     const categories = providerIndex?.categories[kind] || providerCategories[kind] || await loadCategories(activeSource, kind, controller.signal)
     if (providerLoading !== controller) return
     providerCategories[kind] = categories
-    const list = $('category-list'); list.replaceChildren(); list.hidden = false; $('categories-back').hidden = false
-    for (const category of categories) {
-      const item = document.createElement('button'); item.textContent = category.name; item.dataset.category = category.id; item.onclick = () => void openCategory(kind, category); list.append(item)
-    }
+    $('categories-back').hidden = false
+    await categoryList.set(categories, category => { void openCategory(kind, category) }, visit?.categories, visit?.focus?.kind === 'category' ? visit.focus.id : categoryToOpen?.id || (!visit?.categories ? visit?.category?.id : undefined))
+    if (browseGeneration !== entry.generation || providerLoading !== controller) return
     if (categoryToOpen) { await openCategory(kind, categoryToOpen); return }
     if (visit?.category) {
       const category = categories.find(item => item.id === visit.category!.id)
@@ -1242,7 +1253,9 @@ async function openCategory(kind: MediaKind, category: Category, visit?: BrowseV
   try {
     const result = providerIndex?.cached(kind, category) || await loadCategory(activeSource, kind, category, controller.signal)
     if (providerLoading !== controller) return
-    browseCategory = { ...category, kind }; channels = result.channels; updateGroups(); browseLayout(category.name)
+    browseCategory = { ...category, kind }; channels = result.channels; await updateGroups()
+    if (providerLoading !== controller || browseGeneration !== generation) return
+    browseLayout(category.name)
     if (browseInputRevision === revision) pendingBrowseVisit = visit
     await filter(!visit); if (browseGeneration !== generation) return
     if (!visit && browseInputRevision === revision) { const first = $('channels').querySelector<HTMLElement>('button'); first?.focus(); if (first) focusedBrowse = browseFocus(first) }

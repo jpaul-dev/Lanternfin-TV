@@ -79,15 +79,16 @@ createServer(async (request, response) => {
       const entries = Array.from({ length: 60 }, (_, index) => `#EXTINF:-1 tvg-type="movie" tvg-logo="http://127.0.0.1:${port}/_test/art.svg?n=${index}" group-title="UI test movies",${index % 2 ? 'FR' : 'EN'} - Movie ${index + 1}\nhttp://127.0.0.1:${port}/_test/unavailable.mp4?id=${index}\n`).join('')
       response.writeHead(200, { 'Content-Type': 'audio/x-mpegurl', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }); response.end('#EXTM3U\n' + entries); return
     }
-    if (fixtures && ['/_test/playlist.m3u', '/_test/large.m3u'].includes(pathname)) {
+    if (fixtures && ['/_test/playlist.m3u', '/_test/large.m3u', '/_test/categories.m3u'].includes(pathname)) {
       response.writeHead(200, { 'Content-Type': 'audio/x-mpegurl', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
-      const count = pathname === '/_test/large.m3u' ? 120000 : 50
+      const manyCategories = pathname === '/_test/categories.m3u'
+      const count = pathname === '/_test/large.m3u' || manyCategories ? 120000 : 50
       let entry = 0
       response.write(`#EXTM3U x-tvg-url="http://127.0.0.1:${port}/_test/guide.xml"\n`)
       const write = () => {
         if (response.destroyed) return
         let chunk = ''
-        for (let n = 0; n < 500 && entry < count; n++, entry++) chunk += `#EXTINF:-1 tvg-id="demo-${entry}" tvg-logo="https://images.example/${'x'.repeat(100)}" group-title="${['Nature', 'Cinema', 'Radio'][entry % 3]}",${entry === 0 ? '<b>Inert title</b>' : `Test stream ${entry + 1}`}\nhttp://127.0.0.1:${port}/_test/unavailable.mp4?id=${entry}\n`
+        for (let n = 0; n < 500 && entry < count; n++, entry++) chunk += `#EXTINF:-1 tvg-id="demo-${entry}" tvg-logo="${manyCategories ? `http://127.0.0.1:${port}/_test/art.svg?n=${entry % 5}` : `https://images.example/${'x'.repeat(100)}`}" ${manyCategories ? 'tvg-type="movie" ' : ''}group-title="${manyCategories ? `Category ${String(entry % 10000 + 1).padStart(5, '0')}` : ['Nature', 'Cinema', 'Radio'][entry % 3]}",${entry === 0 ? '<b>Inert title</b>' : `Test stream ${entry + 1}`}\nhttp://127.0.0.1:${port}/_test/unavailable.mp4?id=${entry}\n`
         const ready = response.write(chunk)
         if (entry === count) response.end()
         else if (ready) setImmediate(write)

@@ -3,13 +3,13 @@ import { expect, it } from 'vitest'
 import { BrowseHistory, browseFocus, resolveBrowseVisit, type BrowseVisit } from '../tv-app/browse-history'
 import { channelId } from '../tv-app/library'
 const source = 'a'.repeat(16), other = 'b'.repeat(16)
-const visit: BrowseVisit = { query: 'Film', group: 'Drama', category: { id: '2', name: 'Drama' }, page: 3, focus: { kind: 'title', id: '1'.repeat(16) }, scroll: 900, gridScroll: 300, categoryScroll: 100, signature: 'options' }
+const visit: BrowseVisit = { query: 'Film', group: 'Drama', category: { id: '2', name: 'Drama' }, categories: { query: 'Dra', page: 2 }, page: 3, focus: { kind: 'title', id: '1'.repeat(16) }, scroll: 900, gridScroll: 300, categoryScroll: 100, signature: 'options' }
 const items = (length: number) => Array.from({ length }, (_, i) => ({ name: `Film ${i}`, url: `https://example.com/${i}.mp4`, group: 'Drama' }))
 
 it('keeps source/section positions independent, copies fields and forgets without writing storage', () => {
   const history = new BrowseHistory(), before = localStorage.length
   history.remember(source, 'movie', visit); history.remember(source, 'series', { ...visit, query: 'Saga' }); history.remember(other, 'movie', { ...visit, page: 1 })
-  const copy = history.recall(source, 'movie')!; copy.category!.id = '3'; copy.focus!.id = '2'.repeat(16); copy.query = 'Changed'
+  const copy = history.recall(source, 'movie')!; copy.category!.id = '3'; copy.focus!.id = '2'.repeat(16); copy.query = 'Changed'; copy.categories!.page = 5
   expect(history.recall(source, 'movie')).toEqual(visit); expect(history.recall(source, 'series')?.query).toBe('Saga'); expect(history.recall(other, 'movie')?.page).toBe(1)
   history.forget(source); expect(history.recall(source, 'movie')).toBeUndefined(); expect(history.recall(other, 'movie')).toBeDefined()
   history.forget(); expect(history.recall(other, 'movie')).toBeUndefined(); expect(localStorage.length).toBe(before)
