@@ -10,6 +10,16 @@ const epochs = new Map<string, number>(); let globalEpoch = 0
 const fail = () => new Error('The saved library is unavailable. Live loading still works.')
 const checkSignal = (signal?: AbortSignal) => { if (signal?.aborted) throw new Error('Library loading cancelled.') }
 const validCategory = (value: any): value is Category => value && typeof value.id === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(value.id) && typeof value.name === 'string' && value.name.length <= 200
+const validGeneration = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value)
+function checkedCategories(value: any): Record<MediaKind, Category[]> {
+  const categories = {} as Record<MediaKind, Category[]>
+  for (const kind of KINDS) {
+    const list = value?.[kind]
+    if (!Array.isArray(list) || list.length > 10000 || !list.every(validCategory) || new Set(list.map(category => category.id)).size !== list.length) throw fail()
+    categories[kind] = list.map(({ id, name }) => ({ id, name }))
+  }
+  return categories
+}
 
 /** A small plain IndexedDB store; no executable data and no copied media/account credentials. */
 export class CatalogCache {
@@ -27,20 +37,27 @@ export class CatalogCache {
       request.onsuccess = () => { clearTimeout(timer); if (done) request.result.close(); else { done = true; request.result.onversionchange = () => request.result.close(); resolve(request.result) } }
     })
   }
-  private transaction<T>(db: IDBDatabase, stores: string[], mode: IDBTransactionMode, action: (tx: IDBTransaction, set: (value: T) => void) => void): Promise<T> {
+  private transaction<T>(db: IDBDatabase, stores: string[], mode: IDBTransactionMode, action: (tx: IDBTransaction, set: (value: T) => void) => void, signal?: AbortSignal): Promise<T> {
     return new Promise((resolve, reject) => {
+      checkSignal(signal)
       const tx = db.transaction(stores, mode); let result: T
-      const timer = setTimeout(() => { try { tx.abort() } catch { /* Already settled. */ }; reject(fail()) }, 5000)
-      tx.oncomplete = () => { clearTimeout(timer); resolve(result) }; tx.onerror = tx.onabort = () => { clearTimeout(timer); reject(fail()) }
-      try { action(tx, value => { result = value }) } catch { clearTimeout(timer); tx.abort(); reject(fail()) }
+      const abort = () => { try { tx.abort() } catch { /* Already settled. */ } }
+      const cleanup = () => { clearTimeout(timer); signal?.removeEventListener('abort', abort) }
+      const timer = setTimeout(() => { abort(); cleanup(); reject(fail()) }, 5000)
+      signal?.addEventListener('abort', abort, { once: true })
+      tx.oncomplete = () => { cleanup(); resolve(result) }; tx.onerror = tx.onabort = () => { cleanup(); reject(fail()) }
+      try { action(tx, value => { result = value }) } catch { cleanup(); abort(); reject(fail()) }
     })
+  }
+  private sweep(tx: IDBTransaction, id: string, keep: (key: IDBValidKey[]) => boolean = () => false) {
+    const cursor = tx.objectStore('chunks').openCursor(IDBKeyRange.bound([id], [id, []]))
+    cursor.onsuccess = () => { const item = cursor.result; if (item) { if (!keep(item.key as IDBValidKey[])) item.delete(); item.continue() } }
   }
   private async remove(db: IDBDatabase, id?: string) {
     await this.transaction<void>(db, ['meta', 'chunks'], 'readwrite', tx => {
       if (!id) { tx.objectStore('meta').clear(); tx.objectStore('chunks').clear(); return }
       tx.objectStore('meta').delete(id)
-      const cursor = tx.objectStore('chunks').openCursor(IDBKeyRange.bound([id, 0], [id, Number.MAX_SAFE_INTEGER]))
-      cursor.onsuccess = () => { const item = cursor.result; if (item) { item.delete(); item.continue() } }
+      this.sweep(tx, id)
     })
   }
   async forget(source?: Source) {
@@ -53,28 +70,64 @@ export class CatalogCache {
     if (source.kind !== 'xtream') return
     const id = sourceId(source), epoch = (epochs.get(id) || 0) + 1, global = globalEpoch; epochs.set(id, epoch)
     const check = () => { checkSignal(signal); if (epoch !== epochs.get(id) || global !== globalEpoch) throw fail() }
-    check(); const db = await this.open()
+    check()
+    const categories = checkedCategories(snapshot.categories), seen = new Set<string>()
+    if (!Number.isFinite(snapshot.at) || snapshot.at > Date.now() + 60000 || !Array.isArray(snapshot.entries)) throw fail()
+    const generation = [...crypto.getRandomValues(new Uint32Array(4))].map(value => value.toString(16).padStart(8, '0')).join('')
+    const db = await this.open(); let published = false
     try {
-      check(); await this.remove(db, id)
+      check()
+      // Reclaim abandoned staging from a previous interrupted app session, while
+      // preserving the currently published generation (including legacy keys).
+      await this.transaction(db, ['meta', 'chunks'], 'readwrite', tx => {
+        const request = tx.objectStore('meta').get(id)
+        request.onsuccess = () => {
+          try {
+            check(); let previous: any
+            try { if (typeof request.result === 'string' && request.result.length <= 2 * 1024 * 1024) previous = JSON.parse(request.result) } catch {}
+            this.sweep(tx, id, key => !!previous && (previous.generation === undefined ? key.length === 2 && typeof key[1] === 'number' : validGeneration(previous.generation) && key.length === 3 && key[1] === previous.generation))
+          } catch { tx.abort() }
+        }
+      }, signal)
       let count = 0, characters = 0, chunks = 0
       for (const entry of snapshot.entries) {
+        if (!KINDS.includes(entry.kind) || !validCategory(entry.category) || !categories[entry.kind].some(category => category.id === entry.category.id) || !Array.isArray(entry.channels)) throw fail()
+        const categoryKey = `${entry.kind}:${entry.category.id}`
+        if (seen.has(categoryKey)) throw fail(); seen.add(categoryKey)
         for (let start = 0; start < Math.max(1, entry.channels.length); start += 500) {
           check()
           const rows = entry.channels.slice(start, start + 500).map(channel => {
             const reference = channelReference(source, channel)
-            if (!reference) throw fail()
+            if (!reference || reference.mediaKind !== entry.kind) throw fail()
             return { reference, ...(channel.logo ? { logo: channel.logo } : {}), ...(channel.description ? { description: channel.description } : {}), ...(channel.tvArchive ? { tvArchive: channel.tvArchive, tvArchiveDuration: channel.tvArchiveDuration } : {}) }
           })
           const json = JSON.stringify({ kind: entry.kind, category: entry.category, rows, skipped: start === 0 ? entry.skipped : 0 })
           characters += json.length; count += rows.length
           if (characters > MAX_CHARACTERS || json.length > 2 * 1024 * 1024 || count > MAX_RECORDS || chunks >= 4000) throw fail()
-          await this.transaction(db, ['chunks'], 'readwrite', tx => { tx.objectStore('chunks').put(json, [id, chunks]) }); chunks++
+          await this.transaction(db, ['chunks'], 'readwrite', tx => { check(); tx.objectStore('chunks').put(json, [id, generation, chunks]) }, signal); chunks++
         }
       }
-      check(); const meta = JSON.stringify({ at: snapshot.at, categories: snapshot.categories, chunks, count })
+      check()
+      if (seen.size !== KINDS.reduce((sum, kind) => sum + categories[kind].length, 0)) throw fail()
+      const meta = JSON.stringify({ at: snapshot.at, categories, chunks, count, generation })
       if (meta.length > 2 * 1024 * 1024) throw fail()
-      await this.transaction(db, ['meta'], 'readwrite', tx => { tx.objectStore('meta').put(meta, id) })
-    } finally { db.close() }
+      // Publish the complete snapshot and remove the old one in one transaction.
+      // Quota errors or aborts roll back both, leaving the old snapshot readable.
+      await this.transaction(db, ['meta', 'chunks'], 'readwrite', tx => {
+        check()
+        const request = tx.objectStore('chunks').count(IDBKeyRange.bound([id, generation, 0], [id, generation, Math.max(0, chunks - 1)]))
+        request.onsuccess = () => {
+          try {
+            check(); if (request.result !== chunks) throw fail()
+            tx.objectStore('meta').put(meta, id); this.sweep(tx, id, key => key.length === 3 && key[1] === generation)
+          } catch { tx.abort() }
+        }
+      }, signal)
+      published = true
+    } finally {
+      if (!published) try { await this.transaction(db, ['chunks'], 'readwrite', tx => this.sweep(tx, id, key => key.length !== 3 || key[1] !== generation)) } catch { /* A later save reclaims interrupted staging. */ }
+      db.close()
+    }
   }
   async load(source: Source, signal?: AbortSignal): Promise<CatalogSnapshot | undefined> {
     if (source.kind !== 'xtream') return
@@ -88,17 +141,12 @@ export class CatalogCache {
       if (typeof raw !== 'string' || raw.length > 2 * 1024 * 1024) throw fail()
       const meta = JSON.parse(raw)
       if (!Number.isFinite(meta.at) || meta.at > Date.now() + 60000 || meta.at < Date.now() - TTL) { check(); await this.remove(db, id); return }
-      if (!Number.isInteger(meta.chunks) || meta.chunks < 0 || meta.chunks > 4000 || !meta.categories) throw fail()
-      const categories = {} as Record<MediaKind, Category[]>
-      for (const kind of KINDS) {
-        const list = meta.categories[kind]
-        if (!Array.isArray(list) || list.length > 10000 || !list.every(validCategory)) throw fail()
-        categories[kind] = list.map(({ id, name }) => ({ id, name }))
-      }
+      if (!Number.isInteger(meta.chunks) || meta.chunks < 0 || meta.chunks > 4000 || !meta.categories || meta.generation !== undefined && !validGeneration(meta.generation)) throw fail()
+      const categories = checkedCategories(meta.categories)
       const entries = new Map<string, CachedCategory>(); let characters = 0, count = 0
       for (let chunk = 0; chunk < meta.chunks; chunk++) {
         check()
-        const json = await this.transaction<unknown>(db, ['chunks'], 'readonly', (tx, set) => { const request = tx.objectStore('chunks').get([id, chunk]); request.onsuccess = () => set(request.result) })
+        const json = await this.transaction<unknown>(db, ['chunks'], 'readonly', (tx, set) => { const request = tx.objectStore('chunks').get(meta.generation === undefined ? [id, chunk] : [id, meta.generation, chunk]); request.onsuccess = () => set(request.result) })
         check()
         if (typeof json !== 'string' || json.length > 2 * 1024 * 1024 || (characters += json.length) > MAX_CHARACTERS) throw fail()
         const data = JSON.parse(json)

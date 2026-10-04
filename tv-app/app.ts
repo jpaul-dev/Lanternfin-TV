@@ -1160,7 +1160,7 @@ function startIndex() {
     if (keepActiveLibrary && index.progress.complete && !index.cachedAt && cacheAttempted !== index && activeSource) {
       cacheAttempted = index; cacheSaving?.abort(); const controller = new AbortController(); cacheSaving = controller
       const snapshot = index.snapshot()
-      if (snapshot) void catalogCache.save(activeSource, snapshot, controller.signal).then(() => { if (providerIndex === index && keepActiveLibrary) $('index-message').textContent = 'Library saved for faster startup. Refresh checks for new titles.' }).catch(() => { if (providerIndex === index && keepActiveLibrary && !controller.signal.aborted) $('index-message').textContent = 'The TV could not save this library. It remains available for this session.' })
+      if (snapshot) void catalogCache.save(activeSource, snapshot, controller.signal).then(() => { if (providerIndex === index && keepActiveLibrary) $('index-message').textContent = 'Library saved for faster startup. Refresh checks for new titles.' }).catch(() => { if (providerIndex === index && keepActiveLibrary && !controller.signal.aborted) $('index-message').textContent = 'The TV could not save this library. It remains available for this session; an earlier saved copy is retained if present.' })
     }
     if (indexTimer) return
     indexTimer = setTimeout(() => {

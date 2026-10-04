@@ -31,6 +31,8 @@ Encrypted desktop acceptance now includes generated Clear Key DASH played throug
 
 Samsung native PlayReady DASH now fills the User-Agent/Cookie media-header gap, using a bounded application-managed challenge exchange for compatible license headers/wrappers or native GetRights for raw Cookie/User-Agent licenses. Other DRM remains on Shaka. Unsupported header combinations fail without weakening requirements; physical Samsung licensing is still unverified. See [support and validation boundaries](TV_PORTS.md#samsung-native-playready-header-support).
 
+Saved Xtream catalog refresh now retains the previous complete copy until its replacement is committed. Interrupted writes and storage failures preserve that fallback, while legacy caches migrate on successful replacement and abandoned staging is reclaimed. See [catalog recovery checks and storage tradeoffs](TV_PORTS.md#saved-catalog-replacement-and-recovery).
+
 ## Screen saver and background work
 
 Samsung's documented [AppCommon API](https://developer.samsung.com/smarttv/develop/api-references/samsung-product-api-references/appcommon-api.html) is called with OFF only during foreground playback (including bounded buffering after playback starts). Pause, stop, errors and leaving the app request ON. Delayed OFF callbacks are corrected after a pause or background transition. Missing/failed APIs do not crash playback; the TV's own Auto Protection Time setting still applies. LG's [Type 2 configuration](https://webostv.developer.lge.com/develop/guides/screensaver) covers the player's on-screen controls on supported OLED models; no private power service is used.
