@@ -22,7 +22,7 @@ button:focus,input:focus,select:focus{outline:3px solid var(--accent);outline-of
 label{display:block;margin:.7rem 0 .4rem;font-size:.8rem;font-weight:600}
 .check{display:flex;align-items:center;font-size:.76rem}
 .check input{width:1.05rem;height:1.05rem;min-height:0;margin:0 .65rem 0 0}
-#app{padding:1.6rem 2.2rem;margin:auto;max-width:1920px}
+#app{padding:calc(1.6rem + var(--safe-y)) calc(2.2rem + var(--safe-x));margin:auto;max-width:1920px}
 .in-library #app{padding-left:11.7rem}
 header,.brand,.heading,.filters,.pagination,footer,.actions{display:flex;align-items:center}
 header{justify-content:space-between;margin-bottom:1.35rem}
@@ -217,7 +217,8 @@ progress{width:100%;height:.15rem;border:0;accent-color:var(--accent)}progress::
 [data-browse=live][data-screen=catalog] footer{display:none}
 :root{--text-scale:1;--safe-x:0vw;--safe-y:0vh;font-size:max(12px,calc(min(1.6667vw,2.963vh)*var(--text-scale)))}
 .in-library #app{padding:calc(1.5rem + var(--safe-y)) calc(1.5rem + var(--safe-x)) calc(1rem + var(--safe-y)) calc(6.5rem + var(--safe-x))}
-#tv-nav{top:var(--safe-y);bottom:var(--safe-y);left:var(--safe-x)}
+#tv-nav{top:var(--safe-y);bottom:var(--safe-y);left:var(--safe-x);overflow-y:auto;scrollbar-width:none}
+#tv-nav::-webkit-scrollbar{width:0}
 #guide-panel{height:calc(100vh - 3rem - var(--safe-y) - var(--safe-y))}
 #channels.live-rows{max-height:calc(100vh - 9.2rem - var(--safe-y) - var(--safe-y))}
 .play-controls{padding-bottom:calc(2rem + var(--safe-y));padding-left:calc(5vw + var(--safe-x));padding-right:calc(5vw + var(--safe-x))}
@@ -237,10 +238,17 @@ progress{width:100%;height:.15rem;border:0;accent-color:var(--accent)}progress::
 .settings-choice-list{overflow:auto;min-height:0;padding:.45rem;overscroll-behavior:contain}.settings-choice-list button{display:flex;align-items:center;width:100%;min-height:2.6rem;margin:.2rem 0;padding:.65rem .85rem;border:0;background:transparent;color:inherit;font-size:.8rem;text-align:start;scroll-margin:.4rem}.settings-choice-list button>span:not([aria-hidden]){min-width:0;overflow-wrap:anywhere}.settings-choice-list button[aria-checked=true]{color:var(--accent)}.settings-choice-list button:focus{outline:3px solid var(--accent);outline-offset:-3px;background:#ffffff0d}.settings-choice-mark{margin-inline-start:auto;padding-inline-start:1rem;color:var(--accent)}.settings-choice-swatch{width:.65rem;height:.65rem;border-radius:50%;margin-inline-end:.7rem;flex-shrink:0}
 .settings-choice-hint{flex-shrink:0;margin:0;padding:.65rem 1rem;font-size:.55rem;line-height:1.5;color:var(--muted);border-top:1px solid var(--line)}[data-theme=light] .settings-choice-list button{background:transparent;color:inherit}[data-theme=light] .settings-choice-list button[aria-checked=true]{color:var(--accent)}[data-theme=light] .settings-choice-list button:focus{background:#00000009}
 [data-motion=reduced] *{transition:none!important;scroll-behavior:auto!important;animation:none!important}
-[data-large-ui=true] #browse-columns.has-guide{grid-template-columns:7rem minmax(0,1fr) 10.5rem;gap:.8rem}
+[data-large-ui=true] #browse-columns.has-guide{grid-template-columns:minmax(0,.8fr) minmax(0,1.3fr) minmax(0,1.1fr);gap:.8rem}
+[data-large-ui=true] #category-list button,[data-large-ui=true] #categories-back{padding:.5rem .4rem}
+[data-large-ui=true] #guide-panel{overflow-y:auto}
+[data-large-ui=true] #guide-panel>*{flex-shrink:0}
+[data-large-ui=true] #guide-title{overflow-wrap:anywhere}
+[data-large-ui=true] #guide-programmes{flex:none;min-height:6rem;max-height:35vh}
 [data-large-ui=true] .live-rows .channel{grid-template-columns:2.5rem minmax(0,1fr);padding:.5rem;gap:0 .4rem}
 [data-large-ui=true] .live-rows .channel-number{display:none}[data-large-ui=true] .live-rows .channel .card-art{width:2.5rem}
-[data-large-ui=true] .has-categories .grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+[data-large-ui=true] .has-categories .grid{grid-template-columns:repeat(auto-fill,minmax(7rem,1fr))}
+[data-large-ui=true] .panel{grid-template-columns:minmax(0,1fr);gap:1rem}
+[data-large-ui=true] .intro{padding-top:0}
 [data-theme=light]{background:#f2f4f6;color:#15212a;color-scheme:light;--surface:#fff;--line:#cdd5db;--muted:#566773}
 [data-theme=light] button,[data-theme=light] input,[data-theme=light] select{color:#17232c;background:#e6ebee}
 [data-theme=light] #tv-nav{background:#f2f4f6}[data-theme=light] #tv-nav button{background:transparent;color:#596873}
@@ -257,7 +265,7 @@ progress{width:100%;height:.15rem;border:0;accent-color:var(--accent)}progress::
 
 #zap-number{position:fixed;top:calc(3rem + var(--safe-y));right:calc(3rem + var(--safe-x));z-index:70;background:#151b20ee;border:2px solid var(--accent);border-radius:.6rem;color:#fff;padding:.6rem 1rem;font-size:1.8rem;max-width:70vw}#playback-guide{max-width:40rem;margin:.5rem 0 1rem}#playback-guide h2{font-size:1rem;margin:.3rem 0}#playback-guide p{margin:.3rem 0}#play-next{max-width:25rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.card-progress{position:absolute;z-index:1;bottom:.3rem;left:.35rem;right:.35rem;width:calc(100% - .7rem);height:.2rem;border-radius:1rem}.card-menu{position:fixed;z-index:80;left:50%;top:50%;transform:translate(-50%,-50%);width:24rem;max-width:85vw;padding:1.5rem;background:var(--surface);border:1px solid var(--line);border-radius:1rem;box-shadow:0 0 0 100vmax #000b;display:flex;flex-direction:column;gap:.7rem}.card-menu h2{margin:0 0 .5rem;overflow-wrap:anywhere}.card-menu button{text-align:left;font-size:.8rem}
+.card-progress{position:absolute;z-index:1;bottom:.3rem;left:.35rem;right:.35rem;width:calc(100% - .7rem);height:.2rem;border-radius:1rem}.card-menu{position:fixed;z-index:80;left:50%;top:50%;transform:translate(-50%,-50%);width:24rem;max-width:calc(92vw - 2 * var(--safe-x));max-height:calc(90vh - 2 * var(--safe-y));overflow-y:auto;padding:1.5rem;background:var(--surface);border:1px solid var(--line);border-radius:1rem;box-shadow:0 0 0 100vmax #000b;display:flex;flex-direction:column;gap:.7rem}.card-menu h2{margin:0 0 .5rem;overflow-wrap:anywhere}.card-menu button{text-align:left;font-size:.8rem}
 
 .browse-options{display:flex;align-items:center;gap:.8rem;margin:.4rem 0 .7rem}.browse-options label{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-size:.62rem;margin:0}.browse-options select{width:auto;max-width:11rem;font-size:.62rem;min-height:1.8rem;padding:.3rem .5rem;border-radius:2rem}.browse-options .check{margin-left:auto}
 

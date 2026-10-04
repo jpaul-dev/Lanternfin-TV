@@ -15,7 +15,8 @@ export function normalizePreferences(raw: unknown): Preferences {
   if (value.updateChannel === 'stable' || value.updateChannel === 'beta') result.updateChannel = value.updateChannel
   if (['dark', 'light', 'system'].includes(value.theme || '')) result.theme = value.theme!
   if (value.accent === 'random' || isAccent(value.accent)) result.accent = value.accent
-  if ([.85, 1, 1.15, 1.3].includes(value.scale || 0)) result.scale = value.scale!
+  // Keep the original Android presets and the earlier port's saved sizes.
+  if ([.85, .875, 1, 1.125, 1.15, 1.25, 1.3, 1.5].includes(value.scale || 0)) result.scale = value.scale!
   if ([0, 1, 2, 3, 4, 5, 6, 7, 8].includes(value.overscan ?? -1)) result.overscan = value.overscan!
   if (typeof value.reducedMotion === 'boolean') result.reducedMotion = value.reducedMotion
   if (typeof value.autoNext === 'boolean') result.autoNext = value.autoNext
