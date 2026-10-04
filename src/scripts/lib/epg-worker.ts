@@ -4,6 +4,7 @@
 
 import { boundedEpgWindow, EPG_PAST_WINDOW_MS } from "@/scripts/lib/epg-constants.ts"
 import { isTrustedWorkerMessage } from "@/scripts/lib/worker-origin.ts"
+import { OffsetCoverage, type OffsetEvidence } from "@/scripts/lib/epg-offset-evidence.ts"
 
 type Programme = { start: number; stop: number; title: string; desc: string; catchupId?: string }
 
@@ -40,6 +41,8 @@ interface StreamBeginRequest {
   gzip: boolean
   /** Optional tighter budget for packaged TV apps. */
   maxChannels?: number
+  /** Optional full-schedule coverage evidence without retaining extra programmes. */
+  offsetEvidence?: boolean
 }
 
 interface StreamChunkRequest {
@@ -67,6 +70,7 @@ interface ParseResponse {
   programmes?: Array<[string, Programme[]]>
   channelNames?: Array<[string, string]>
   hasExplicitTimezones?: boolean
+  offsetEvidence?: OffsetEvidence
   error?: string
 }
 
@@ -400,7 +404,8 @@ function applyNowNextProgramme(
   attrs: Map<string, string>,
   inner: string,
   nowMs: number,
-  tz: TzCounters
+  tz: TzCounters,
+  coverage?: OffsetCoverage
 ): void {
   const channelId = (attrs.get("channel") || "").toLowerCase()
   if (!channelId) return
@@ -416,6 +421,7 @@ function applyNowNextProgramme(
   }
   const start = parseXmlTvDate(startRaw)
   const stop = parseXmlTvDate(stopRaw)
+  if (start && stop) coverage?.add(channelId, start, stop)
   if (!start || !stop || stop <= start || stop <= nowMs) return
 
   let slot = slots.get(channelId)
@@ -707,6 +713,7 @@ interface StreamSession {
   tz: TzCounters
   error: string | null
   maxChannels: number
+  coverage?: OffsetCoverage
 }
 
 const streamSessions = new Map<string, StreamSession>()
@@ -749,6 +756,7 @@ function beginStream(request: StreamBeginRequest): void {
     tz: { timestamps: 0, suffixed: 0 },
     error: null,
     maxChannels: Number.isSafeInteger(request.maxChannels) && request.maxChannels! > 0 ? request.maxChannels! : Infinity,
+    coverage: request.offsetEvidence === true ? new OffsetCoverage(request.nowMs) : undefined,
   }
   if (request.gzip) {
     if (typeof DecompressionStream !== "function") {
@@ -823,7 +831,7 @@ function ingestSessionText(session: StreamSession, text: string): void {
   drainElements(session.scan, STREAM_TAGS, (tag, attrs, inner) => {
     if (session.error) return
     if (tag === "channel") applyChannelElement(session.channelNames, attrs, inner)
-    else applyNowNextProgramme(session.slots, attrs, inner, session.nowMs, session.tz)
+    else applyNowNextProgramme(session.slots, attrs, inner, session.nowMs, session.tz, session.coverage)
     if (session.channelNames.size > session.maxChannels || session.slots.size > session.maxChannels) session.error = "The programme guide exceeds this TV's channel budget. Use a smaller guide."
   })
   capCarry(session.scan, STREAM_TAGS)
@@ -833,6 +841,7 @@ async function endStream(session: StreamSession): Promise<{
   programmes: Map<string, Programme[]>
   channelNames: Map<string, string>
   hasExplicitTimezones: boolean
+  offsetEvidence?: OffsetEvidence
 }> {
   await session.writeQueue
   if (session.writer) {
@@ -854,7 +863,7 @@ async function endStream(session: StreamSession): Promise<{
   const hasExplicitTimezones = session.tz.timestamps > 0 && session.tz.suffixed > session.tz.timestamps / 2
 
   retainStreamFeed({ feedId: session.feedId, gzip: session.gzip, chunks: session.chunks })
-  return { programmes, channelNames: session.channelNames, hasExplicitTimezones }
+  return { programmes, channelNames: session.channelNames, hasExplicitTimezones, ...(session.coverage ? { offsetEvidence: session.coverage.evidence(session.tz.suffixed > 0) } : {}) }
 }
 
 /** Re-decompresses + re-scans a retained streaming feed for one channel's full programme list. */
@@ -922,6 +931,7 @@ function endStreamResponse(id: number, session: StreamSession): Promise<WorkerRe
       programmes: Array.from(result.programmes.entries()),
       channelNames: Array.from(result.channelNames.entries()),
       hasExplicitTimezones: result.hasExplicitTimezones,
+      ...(result.offsetEvidence ? { offsetEvidence: result.offsetEvidence } : {}),
     }),
     (error) => toErrorResponse(id, error)
   )

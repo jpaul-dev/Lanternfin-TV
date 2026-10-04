@@ -45,6 +45,11 @@ createServer(async (request, response) => {
       const data = !action ? { user_info: { auth: 1 }, server_info: { timestamp_now: Math.floor(Date.now() / 1000), time_now: new Date().toISOString().slice(0, 19).replace('T', ' '), timezone: 'UTC' } } : action.includes('epg') || action.includes('data_table') || action.includes('date_table') ? epg : action.endsWith('_categories') ? categories : action === 'get_series_info' ? { info, episodes } : action === 'get_vod_info' ? { info } : Array.from({ length: count }, (_, index) => ({ stream_id: index + 1, year: 2000 + index % 26, rating: (6 + index % 10 * .35).toFixed(1), ...(index ? { added: String(now - (count - 1 - index) * 60) } : {}), tv_archive: 1, tv_archive_duration: 7, series_id: index + 1, name: `${action === 'get_series' ? 'Series' : action === 'get_vod_streams' ? 'Movie' : 'Channel'} sample ${index + 1}`, stream_icon: art + `?n=${index}`, cover: art + `?n=${index}`, container_extension: 'mp4' }))
       response.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(data)); return
     }
+    if (fixtures && pathname === '/_test/guide-floating.xml') {
+      const now = Date.now(), stamp = ms => new Date(ms).toISOString().replace(/[-:T]/g, '').slice(0, 14)
+      const entries = Array.from({ length: 50 }, (_, index) => `<channel id="demo-${index}"><display-name>Test stream ${index + 1}</display-name></channel><programme channel="demo-${index}" start="${stamp(now + 115 * 60000)}" stop="${stamp(now + 125 * 60000)}"><title>Floating-time guide demo</title><desc>Generated two hours ahead without a time zone, for checking automatic schedule correction.</desc></programme>`).join('')
+      response.writeHead(200, { 'Content-Type': 'application/xml', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }); response.end(`<tv>${entries}</tv>`); return
+    }
     if (fixtures && pathname === '/_test/art.svg') {
       const index = Number(new URL(request.url, `http://127.0.0.1:${port}`).searchParams.get('n')) || 0
       const palette = ['#7962a7', '#a4785b', '#538e9b', '#927590', '#729077']

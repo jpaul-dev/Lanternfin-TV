@@ -2,7 +2,8 @@ import { request } from './xtream'
 import type { Channel, Source } from './catalog'
 import { maybeB64ToUtf8 } from '../src/scripts/lib/b64-utf8'
 import { XMLTVGuide } from './xmltv'
-import { guideOffset, channelGuideShift } from './guide-offset'
+import { guideOffset, channelGuideShift, type GuideCorrection } from './guide-offset'
+import type { OffsetEstimate } from '../src/scripts/lib/epg-offset-evidence'
 import { boundedEpgWindow } from '../src/scripts/lib/epg-constants'
 
 export type Programme = { start: number; stop: number; title: string; description: string; archive?: boolean; catchupId?: string; guideShiftMinutes?: number }
@@ -44,24 +45,33 @@ export class TVGuide {
   private xml?: XMLTVGuide
   private xmlLoaded = Date.now()
   private revision = 0
-  private offset: number
-  constructor(private source: Source, private epgUrl?: string, offset = 0, private match: (channel: Channel) => string | undefined = () => undefined) { this.offset = guideOffset(offset); if (epgUrl) this.xml = new XMLTVGuide(epgUrl) }
+  private offset: GuideCorrection
+  private inferred?: OffsetEstimate
+  constructor(private source: Source, private epgUrl?: string, offset: GuideCorrection = 0, private match: (channel: Channel) => string | undefined = () => undefined) { this.offset = guideOffset(offset); if (epgUrl) this.xml = new XMLTVGuide(epgUrl) }
+  get automaticCorrection() { return this.inferred && { ...this.inferred } }
   get canMatch() { return !!this.xml }
   choices(query: string, page: number, signal: AbortSignal) {
     if (!this.xml) throw new Error('Add an XMLTV guide address in this source’s Guide options to match channels.')
     return this.xml.choices(query, page, signal)
   }
   mappingChanged() { this.revision++; this.cache.clear() }
-  setOffset(value: number) { const next = guideOffset(value); if (next !== this.offset) { this.offset = next; this.revision++; this.cache.clear() } }
+  setOffset(value: GuideCorrection) { const next = guideOffset(value); if (next !== this.offset) { this.offset = next; this.revision++; this.cache.clear() } }
   clear() { this.revision++; this.cache.clear(); this.xml?.close() }
   async load(channel: Channel, signal: AbortSignal, refresh = false, window?: GuideWindow): Promise<Programme[]> {
     if (signal.aborted) throw new Error('Guide loading cancelled.')
     if (channel.mediaKind && channel.mediaKind !== 'live') return []
     if (this.epgUrl && (refresh || Date.now() - this.xmlLoaded > 6 * 3600000)) { this.xml?.close(); this.xml = new XMLTVGuide(this.epgUrl); this.xmlLoaded = Date.now(); this.cache.clear() }
-    const revision = this.revision, minutes = this.offset + channelGuideShift(channel.tvgShift), shift = minutes * 60000, now = Date.now() - shift
+    const revision = this.revision, xml = this.xml
+    let correction = this.offset === 'auto' ? 0 : this.offset
+    if (this.offset === 'auto' && xml) {
+      const result = await xml.estimate(signal, this.inferred?.reason === 'estimated' ? this.inferred.minutes : undefined)
+      if (signal.aborted || revision !== this.revision || this.xml !== xml) throw new Error('Guide loading cancelled.')
+      this.inferred = result; correction = result.minutes
+    }
+    const minutes = correction + channelGuideShift(channel.tvgShift), shift = minutes * 60000, now = Date.now() - shift
     const rawWindow = window && { fromMs: window.fromMs - shift, toMs: window.toMs - shift }
     const finish = (items: Programme[]) => {
-      if (signal.aborted || revision !== this.revision) throw new Error('Guide loading cancelled.')
+      if (signal.aborted || revision !== this.revision || xml !== this.xml) throw new Error('Guide loading cancelled.')
       const corrected = minutes ? items.map(item => ({ ...item, start: item.start + shift, stop: item.stop + shift, guideShiftMinutes: minutes })) : items
       this.save(key, corrected); return corrected
     }

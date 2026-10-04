@@ -26,7 +26,7 @@ import { INTERFACE_LANGUAGES, setInterfaceLanguage, staticTranslations, tr } fro
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
 import { guideAddress, readProfiles, rememberProfile, removeProfile, forgetProfiles, saveGuideOffset, saveSourceAccent, sourceId, type SourceProfile } from './profiles'
-import { guideOffset, guideOffsetLabel } from './guide-offset'
+import { guideOffset, guideOffsetLabel, type GuideCorrection } from './guide-offset'
 import { guideMatchUI } from './guide-match-ui'
 import { keyAction, moveFocus, atPageEdge, pageEntry, type Direction } from './remote'
 import { type AVPlay, type Player, type State, type Aspect } from './player'
@@ -98,7 +98,7 @@ let preferences = readPreferences(null), preferenceStorage: Storage | null = nul
 const trackPreferences = new TrackPreferences()
 let trackSnapshot = '', trackMenuDirty = false
 let editingSource: Source | undefined, activeGuideUrl: string | undefined, accountLoading: AbortController | undefined
-let activeGuideOffset = 0
+let activeGuideOffset: GuideCorrection = 0
 let activeAccent: Accent | undefined
 let matching: { guide: TVGuide; library: TVLibrary; channel: Channel } | undefined
 const liveQueue = new LiveQueue(), episodeContext = new EpisodeContext()
@@ -215,7 +215,7 @@ function show(next: Screen) {
   if (next !== 'playback') { $('track-menu').hidden = true; resetSubtitles() }
   notice('')
   if (next === 'setup') renderProfiles()
-  if (next === 'settings') { select('source-guide-offset').value = String(activeGuideOffset); select('source-guide-offset').disabled = !activeSource || activeSource.kind === 'direct'; syncAccent() }
+  if (next === 'settings') { select('source-guide-offset').value = String(activeGuideOffset); select('source-guide-offset').disabled = !activeSource || activeSource.kind === 'direct'; syncAccent(); syncGuideCorrection() }
   const focus = next === 'setup' ? $('profile-list').querySelector<HTMLElement>('.profile-open') || input('source-name') : [...$(next).querySelectorAll<HTMLElement>('button:not(:disabled), input, select')].find(element => !element.closest('[hidden]'))
   focus?.focus()
   if (returningToCatalog && catalogReturnVisit) { pendingBrowseVisit = catalogReturnVisit; void filter(false) }
@@ -246,8 +246,8 @@ function cancelLoad() { loading?.abort(); loading = undefined; setBusy(false) }
 $('source-form').addEventListener('submit', async event => {
   event.preventDefault()
   if (loading) return
-  let source: Source, override: string | undefined, offset: number, accent: Accent | undefined
-  try { source = currentSource(); override = guideAddress(input('guide-url').value); offset = guideOffset(Number(select('guide-offset').value)); accent = sourceAccent(select('profile-accent').value) } catch (error) { notice((error as Error).message); return }
+  let source: Source, override: string | undefined, offset: GuideCorrection, accent: Accent | undefined
+  try { source = currentSource(); override = guideAddress(input('guide-url').value); offset = chosenGuideCorrection('guide-offset'); accent = sourceAccent(select('profile-accent').value) } catch (error) { notice((error as Error).message); return }
   const controller = new AbortController(); loading = controller
   setBusy(true); notice('Opening your playlist…')
   const fresh = forceFresh; forceFresh = false
@@ -1476,14 +1476,26 @@ for (const element of $('settings').querySelectorAll<HTMLSelectElement>('select[
 }
 for (const id of ['guide-offset', 'source-guide-offset']) {
   const picker = select(id)
+  picker.add(new Option(tr(guideOffsetLabel('auto')), 'auto'))
   for (let offset = -720; offset <= 840; offset += 30) picker.add(new Option(tr(guideOffsetLabel(offset)), String(offset)))
   picker.value = '0'
 }
+function chosenGuideCorrection(id: string) { const value = select(id).value; return guideOffset(value === 'auto' ? 'auto' : Number(value)) }
+function syncGuideCorrection() {
+  const note = $('guide-auto-note'); note.hidden = activeGuideOffset !== 'auto'
+  const estimate = guide?.automaticCorrection
+  note.textContent = tr(!guide?.canMatch ? 'Automatic correction needs an XMLTV guide. Provider programme timestamps are left unchanged.'
+    : !estimate ? 'The automatic estimate will appear here after the guide loads.'
+    : estimate.reason === 'explicit' ? 'The guide includes explicit time zones. Automatic correction leaves its times unchanged.'
+    : estimate.reason === 'empty' ? 'The guide has too little current schedule evidence for an estimate. No automatic correction is applied.'
+    : 'Estimated correction: {offset}. Based on programme coverage across {count} channels; check against a known broadcast.', { offset: guideOffsetLabel(estimate?.minutes || 0), count: estimate?.channels || 0 })
+}
 select('source-guide-offset').onchange = () => {
   if (!activeSource || activeSource.kind === 'direct') return
-  activeGuideOffset = guideOffset(Number(select('source-guide-offset').value))
+  activeGuideOffset = chosenGuideCorrection('source-guide-offset')
   cancelGuide(); playbackGuideLoading?.abort(); playbackGuideLoading = undefined; playbackProgrammes = []; guideItems = []; guideChannel = undefined; selectedProgramme = undefined
   guide?.setOffset(activeGuideOffset)
+  syncGuideCorrection()
   if (editingSource && sourceId(editingSource) === sourceId(activeSource)) select('guide-offset').value = String(activeGuideOffset)
   try {
     const saved = saveGuideOffset(localStorage, activeSource, activeGuideOffset)

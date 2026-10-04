@@ -1,10 +1,10 @@
 import { httpUrl, validateSource, type Source } from './catalog'
 import { libraryId } from './library'
 import { readSource, storeSource } from './storage'
-import { guideOffset, validGuideOffset } from './guide-offset'
+import { guideOffset, validGuideOffset, type GuideCorrection } from './guide-offset'
 import { isAccent, sourceAccent, type Accent } from './accent'
 
-export type SourceProfile = { id: string; name: string; source: Source; keepLibrary?: boolean; guideUrl?: string; guideOffset?: number; accent?: Accent }
+export type SourceProfile = { id: string; name: string; source: Source; keepLibrary?: boolean; guideUrl?: string; guideOffset?: GuideCorrection; accent?: Accent }
 export function guideAddress(value: unknown): string | undefined {
   if (value === undefined || value === '') return
   if (typeof value !== 'string' || value.length > 8192) throw new Error('Enter a guide address shorter than 8,192 characters.')
@@ -31,7 +31,7 @@ export function readProfiles(storage: Storage): SourceProfile[] {
   if (legacy && profiles.length < MAX && !profiles.some(profile => profile.id === sourceId(legacy))) profiles.push({ id: sourceId(legacy), source: legacy, name: label('', legacy) })
   return profiles
 }
-export function rememberProfile(storage: Storage, input: Source, name: string, replaces?: Source, options: { guideUrl?: string; keepLibrary?: boolean; guideOffset?: number; accent?: Accent } = {}) {
+export function rememberProfile(storage: Storage, input: Source, name: string, replaces?: Source, options: { guideUrl?: string; keepLibrary?: boolean; guideOffset?: GuideCorrection; accent?: Accent } = {}) {
   const source = validateSource(input), id = sourceId(source)
   const profiles = readProfiles(storage).filter(profile => !replaces || sourceId(replaces) === id || profile.id !== sourceId(replaces))
   const guideUrl = guideAddress(options.guideUrl), offset = guideOffset(options.guideOffset), accent = sourceAccent(options.accent)
@@ -55,7 +55,7 @@ export function saveSourceAccent(storage: Storage, source: Source, value?: Accen
   storage.setItem(KEY, JSON.stringify(profiles)); return true
 }
 /** Update only a still-remembered source; never recreate removed credentials. */
-export function saveGuideOffset(storage: Storage, source: Source, value: number): boolean {
+export function saveGuideOffset(storage: Storage, source: Source, value: GuideCorrection): boolean {
   const offset = guideOffset(value), profiles = readProfiles(storage), profile = profiles.find(item => item.id === sourceId(source))
   if (!profile) return false
   if (offset) profile.guideOffset = offset; else delete profile.guideOffset

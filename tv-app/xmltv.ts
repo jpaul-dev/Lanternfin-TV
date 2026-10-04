@@ -1,10 +1,11 @@
 import { httpUrl } from './catalog'
 import { gunzipStream } from './gzip'
 import { guideName, guideNameIndex, validGuideId } from './guide-matches'
+import { estimateOffset, type OffsetEvidence } from '../src/scripts/lib/epg-offset-evidence'
 type XMLProgramme = { start: number; stop: number; title: string; desc: string; catchupId?: string }
 export type GuideChoice = { id: string; name: string }
 export type GuideChoices = { items: GuideChoice[]; total: number; page: number; pages: number }
-type Reply = { id: number; error?: string; noFeed?: boolean; programmes?: XMLProgramme[] | Array<[string, XMLProgramme[]]>; channelNames?: Array<[string, string]> }
+type Reply = { id: number; error?: string; noFeed?: boolean; programmes?: XMLProgramme[] | Array<[string, XMLProgramme[]]>; channelNames?: Array<[string, string]>; offsetEvidence?: OffsetEvidence }
 /** Reuses Android's streamed XMLTV worker and on-demand per-channel extraction. */
 export class XMLTVGuide {
   private worker?: Worker
@@ -15,6 +16,7 @@ export class XMLTVGuide {
   private names = new Map<string, string>()
   private ids = new Set<string>()
   private channels: GuideChoice[] = []
+  private evidence?: OffsetEvidence
   constructor(private url: string) {}
   close() {
     this.controller.abort(); this.worker?.terminate(); this.worker = undefined
@@ -65,13 +67,14 @@ export class XMLTVGuide {
             const stream = new ReadableStream<Uint8Array<ArrayBuffer>>({ start(controller) { controller.enqueue(initial) }, async pull(controller) { const next = await compressed.read(); if (next.done) controller.close(); else { compressedBytes += next.value.length; if (compressedBytes > 64 * 1024 * 1024) throw new Error('The compressed XMLTV feed exceeds the guide download budget.'); controller.enqueue(new Uint8Array(next.value)) } }, cancel() { return compressed.cancel() } })
             reader = (typeof DecompressionStream === 'function' ? stream.pipeThrough(new DecompressionStream('gzip')) : gunzipStream(stream)).getReader(); bytes = 0; prefix = new Uint8Array(0); decompressed = true; continue
           }
-          this.worker.postMessage({ type: 'begin', id: 0, feedId: 'playlist', mode: 'now-next', nowMs: Date.now(), gzip: false, maxChannels: 25000 }); begun = true
+          this.worker.postMessage({ type: 'begin', id: 0, feedId: 'playlist', mode: 'now-next', nowMs: Date.now(), gzip: false, maxChannels: 25000, offsetEvidence: true }); begun = true
         }
         const buffer = chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength)
         this.worker.postMessage({ type: 'chunk', id: 0, feedId: 'playlist', bytes: buffer }, [buffer])
       }
       if (!begun) throw new Error('The XMLTV guide was empty.')
       const result = await this.ask({ type: 'end', feedId: 'playlist' }, signal)
+      this.evidence = result.offsetEvidence
       const labels = new Map<string, string>()
       for (const [id] of result.programmes as Array<[string, XMLProgramme[]]> || []) if (validGuideId(id)) labels.set(id.toLowerCase(), id)
       for (const [id, name] of result.channelNames || []) if (validGuideId(id)) labels.set(id.toLowerCase(), name.slice(0, 300) || id)
@@ -105,6 +108,10 @@ export class XMLTVGuide {
     }
     const pages = Math.ceil(matches.length / 20), current = Math.max(0, Math.min(pages - 1, Number.isSafeInteger(page) ? page : 0))
     return { items: matches.slice(current * 20, (current + 1) * 20).map(item => ({ ...item })), total: matches.length, page: current, pages }
+  }
+  async estimate(signal: AbortSignal, preferred?: number) {
+    await this.ensureReady(signal)
+    return estimateOffset(this.evidence, preferred)
   }
   async load(tvgId: string | undefined, name: string, signal: AbortSignal, window?: { fromMs: number; toMs: number }, override?: string): Promise<XMLProgramme[]> {
     await this.ensureReady(signal)
