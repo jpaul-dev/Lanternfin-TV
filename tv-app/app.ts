@@ -318,7 +318,7 @@ $('source-form').addEventListener('submit', async event => {
     guide?.clear(); guide = new TVGuide(source, override || catalog.epgUrl, offset, channel => sourceLibrary?.guideMatch(channel)); guideChannel = undefined; browseCategory = undefined
     renderIndexStatus()
     progressSaveIssue = ''
-    $('library-note').textContent = persisted ? 'Favorites and recent streams are saved on this TV.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.'
+    $('library-note').textContent = library.persistent ? 'Favorites and recent streams are saved on this TV.' : persisted ? 'Your source is saved, but library changes last for this session. Reopen the source to retry saving them.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.'
     $('return-catalog').hidden = false
     // Credentials remain only in the form/session unless saving was explicitly chosen.
     await updateGroups(); await filter(); if (loading !== controller || controller.signal.aborted) return; goHome()
