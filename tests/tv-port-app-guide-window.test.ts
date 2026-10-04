@@ -25,7 +25,7 @@ it('shows complete past/future calendar days and date-specific empty states thro
   const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
   const click = async (id: string) => { el(id).click(); await vi.advanceTimersByTimeAsync(500) }
   const choose = async (value: string) => { el<HTMLSelectElement>('guide-day').value = value; el('guide-day').dispatchEvent(new Event('change')); await vi.advanceTimersByTimeAsync(500) }
-  el<HTMLInputElement>('source-url').value = 'https://example.test/list.m3u'; await click('connect'); await click('nav-live')
+  el<HTMLInputElement>('source-url').value = 'https://example.test/list.m3u'; await click('connect'); await click('nav-live'); await click('schedule-more'); await click('schedule-list')
   expect(el('guide-status').textContent).toContain('On now')
   for (const [day, prefix] of [[past, 'Earlier'], [future, 'Future']] as const) {
     await choose(String(day))

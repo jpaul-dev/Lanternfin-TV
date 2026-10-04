@@ -25,7 +25,7 @@ it('enters an asynchronously filled guide, selects programmes and crosses page e
   const press = (key: string, keyCode = 0) => document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key, keyCode, bubbles: true, cancelable: true }))
   const rows = () => [...el('guide-programmes').querySelectorAll<HTMLButtonElement>('button')]
   const choose = async (value: string) => { el<HTMLSelectElement>('guide-day').value = value; el('guide-day').dispatchEvent(new Event('change')); await vi.advanceTimersByTimeAsync(500) }
-  el<HTMLInputElement>('source-url').value = 'https://example.test/list.m3u'; await click('connect'); await click('nav-live')
+  el<HTMLInputElement>('source-url').value = 'https://example.test/list.m3u'; await click('connect'); await click('nav-live'); await click('schedule-more'); await click('schedule-list')
   expect(el('guide-programmes').tabIndex).toBe(0)
   el<HTMLSelectElement>('guide-day').value = String(day); el('guide-day').dispatchEvent(new Event('change'))
   el('guide-programmes').focus(); await vi.advanceTimersByTimeAsync(500)

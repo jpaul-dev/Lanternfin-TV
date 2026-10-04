@@ -57,6 +57,7 @@ export class TVGuide {
   mappingChanged() { this.revision++; this.cache.clear() }
   setOffset(value: GuideCorrection) { const next = guideOffset(value); if (next !== this.offset) { this.offset = next; this.revision++; this.cache.clear() } }
   clear() { this.revision++; this.cache.clear(); this.xml?.close() }
+  refresh() { this.clear(); if (this.epgUrl) this.xml = new XMLTVGuide(this.epgUrl); this.xmlLoaded = Date.now() }
   async load(channel: Channel, signal: AbortSignal, refresh = false, window?: GuideWindow): Promise<Programme[]> {
     if (signal.aborted) throw new Error('Guide loading cancelled.')
     if (channel.mediaKind && channel.mediaKind !== 'live') return []

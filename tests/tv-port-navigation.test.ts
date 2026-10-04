@@ -12,7 +12,7 @@ it('tunes live channels, cancels number entry, and handles short/held OK without
   const click = async (id: string) => { el<HTMLButtonElement>(id).click(); await vi.advanceTimersByTimeAsync(0) }
   const key = (key: string, type = 'keydown', repeat = false) => document.dispatchEvent(new KeyboardEvent(type, { key, repeat, bubbles: true, cancelable: true }))
   expect(document.activeElement).toBe(el('source-name'))
-  el<HTMLInputElement>('source-url').value = 'https://example.com/list.m3u'; await click('connect'); await click('nav-live')
+  el<HTMLInputElement>('source-url').value = 'https://example.com/list.m3u'; await click('connect'); await click('nav-live'); await click('schedule-more'); await click('schedule-list')
   const first = el('channels').querySelector<HTMLButtonElement>('button')!; first.focus()
   key('Enter'); await vi.advanceTimersByTimeAsync(100); key('Enter', 'keyup'); await vi.advanceTimersByTimeAsync(0)
   expect(el('playback').hidden).toBe(false); expect(el('playing-title').textContent).toBe('One')

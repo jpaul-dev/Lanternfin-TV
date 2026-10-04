@@ -20,7 +20,7 @@ it('applies and resets a guide match through the app, keeps the selected channel
   const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
   const wait = () => vi.advanceTimersByTimeAsync(500), click = async (id: string) => { el(id).click(); await wait() }
   el<HTMLInputElement>('source-url').value = 'https://example.test/list.m3u'; el<HTMLInputElement>('remember').checked = true
-  await click('connect'); await click('nav-live'); el('channels').querySelectorAll<HTMLButtonElement>('button')[1].focus(); await wait()
+  await click('connect'); await click('nav-live'); await click('schedule-more'); await click('schedule-list'); el('channels').querySelectorAll<HTMLButtonElement>('button')[1].focus(); await wait()
   expect(el('guide-title').textContent).toBe('Second'); expect(el('guide-programmes').textContent).not.toContain('Schedule')
   await click('guide-match-open'); expect(el('guide-match').hidden).toBe(false); expect(el('about-open').hidden).toBe(true)
   const search = el<HTMLInputElement>('guide-match-search'); search.value = 'provider.b'; search.dispatchEvent(new Event('input')); await wait()

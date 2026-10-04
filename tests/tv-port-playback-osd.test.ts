@@ -62,7 +62,7 @@ it('uses compact remote scrubbing without activating hidden controls, and blocks
   key('Escape'); expect(el('playback').hidden).toBe(true); expect(el('scrub-osd').hidden).toBe(true)
   await click('change-source'); kind.value = 'playlist'; kind.dispatchEvent(new Event('change'))
   vi.stubGlobal('fetch', vi.fn(async () => new Response('#EXTM3U\n#EXTINF:-1 tvg-type="live",Live test\nhttps://example.com/live.mp4\n')))
-  el<HTMLInputElement>('source-url').value = 'https://example.com/list.m3u'; await click('connect'); await click('nav-live')
+  el<HTMLInputElement>('source-url').value = 'https://example.com/list.m3u'; await click('connect'); await click('nav-live'); await click('schedule-more'); await click('schedule-list')
   el('channels').querySelector<HTMLButtonElement>('button')!.click(); await click('guide-watch')
   expect(el('playback-time').textContent).toBe(''); expect(el('playback-remaining').textContent).toBe('')
   await vi.advanceTimersByTimeAsync(1000)

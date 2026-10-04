@@ -41,7 +41,7 @@ it('ranks the displayed language version and keeps section/source filters separa
   await change('sort-order', 'name-desc'); await change('watched-filter', 'watched'); expect(names()).toEqual([])
   await click('nav-search'); expect(options()).toEqual(['provider', 'all', '', ''])
   await change('media-filter', 'movie'); await change('sort-order', 'newest')
-  await click('nav-live'); expect(options()).toEqual(['provider', 'all', '', '']); expect(names()).toEqual(['TV channel'])
+  await click('nav-live'); await click('schedule-more'); await click('schedule-list'); expect(options()).toEqual(['provider', 'all', '', '']); expect(names()).toEqual(['TV channel'])
   await click('nav-movie'); expect(options()).toEqual(['rating', 'unwatched', 'FR', '']); expect(names()).toEqual(['FR - Film (2024)'])
   await click('reset-filters'); expect(options()).toEqual(['provider', 'all', '', ''])
   await click('nav-series'); expect(options()).toEqual(['name-desc', 'watched', '', ''])

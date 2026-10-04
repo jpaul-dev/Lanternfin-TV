@@ -12,7 +12,7 @@ it('refreshes guide days at midnight, preserves a selected day and resets an exp
   const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
   el<HTMLInputElement>('source-url').value = 'https://example.test/list.m3u'; el('connect').click(); await vi.advanceTimersByTimeAsync(0)
   el('nav-settings').click(); const clock = el<HTMLSelectElement>('pref-clock'); clock.value = '0'; clock.dispatchEvent(new Event('change'))
-  el('nav-live').click(); await vi.advanceTimersByTimeAsync(0)
+  el('nav-live').click(); await vi.advanceTimersByTimeAsync(0); el('schedule-more').click(); el('schedule-list').click(); await vi.advanceTimersByTimeAsync(0)
   const picker = el<HTMLSelectElement>('guide-day'), today = String(Date.parse('2026-10-03T00:00:00Z'))
   picker.value = today; picker.dispatchEvent(new Event('change')); await vi.advanceTimersByTimeAsync(0)
   await vi.advanceTimersByTimeAsync(30000)

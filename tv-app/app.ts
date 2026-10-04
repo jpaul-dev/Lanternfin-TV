@@ -46,6 +46,8 @@ import { channelId } from './library'
 import { ProviderIndex } from './provider-index'
 import { CatalogCache, type CatalogSnapshot } from './catalog-cache'
 import { TVGuide, nowNext, timeRange, guideDate, type Programme } from './guide'
+import { scheduleUI } from './schedule'
+import { homeKind } from './source-home'
 import { canReplay, replayChannel } from './catchup'
 import { navigationIcons } from './icons'
 import { LiveQueue, nextEpisode } from './playback-queue'
@@ -64,7 +66,7 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const input = (id: string) => $<HTMLInputElement>(id)
 const select = (id: string) => $<HTMLSelectElement>(id)
 const button = (id: string) => $<HTMLButtonElement>(id)
-const SCREENS = ['setup', 'catalog', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout', 'guide-match', 'reset'] as const
+const SCREENS = ['setup', 'catalog', 'schedule', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout', 'guide-match', 'reset'] as const
 type Screen = typeof SCREENS[number]
 let updatesReturn: 'settings' | 'about' = 'settings'
 let downloadsReturn: 'setup' | 'catalog' | 'settings' | 'detail' | 'reset' = 'setup'
@@ -96,7 +98,9 @@ let detailGeneration = 0, relatedLoading: AbortController | undefined, relatedFo
 let relatedItems: RelatedTitle[] = [], relatedTask: Promise<void> = Promise.resolve()
 let homeGeneration = 0
 let titlePreviews: TitlePreviews | undefined
-let playbackReturn: 'catalog' | 'detail' | 'programme' | 'downloads' = 'catalog'
+let playbackReturn: 'catalog' | 'schedule' | 'detail' | 'programme' | 'downloads' = 'catalog'
+let programmeReturn: 'catalog' | 'schedule' = 'catalog'
+let homeReturn: { node: HTMLElement; scroll: number } | undefined
 let providerIndex: ProviderIndex | undefined, indexTimer: ReturnType<typeof setTimeout> | undefined
 let browseCategory: (Category & { kind: MediaKind }) | undefined, guide: TVGuide | undefined, guideChannel: Channel | undefined
 let guideLoading: AbortController | undefined, guideTimer: ReturnType<typeof setTimeout> | undefined, guideItems: Programme[] = []
@@ -159,7 +163,7 @@ const hero = homeHero($('home-content'), {
   reducedMotion: () => preferences.reducedMotion,
   library: () => library, guide: () => guide, clock: () => preferences.guideClock,
   previews: () => titlePreviews,
-  activate: watch, browse: () => { void browse('live') },
+  activate: watch, browse: () => openSchedule(),
 })
 
 const backups = backupUI($('backup'), () => localStorage, count => { try { sessionStorage.setItem('lanternfin.restored', String(count)) } catch {}; window.location.reload() })
@@ -184,6 +188,31 @@ const updates = updatesUI($('updates'), __TV_TARGET__, undefined, () => preferen
 const preferenceChoices = settingsChoices($('settings'))
 const groups = groupPicker(select('group'))
 const categoryList = categoryBrowser($('category-sidebar'), $('category-list'), 'category', () => activeSource?.kind === 'xtream' ? browseCategory?.id : select('group').value)
+const schedule = scheduleUI($('schedule'), {
+  async channels(category, signal) {
+    if (!activeSource) return []
+    if (category && activeSource.kind === 'xtream') return (providerIndex?.cached('live', category) || await loadCategory(activeSource, 'live', category, signal)).channels
+    const pool = activeSource.kind === 'xtream' ? libraryPool() : channels, result: Channel[] = []
+    for (let index = 0; index < pool.length; index++) {
+      const channel = pool[index]
+      if (homeKind(channel) === 'live' && (!category || channel.group === category.name)) result.push(channel)
+      if (index % 2048 === 0) { if (signal.aborted) throw new Error('Cancelled'); if (index) await new Promise<void>(resolve => setTimeout(resolve, 0)) }
+    }
+    return result
+  },
+  categories: signal => activeSource?.kind === 'xtream' ? Promise.resolve(providerIndex?.categories.live || providerCategories.live || loadCategories(activeSource, 'live', signal)) : playlistCategories(channels, signal, 'live'),
+  programmes: (channel, signal, window) => guide?.load(channel, signal, false, window) || Promise.resolve([]),
+  clock: () => preferences.guideClock,
+  invalidate: () => guide?.refresh(),
+  watch(channel, queue) { playbackReturn = 'schedule'; liveQueue.reset(queue, channel); startWatching(channel) },
+  details(channel, programme) { guideChannel = channel; openProgramme(programme, 'schedule') },
+  list: () => { void browse('live') }, back: goHome, sidebar: () => button('nav-live').focus(),
+})
+function openSchedule() {
+  if (!activeSource) return
+  browseView = 'live'; libraryView = 'all'; show('schedule'); schedule.open(sourceId(activeSource))
+}
+function restoreSchedule() { show('schedule'); if (!away) schedule.resume() }
 let categoryDirectory: AbortController | undefined
 const guideMatcher = guideMatchUI($('guide-match'), (query, page, signal) => {
   if (!matching || away) throw new Error('Return to the guide and reopen matching to try again.')
@@ -199,6 +228,8 @@ if (away) downloads.suspend()
 function show(next: Screen) {
   if (resetFlow.locked && next !== 'reset') return
   if (next !== 'settings') preferenceChoices.close(false)
+  if (screen === 'catalog' && browseView === 'home' && next !== 'catalog' && document.activeElement instanceof HTMLElement && $('home-content').contains(document.activeElement)) homeReturn = { node: document.activeElement, scroll: window.scrollY }
+  if (next !== 'schedule') schedule.suspend()
   if (next !== 'catalog') { groups.close(false); categoryList.suspend() }
   else if (browseView !== 'home') categoryList.resume()
   // Programme/guide-match screens restore their own guide focus; a later catalog
@@ -225,7 +256,7 @@ function show(next: Screen) {
   syncNav()
   document.documentElement.dataset.screen = next
   for (const id of SCREENS) $(id).hidden = id !== next
-  $('tv-nav').hidden = !activeSource || !['catalog', 'settings', 'detail', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout'].includes(next)
+  $('tv-nav').hidden = !activeSource || !['catalog', 'schedule', 'settings', 'detail', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout'].includes(next)
   document.documentElement.classList.toggle('in-library', !$('tv-nav').hidden)
   $('player-surface').hidden = next !== 'playback'
   document.documentElement.classList.toggle('watching', next === 'playback')
@@ -311,7 +342,7 @@ $('source-form').addEventListener('submit', async event => {
     cacheSaving?.abort(); cacheSaving = undefined; cacheAttempted = undefined; keepActiveLibrary = useCache && persisted
     if (!keepActiveLibrary) void catalogCache.forget(source).catch(() => { notice('The saved catalog could not be removed. Use Clear saved catalogs in Settings.') })
     groups.clear(); categoryList.clear()
-    activeSource = source; activeGuideUrl = override; activeGuideOffset = offset; episodeContext.clear()
+    activeSource = source; activeGuideUrl = override; activeGuideOffset = offset; episodeContext.clear(); homeReturn = undefined; schedule.reset()
     activePlaylistCatalog = source.kind === 'playlist' ? catalog : undefined
     playlistCachedAt = savedPlaylist?.at || 0; playlistCachePending = !!activePlaylistCatalog && keepActiveLibrary && !playlistCachedAt; playlistCacheMessage = ''
     titlePreviews?.clear(); titlePreviews = source.kind === 'xtream' ? new TitlePreviews(source) : undefined
@@ -579,7 +610,7 @@ function startWatching(channel: Channel, position = 0) {
       player = tvPlayer(video, report, { api: window.webapis!.avplay!, surface: object })
     } else player = tvPlayer(video, report)
   }
-  if (screen !== 'playback' && channel.mediaKind === 'live') liveQueue.reset(browseView === 'live' && filtered.some(item => channelId(item) === channelId(channel)) ? filtered : libraryPool(), channel)
+  if (screen !== 'playback' && screen !== 'schedule' && channel.mediaKind === 'live') liveQueue.reset(browseView === 'live' && filtered.some(item => channelId(item) === channelId(channel)) ? filtered : libraryPool(), channel)
   cancelZap(); playbackGuideLoading?.abort(); playbackProgrammes = []
   currentAspect = 'fit'; $('seek-controls').hidden = true; input('seek-position').value = String(position)
   $('playback-time').textContent = $('playback-remaining').textContent = ''
@@ -605,7 +636,7 @@ $('play-series').onclick = () => { const parent = currentChannel && parentSeries
 function updatePlaybackContext() {
   const live = currentChannel?.mediaKind === 'live'
   $('playback-kind').textContent = currentChannel && localDownload(currentChannel) ? 'WATCHING OFFLINE' : live ? `LIVE TV · CHANNEL ${liveQueue.number}` : 'NOW WATCHING'
-  button('stop').textContent = playbackReturn === 'downloads' ? 'Back to downloads' : playbackReturn === 'detail' ? 'Back to details' : playbackReturn === 'programme' ? 'Back to programme' : 'Back to streams'
+  button('stop').textContent = playbackReturn === 'schedule' ? 'Back to guide' : playbackReturn === 'downloads' ? 'Back to downloads' : playbackReturn === 'detail' ? 'Back to details' : playbackReturn === 'programme' ? 'Back to programme' : 'Back to streams'
   $('favorite').hidden = !!currentChannel && !!localDownload(currentChannel)
   $('channel-previous').hidden = $('channel-next').hidden = !live || liveQueue.length < 2
   $('rewind').hidden = $('forward').hidden = !!live
@@ -693,6 +724,7 @@ function stopWatching() {
   scrub.hide()
   clearTimeout(controlsTimer); player?.stop()
   if (playbackReturn === 'downloads') { downloadView.open(); show('downloads'); return }
+  if (playbackReturn === 'schedule') { restoreSchedule(); return }
   if (playbackReturn === 'programme' && selectedProgramme) { show('programme'); button('programme-back').focus(); return }
   if (playbackReturn === 'detail' && detailInfo) {
     const episode = stopped?.mediaKind === 'episode' ? detailInfo.episodes?.find(item => channelId(item) === channelId(stopped)) : undefined
@@ -702,7 +734,7 @@ function stopWatching() {
     ;(target || button('detail-play')).focus(); target?.scrollIntoView?.({ block: 'nearest' }); return
   }
   show('catalog')
-  if (browseView === 'home') { renderHome(); $('hero-play').focus() }
+  if (browseView === 'home') restoreHomeFocus()
   else if (!catalogReturnVisit) { render(); ($('channels').querySelectorAll<HTMLElement>('button')[lastChannel] || button('change-source')).focus() }
 }
 function toggle() { if (state === 'paused') player?.resume(); else if (state === 'playing' || state === 'buffering') player?.pause() }
@@ -752,6 +784,7 @@ function back() {
   else if (screen === 'resume') { pendingChannel = undefined; show(playbackReturn) }
   else if (screen === 'detail') returnFromDetails()
   else if (screen === 'programme') returnFromProgramme()
+  else if (screen === 'schedule') goHome()
   else if (screen === 'about') show(previousScreen)
   else if (screen === 'layout') { show('settings'); button('settings-home').focus() }
   else if (screen === 'settings') goHome()
@@ -900,6 +933,7 @@ document.addEventListener('focusin', () => {
 })
 for (const event of ['pointerdown', 'keydown']) document.addEventListener(event, () => { browseInputRevision++; pendingBrowseVisit = undefined }, { capture: true })
 bindLifecycle(document, window, () => {
+  schedule.suspend()
   preferenceChoices.close(false)
   diagnostics.suspend()
   guideMatcher.close()
@@ -933,6 +967,7 @@ bindLifecycle(document, window, () => {
   const index = suspendedIndex; suspendedIndex = undefined
   if (index && index === providerIndex) startIndex()
   if (screen === 'detail') void refreshRelated()
+  if (screen === 'schedule') schedule.resume()
   if (screen === 'catalog') {
     if (browseView === 'home') renderHome()
     else { categoryList.resume(); void updateGroups(); pendingBrowseVisit = catalogReturnVisit; void filter(false); if (browseView === 'live' && guideChannel) selectGuide(guideChannel) }
@@ -1047,9 +1082,9 @@ function navigateGuide(event: KeyboardEvent, action: string, active: Element | n
   return true
 }
 for (const [id, delta] of [['guide-previous', -1], ['guide-next', 1]] as const) $(id).onclick = () => { changeGuidePage(delta) }
-function openProgramme(programme: Programme) {
+function openProgramme(programme: Programme, returnTo: 'catalog' | 'schedule' = 'catalog') {
   if (!guideChannel || !activeSource) return
-  selectedProgramme = programme; programmeChannel = guideChannel
+  selectedProgramme = programme; programmeChannel = guideChannel; programmeReturn = returnTo
   $('programme-title').textContent = programme.title
   $('programme-meta').textContent = `${guideChannel.name} · ${guideDate(programme.start, preferences.guideClock)} · ${timeRange(programme, preferences.guideClock)}`
   $('programme-description').textContent = programme.description || 'Your provider has no description for this programme.'
@@ -1060,6 +1095,7 @@ function openProgramme(programme: Programme) {
   show('programme')
 }
 function returnFromProgramme() {
+  if (programmeReturn === 'schedule') { restoreSchedule(); return }
   show('catalog'); render(); renderGuide()
   focusGuideEntry(selectedProgramme && $('guide-programmes').querySelector<HTMLElement>(`[data-programme="${selectedProgramme.start}"]`) || $('guide-programmes').querySelector<HTMLElement>('button') || button('guide-watch'))
 }
@@ -1166,6 +1202,7 @@ function browseLayout(title: string) {
   $('category-list').hidden = !['live', 'movie', 'series'].includes(browseView); $('channels').hidden = $('pagination').hidden = false
   $('category-sidebar').hidden = !['live', 'movie', 'series'].includes(browseView)
   $('guide-panel').hidden = browseView !== 'live' || libraryView !== 'all'
+  $('open-schedule').hidden = browseView !== 'live'
   $('browse-columns').classList.toggle('has-categories', !$('category-sidebar').hidden)
   $('browse-columns').classList.toggle('has-guide', !$('guide-panel').hidden)
   $('group-field').hidden = !$('category-sidebar').hidden
@@ -1260,6 +1297,7 @@ function startIndex() {
       indexTimer = undefined
       if (index !== providerIndex) return
       if (screen === 'detail') { void refreshRelated(); return }
+      if (screen === 'schedule') { schedule.refreshChannels(); return }
       if (screen !== 'catalog') return
       if (browseView === 'home') renderHome()
       else if (['search', 'all'].includes(browseView)) { if (!nativeSelectOpen) updateGroups(); void filter(false) }
@@ -1465,7 +1503,7 @@ function returnFromDetails() {
     return
   }
   cancelDetails(); show('catalog')
-  if (browseView === 'home') { renderHome(); $('hero-play').focus() }
+  if (browseView === 'home') restoreHomeFocus()
   else if (!catalogReturnVisit) { render(); ($('channels').querySelectorAll<HTMLElement>('button')[lastChannel] || button('view-all')).focus() }
 }
 $('detail-back').onclick = returnFromDetails
@@ -1482,9 +1520,16 @@ select('detail-version').onchange = () => { const selected = detailVariants[Numb
 select('detail-season').onchange = () => { episodePage = 0; if (detailInfo) try { library?.setSeason(detailInfo.channel, select('detail-season').value) } catch { $('detail-status').textContent = 'Season selection applies for this session.' }; renderEpisodes() }
 for (const [id, delta] of [['episode-previous', -1], ['episode-next', 1]] as const) $(id).onclick = () => { changeEpisodePage(episodePage + delta, delta < 0 ? 'up' : 'down') }
 $('nav-home').onclick = goHome
+function restoreHomeFocus() {
+  const previous = homeReturn
+  ;(previous?.node.isConnected ? previous.node : $('hero-play')).focus({ preventScroll: true })
+  if (previous) window.scrollTo(0, previous.scroll)
+  renderHome()
+}
+$('open-schedule').onclick = openSchedule
 for (const kind of ['live', 'movie', 'series', 'search'] as const) {
-  $(`nav-${kind}`).onclick = () => void browse(kind)
-  if (kind !== 'search') $(`home-${kind}`).onclick = () => void browse(kind)
+  $(`nav-${kind}`).onclick = () => kind === 'live' ? openSchedule() : void browse(kind)
+  if (kind !== 'search') $(`home-${kind}`).onclick = () => kind === 'live' ? openSchedule() : void browse(kind)
 }
 $('source-advanced-toggle').onclick = () => { const expanded = $('source-advanced').hidden; $('source-advanced').hidden = !expanded; button('source-advanced-toggle').setAttribute('aria-expanded', String(expanded)); if (expanded) input('guide-url').focus() }
 async function showAccount() {

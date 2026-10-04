@@ -1,4 +1,34 @@
 /* The original TV UI's dark canvas, accent, sidebar, hero, rails and poster focus. */
+/* Channel/time guide: fixed viewport, chronological columns and bounded rows. */
+[data-screen=schedule] header,[data-screen=schedule] footer,[data-screen=schedule] #notice:empty{display:none}
+[data-screen=schedule].in-library #app{padding-top:calc(.85rem + var(--safe-y));padding-bottom:calc(.85rem + var(--safe-y))}
+#schedule{height:calc(100vh - 1.7rem - var(--safe-y) - var(--safe-y));display:flex;flex-direction:column;min-height:14rem}
+.schedule-heading{display:flex;justify-content:space-between;align-items:center;flex-shrink:0;margin-bottom:.5rem}
+.schedule-heading h1{font-size:1.4rem;margin:0}.schedule-heading .eyebrow{font-size:.55rem;margin:0 0 .2rem}
+.schedule-toolbar{display:flex;align-items:center}.schedule-toolbar button{font-size:.67rem;min-height:2rem;margin-left:.5rem;max-width:14rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#schedule-summary{height:5.2rem;flex-shrink:0;padding:.3rem 0 .4rem;overflow:hidden}
+#schedule-meta{font-size:.62rem;line-height:1.25;color:var(--accent);margin:0 0 .2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#schedule-title{font-size:1.15rem;line-height:1.2;margin:0 0 .25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#schedule-description{font-size:.67rem;line-height:1.4;color:var(--muted);margin:0;max-width:65rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#schedule-board{display:flex;flex-direction:column;flex:1;min-height:0;direction:ltr}
+.schedule-times{display:flex;flex-shrink:0;height:1.8rem;align-items:center;color:var(--muted);font-size:.63rem}
+#schedule-date{width:9.3rem;flex-shrink:0;padding-right:.5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#schedule-hours{display:flex;flex:1;min-width:0}#schedule-hours span{display:block;padding-left:.5rem;border-left:1px solid var(--line)}
+#schedule-rows{display:flex;flex-direction:column;flex:1;min-height:0}
+.schedule-row{display:flex;min-height:0;flex:1;margin-bottom:.3rem;max-height:4.4rem}
+#schedule .schedule-channel{width:9rem;flex-shrink:0;display:flex;align-items:center;text-align:left;padding:.4rem .6rem;margin-right:.3rem;min-height:0;border-radius:.25rem;font-size:.73rem;background:var(--surface)}
+.schedule-channel small{color:var(--muted);font-size:.55rem;margin-right:.65rem;flex-shrink:0;min-width:1.1rem}.schedule-channel span{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.schedule-timeline{position:relative;flex:1;min-width:0}
+#schedule .schedule-cell{position:absolute;height:100%;min-height:0;min-width:0;border-radius:.25rem;padding:.35rem .55rem;text-align:left;font-size:.72rem;overflow:hidden;border-right-width:3px;border-right-color:#101117;background:var(--surface);color:inherit}
+.schedule-cell span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.schedule-cell.on-now{box-shadow:inset 0 -2px 0 var(--accent)}
+#schedule .schedule-cell:focus,#schedule .schedule-channel:focus{background:var(--accent);color:#101117;outline:2px solid #fff;outline-offset:-2px;z-index:3;box-shadow:none}
+.schedule-channel:focus small{color:#242530}.schedule-now-line{position:absolute;top:0;bottom:0;border-left:2px solid var(--accent);pointer-events:none;opacity:.65;z-index:2}
+.schedule-bottom{display:flex;justify-content:space-between;color:var(--muted);font-size:.48rem;padding-top:.4rem;flex-shrink:0}.schedule-bottom span+span{margin-left:1rem;text-align:right}
+.schedule-dialog{position:fixed;z-index:80;top:calc(1rem + var(--safe-y));bottom:calc(1rem + var(--safe-y));left:25%;right:15%;max-width:35rem;background:var(--surface);border:1px solid var(--line);border-radius:.7rem;padding:1rem;overflow-y:auto;box-shadow:0 0 0 100vmax #000b}
+.schedule-dialog h2{font-size:1.1rem;margin:.2rem 0 .7rem}.schedule-dialog button{display:block;width:100%;text-align:start;font-size:.75rem;margin:.4rem 0;min-height:2.2rem}.schedule-dialog p{font-size:.65rem}.schedule-dialog input{font-size:.75rem}
+#schedule-options{bottom:auto}#schedule-category-list{display:block}
+[data-large-ui=true] #schedule-summary{height:4.3rem}[data-large-ui=true] #schedule-description{-webkit-line-clamp:1}[data-large-ui=true] .schedule-bottom{font-size:.43rem}
+[data-theme=light] #schedule .schedule-cell{border-right-color:#f2f2f5}
 .reset-view{max-width:52rem;margin:0 auto;padding-bottom:2rem}
 .reset-summary{background:var(--surface);border:1px solid var(--line);border-radius:.7rem;padding:.65rem 1rem;margin:.6rem 0}
 .reset-summary h2{margin:.2rem 0}.reset-summary p{font-size:.8rem;line-height:1.5;margin:.4rem 0}
