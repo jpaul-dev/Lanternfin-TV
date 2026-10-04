@@ -1,6 +1,6 @@
 import type { Channel } from './catalog'
 import { keyAction } from './remote'
-import { tr } from './i18n'
+import { staticTranslations, tr } from './i18n'
 
 export const GUIDE_FIND_PAGE = 16
 const cancelled = (signal: AbortSignal) => { if (signal.aborted) throw new DOMException('Cancelled', 'AbortError') }
@@ -35,6 +35,7 @@ export function guideFinder(root: HTMLElement, options: {
   channels(): readonly Channel[]; scope(): string; incomplete?(): boolean; choose(channel: Channel, index: number): void; back(): void
 }) {
   root.innerHTML = `<section class="guide-finder-panel" role="dialog" aria-modal="true" aria-labelledby="schedule-find-title"><h2 id="schedule-find-title">Find a channel</h2><p id="schedule-find-scope" class="hint"></p><label for="schedule-find-query">Channel name or guide number</label><input id="schedule-find-query" type="search" maxlength="200" autocomplete="off" spellcheck="false"><p id="schedule-find-status" class="hint" role="status"></p><div id="schedule-find-results"></div><div class="guide-finder-pages"><button id="schedule-find-previous">Previous page</button><span id="schedule-find-page"></span><button id="schedule-find-next">Next page</button></div><button id="schedule-find-back">Back to guide</button></section>`
+  const translate = staticTranslations(root)
   const el = (id: string) => root.querySelector<HTMLElement>(`#schedule-find-${id}`)!
   const query = el('query') as HTMLInputElement, list = el('results'), status = el('status')
   const previous = el('previous') as HTMLButtonElement, next = el('next') as HTMLButtonElement
@@ -99,7 +100,7 @@ export function guideFinder(root: HTMLElement, options: {
   })
   return {
     get visible() { return active },
-    open() { active = true; root.hidden = false; query.value = ''; page = pages = 0; el('scope').textContent = tr('Search {category}. Numbers match this guide view; choosing a result moves to its schedule.', { category: options.scope() }); focus(query); void search() },
+    open() { active = true; translate(); root.hidden = false; query.value = ''; page = pages = 0; el('scope').textContent = tr('Search {category}. Numbers match this guide view; choosing a result moves to its schedule.', { category: options.scope() }); focus(query); void search() },
     refresh() { if (active) void search() },
     close() { cancel(); active = false; root.hidden = true; query.value = ''; list.replaceChildren(); list.setAttribute('aria-busy', 'false') },
   }

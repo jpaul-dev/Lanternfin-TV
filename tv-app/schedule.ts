@@ -3,7 +3,7 @@ import type { Category } from './xtream'
 import { categoryBrowser } from './category-browser'
 import { guideDate, timeRange, type Programme, type GuideWindow } from './guide'
 import { keyAction } from './remote'
-import { tr } from './i18n'
+import { staticTranslations, tr } from './i18n'
 import { guideFinder } from './guide-finder'
 
 const HALF_HOUR = 1800000, DAY = 86400000
@@ -48,6 +48,8 @@ export function scheduleUI(root: HTMLElement, options: Options) {
     <section id="schedule-options" class="schedule-dialog" hidden aria-label="Guide options"><h2>Guide options</h2><button id="schedule-find">Find a channel</button><button id="schedule-day-back">Previous day</button><button id="schedule-day-next">Next day</button><button id="schedule-refresh">Refresh guide</button><button id="schedule-list">Channel list &amp; guide settings</button><button id="schedule-options-back">Back to guide</button></section>
     <section id="schedule-categories" class="schedule-dialog" hidden aria-label="Channel categories"><h2>Channel categories</h2><button id="schedule-categories-back">Back to guide</button><button id="schedule-all">All channels</button><p id="schedule-category-status" role="status"></p><div id="schedule-category-list"></div></section>
     <div id="schedule-finder" class="guide-finder-shade" hidden></div>`
+  // Capture our own static copy before categories or provider listings are added.
+  const translate = staticTranslations(root)
   const el = (id: string) => root.querySelector<HTMLElement>(`#schedule-${id}`)!
   const btn = (id: string) => el(id) as HTMLButtonElement
   const categoryPicker = categoryBrowser(el('categories'), el('category-list'), 'schedule-group', () => category?.id)
@@ -170,7 +172,6 @@ export function scheduleUI(root: HTMLElement, options: Options) {
     else options.watch(row.channel, channels)
   }
   function closePanel() { cancelNumber(); finder.close(); el('options').hidden = el('categories').hidden = true; categoryPicker.suspend(); categoryLoad?.abort(); focusSelection() }
-  const translate = () => { for (const id of ['now', 'more', 'find', 'day-back', 'day-next', 'refresh', 'list', 'options-back', 'categories-back', 'all']) { const node = btn(id); node.textContent = tr(node.dataset.label || (node.dataset.label = node.textContent || '')) } }
   btn('now').onclick = () => { cancelNumber(); followsNow = true; anchor = Date.now(); from = Math.floor(anchor / HALF_HOUR) * HALF_HOUR; channelColumn = false; render(true) }
   btn('more').onclick = () => { cancelNumber(); el('options').hidden = false; focus(btn('find')) }
   btn('find').onclick = () => { closePanel(); finder.open() }

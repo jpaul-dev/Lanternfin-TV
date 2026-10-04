@@ -4,6 +4,7 @@ import { resolve, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { runInNewContext } from 'node:vm'
 import { JSDOM } from 'jsdom'
+import ts from 'typescript'
 import { buildTranslations, validatePortableTranslations } from '../scripts/tv-translations.mjs'
 
 let out = ''
@@ -42,4 +43,36 @@ it('accepts reordered placeholders and rejects a changed English source', () => 
   const text = '{count} programmes at {offset}'
   expect(() => validatePortableTranslations({ [text]: text }, { [text]: '{offset} · {count} programmes' }, 'fr')).not.toThrow()
   expect(() => validatePortableTranslations({ [text]: 'changed' }, { [text]: text }, 'en')).toThrow()
+})
+
+it('packages every guide, channel finder and category search label with intact placeholders', async () => {
+  const labels = new Set<string>()
+  const literal = (node: ts.Node) => {
+    if (ts.isStringLiteral(node)) labels.add(node.text)
+    else if (ts.isConditionalExpression(node)) { literal(node.whenTrue); literal(node.whenFalse) }
+  }
+  for (const file of ['schedule', 'guide-finder', 'category-browser']) {
+    const source = ts.createSourceFile(file, await readFile('tv-app/' + file + '.ts', 'utf8'), ts.ScriptTarget.Latest, true)
+    const visit = (node: ts.Node) => {
+      if (ts.isCallExpression(node) && node.expression.getText(source) === 'tr' && node.arguments[0]) literal(node.arguments[0])
+      if (ts.isNoSubstitutionTemplateLiteral(node) && node.text.includes('<section')) {
+        const dom = new JSDOM(node.text), doc = dom.window.document, walker = doc.createTreeWalker(doc.body, dom.window.NodeFilter.SHOW_TEXT)
+        while (walker.nextNode()) { const text = walker.currentNode.textContent!.trim(); if (text) labels.add(text) }
+        for (const element of doc.querySelectorAll('[aria-label],[placeholder]')) for (const attribute of ['aria-label', 'placeholder']) { const text = element.getAttribute(attribute); if (text) labels.add(text) }
+        dom.window.close()
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(source)
+  }
+  expect(labels.size).toBeGreaterThan(45)
+  for (const file of await readdir(out)) {
+    const code = file.slice(7, -3), context = { window: {} as { LanternfinTranslations?: Record<string, Record<string, string>> } }
+    runInNewContext(await readFile(join(out, file), 'utf8'), context)
+    const messages = context.window.LanternfinTranslations![code]
+    for (const label of labels) {
+      expect(messages[label], code + ': ' + label).toBeTypeOf('string')
+      expect((messages[label]?.match(/\{\w+\}/g) || []).sort(), code + ': ' + label).toEqual((label.match(/\{\w+\}/g) || []).sort())
+    }
+  }
 })

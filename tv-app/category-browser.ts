@@ -60,10 +60,12 @@ export function categoryBrowser(root: HTMLElement, list: HTMLElement, prefix: st
   const tools = document.createElement('div'), search = document.createElement('input'), label = document.createElement('label'), status = document.createElement('p')
   const paging = document.createElement('div'), previous = document.createElement('button'), next = document.createElement('button'), pageLabel = document.createElement('span')
   tools.className = 'category-tools'; paging.className = 'category-paging'; status.className = 'hint'; status.setAttribute('role', 'status')
-  search.id = `${prefix}-search`; search.type = 'search'; search.maxLength = 200; search.autocomplete = 'off'; search.placeholder = tr('Find a category')
-  label.htmlFor = search.id; label.textContent = tr('Find a category')
+  search.id = `${prefix}-search`; search.type = 'search'; search.maxLength = 200; search.autocomplete = 'off'
+  label.htmlFor = search.id
   previous.id = `${prefix}-previous`; next.id = `${prefix}-next`; previous.type = next.type = 'button'
-  previous.textContent = '←'; next.textContent = '→'; previous.setAttribute('aria-label', tr('Previous category page')); next.setAttribute('aria-label', tr('Next category page'))
+  previous.textContent = '←'; next.textContent = '→'
+  const translate = () => { search.placeholder = label.textContent = tr('Find a category'); previous.setAttribute('aria-label', tr('Previous category page')); next.setAttribute('aria-label', tr('Next category page')) }
+  translate()
   status.id = `${prefix}-status`; pageLabel.id = `${prefix}-page`; pageLabel.className = 'hint'
   paging.append(previous, pageLabel, next); tools.append(label, search, status); root.insertBefore(tools, list); list.after(paging)
   let entries: readonly Category[] = [], choose: (entry: Category) => void = () => {}, controller: AbortController | undefined, timer: ReturnType<typeof setTimeout> | undefined
@@ -71,7 +73,7 @@ export function categoryBrowser(root: HTMLElement, list: HTMLElement, prefix: st
   const cancel = () => { revision++; controller?.abort(); controller = undefined; clearTimeout(timer); timer = undefined }
   const mark = () => { for (const button of list.querySelectorAll<HTMLButtonElement>('button')) button.setAttribute('aria-pressed', String(marked ? marked(button.dataset.category!) : button.dataset.category === selected())) }
   async function find(focus = false, anchor?: string) {
-    cancel(); const token = revision, request = new AbortController(); controller = request
+    cancel(); translate(); const token = revision, request = new AbortController(); controller = request
     const ownedFocus = list.contains(document.activeElement), focusedId = ownedFocus ? (document.activeElement as HTMLElement).dataset.category : undefined
     previous.disabled = next.disabled = true; list.setAttribute('aria-busy', 'true'); status.textContent = tr('Searching categories…')
     try {
