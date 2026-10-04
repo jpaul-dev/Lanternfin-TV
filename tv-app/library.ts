@@ -110,22 +110,26 @@ export class TVLibrary {
   lastPlayed(channel: Channel) { return this.recent.get(channelId(channel)) }
   isWatched(channel: Channel) { return this.watched.has(channelId(channel)) }
   markWatched(channel: Channel, completed: boolean) {
-    const id = channelId(channel)
-    if (completed) this.addWatched(id)
-    else { this.watched.delete(id); const recent = this.recent.get(id); if (recent) delete recent.completed }
-    this.save()
+    this.change(() => {
+      const id = channelId(channel)
+      if (completed) this.addWatched(id)
+      else { this.watched.delete(id); const recent = this.recent.get(id); if (recent) delete recent.completed }
+    })
   }
   private addWatched(id: string) { this.watched.delete(id); this.watched.add(id); while (this.watched.size > 10000) this.watched.delete(this.watched.keys().next().value!) }
   toggleFavorite(channel: Channel): boolean {
-    const id = channelId(channel)
-    if (this.favorites.has(id)) this.favorites.delete(id)
-    else {
-      if (this.favorites.size >= MAX_FAVORITES) throw new Error('Your favorites list is full (2,000). Remove a favorite before adding another.')
-      this.favorites.add(id)
-    }
-    this.remember(channel); this.save(); return this.favorites.has(id)
+    return this.change(() => {
+      const id = channelId(channel)
+      if (this.favorites.has(id)) this.favorites.delete(id)
+      else {
+        if (this.favorites.size >= MAX_FAVORITES) throw new Error('Your favorites list is full (2,000). Remove a favorite before adding another.')
+        this.favorites.add(id)
+      }
+      this.remember(channel); return this.favorites.has(id)
+    })
   }
   record(channel: Channel, position = 0, duration = 0, ended = false) {
+    this.checkStoredRevision()
     const id = channelId(channel)
     const vod = channel.mediaKind !== 'live' && Number.isFinite(duration) && duration > 60 && Number.isFinite(position) && position >= 15 && position < duration - 15 && !ended
     this.recent.delete(id)
@@ -133,13 +137,31 @@ export class TVLibrary {
     if (completed) this.addWatched(id)
     this.recent.set(id, { id, at: Date.now(), position: vod ? position : 0, duration: vod ? duration : 0, ...(completed ? { completed: true } : {}) })
     while (this.recent.size > MAX_RECENT) this.recent.delete(this.recent.keys().next().value!)
-    this.remember(channel); this.save()
+    this.remember(channel)
+    // Playback should retain a session resume point even when persistent storage is full.
+    // Keep the last successful stored revision so a retry cannot overwrite newer data.
+    try { this.save() } catch { throw new Error('Viewing progress is kept for this session, but TV storage could not save it.') }
   }
-  clearHistory() { this.recent.clear(); this.save() }
-  removeRecent(channel: Channel) { this.recent.delete(channelId(channel)); this.save() }
+  clearHistory() { this.change(() => this.recent.clear()) }
+  removeRecent(channel: Channel) { this.change(() => { this.recent.delete(channelId(channel)) }) }
   season(channel: Channel) { return this.seasons.get(channelId(channel)) }
-  setSeason(channel: Channel, season: string) { this.seasons.delete(channelId(channel)); this.seasons.set(channelId(channel), season.slice(0, 100)); while (this.seasons.size > 1000) this.seasons.delete(this.seasons.keys().next().value!); this.save() }
-  setStorage(storage: Storage | null) { this.storage = storage; this.save() }
+  setSeason(channel: Channel, season: string) { this.change(() => { this.seasons.delete(channelId(channel)); this.seasons.set(channelId(channel), season.slice(0, 100)); while (this.seasons.size > 1000) this.seasons.delete(this.seasons.keys().next().value!) }) }
+  setStorage(storage: Storage | null) {
+    // Forget/reset must detach even if the old store can no longer be read or written.
+    if (!storage) { this.storage = null; return }
+    if (storage === this.storage) this.checkStoredRevision()
+    else {
+      let existing: string | null
+      try { existing = storage.getItem(this.key) } catch { throw new Error('TV storage is unavailable. No library data was changed.') }
+      if (existing !== null && existing !== this.savedRaw) throw new Error('This library changed in another app window. Close and reopen the app before changing its library.')
+    }
+    const previous = this.storage, before = this.snapshot(), revision = this.revision
+    this.storage = storage
+    try { this.save() } catch {
+      this.storage = previous; this.restoreSnapshot(before); this.revision = revision
+      throw new Error('TV storage could not save this library. Previous saved data was kept.')
+    }
+  }
   bookmarkedChannels(): Channel[] { return [...this.references.values()].map(reference => referenceChannel(this.source, reference)) }
   snapshot() { return { favorites: [...this.favorites], watchlist: [...this.watchlist], recent: [...this.recent.values()].reverse().map(item => ({ ...item })), references: [...this.references.values()].map(item => ({ ...item })), seasons: [...this.seasons], watched: [...this.watched], ...(this.home ? { homeLayout: cloneSourceHome(this.home) } : {}), ...(Object.keys(this.browsing).length ? { browseOptions: cloneBrowseOptions(this.browsing) } : {}), ...(this.guideMatches.size ? { guideMatches: [...this.guideMatches] } : {}) } }
   counts(): Record<LibraryArea, number> { return { favorites: this.favorites.size, watchlist: this.watchlist.size, history: this.recent.size, watched: this.watched.size, seasons: this.seasons.size } }
@@ -164,7 +186,17 @@ export class TVLibrary {
   }
   private checkStoredRevision() {
     try { if (!this.storage || this.storage.getItem(this.key) === this.savedRaw) return } catch { throw new Error('TV storage is unavailable. No library data was changed.') }
-    throw new Error('This library changed in another app window. Reopen the source before managing its data.')
+    throw new Error('This library changed in another app window. Close and reopen the app before changing its library.')
+  }
+  /** Explicit edits either commit once or restore the complete session state. */
+  private change<T>(update: () => T): T {
+    this.checkStoredRevision()
+    const before = this.snapshot(), revision = this.revision
+    try {
+      const result = update()
+      try { this.save() } catch { throw new Error('TV storage could not save this change. Your previous library was kept.') }
+      return result
+    } catch (error) { this.restoreSnapshot(before); this.revision = revision; throw error }
   }
   private restoreSnapshot(snapshot: ReturnType<TVLibrary['snapshot']>) {
     this.home = snapshot.homeLayout && cloneSourceHome(snapshot.homeLayout)
@@ -179,22 +211,23 @@ export class TVLibrary {
   }
   merge(other: TVLibrary) {
     if (JSON.stringify(this.source) !== JSON.stringify(other.source)) throw new Error('Library source mismatch.')
-    const favorites = new Set([...this.favorites, ...other.favorites]), watchlist = new Set([...this.watchlist, ...other.watchlist]), watched = new Set([...this.watched, ...other.watched])
-    const guideMatches = new Map([...other.guideMatches, ...this.guideMatches])
-    if (guideMatches.size > MAX_GUIDE_MATCHES) throw new Error('Combined library exceeds 1,000 guide matches. Restore without library data or reset unused matches first.')
-    if (favorites.size > MAX_FAVORITES || watchlist.size > MAX_WATCHLIST || watched.size > 10000) throw new Error('Combined library exceeds the favorites, watchlist or watched limit. Restore sources without library data, or reduce those lists first.')
-    this.guideMatches = guideMatches
-    if (!this.home && other.home) this.home = cloneSourceHome(other.home)
-    this.browsing = { ...cloneBrowseOptions(other.browsing), ...this.browsing }
-    for (const id of favorites) this.favorites.add(id)
-    for (const id of watchlist) this.watchlist.add(id)
-    for (const id of watched) this.watched.add(id)
-    for (const [id, item] of other.recent) if (!this.recent.has(id) || this.recent.get(id)!.at < item.at) this.recent.set(id, { ...item })
-    const recent = [...this.recent.values()].sort((a, b) => a.at - b.at).slice(-MAX_RECENT)
-    this.recent.clear(); for (const item of recent) this.recent.set(item.id, item)
-    for (const [id, reference] of other.references) if (!this.references.has(id)) this.references.set(id, reference)
-    for (const [id, season] of other.seasons) if (!this.seasons.has(id) && this.seasons.size < 1000) this.seasons.set(id, season)
-    this.save()
+    this.change(() => {
+      const favorites = new Set([...this.favorites, ...other.favorites]), watchlist = new Set([...this.watchlist, ...other.watchlist]), watched = new Set([...this.watched, ...other.watched])
+      const guideMatches = new Map([...other.guideMatches, ...this.guideMatches])
+      if (guideMatches.size > MAX_GUIDE_MATCHES) throw new Error('Combined library exceeds 1,000 guide matches. Restore without library data or reset unused matches first.')
+      if (favorites.size > MAX_FAVORITES || watchlist.size > MAX_WATCHLIST || watched.size > 10000) throw new Error('Combined library exceeds the favorites, watchlist or watched limit. Restore sources without library data, or reduce those lists first.')
+      this.guideMatches = guideMatches
+      if (!this.home && other.home) this.home = cloneSourceHome(other.home)
+      this.browsing = { ...cloneBrowseOptions(other.browsing), ...this.browsing }
+      for (const id of favorites) this.favorites.add(id)
+      for (const id of watchlist) this.watchlist.add(id)
+      for (const id of watched) this.watched.add(id)
+      for (const [id, item] of other.recent) if (!this.recent.has(id) || this.recent.get(id)!.at < item.at) this.recent.set(id, { ...item })
+      const recent = [...this.recent.values()].sort((a, b) => a.at - b.at).slice(-MAX_RECENT)
+      this.recent.clear(); for (const item of recent) this.recent.set(item.id, item)
+      for (const [id, reference] of other.references) if (!this.references.has(id)) this.references.set(id, reference)
+      for (const [id, season] of other.seasons) if (!this.seasons.has(id) && this.seasons.size < 1000) this.seasons.set(id, season)
+    })
   }
   private remember(channel: Channel) { const reference = channelReference(this.source, channel); if (reference) this.references.set(channelId(channel), reference) }
   private save() {
@@ -202,7 +235,7 @@ export class TVLibrary {
     for (const id of this.references.keys()) if (!this.favorites.has(id) && !this.watchlist.has(id) && !this.recent.has(id)) this.references.delete(id)
     const serialized = JSON.stringify(this.snapshot())
     if (serialized.length > 2 * 1024 * 1024) throw new Error('This source’s saved library exceeds the TV storage budget.')
-    this.storage?.setItem(this.key, serialized); this.savedRaw = serialized
+    if (this.storage) { this.storage.setItem(this.key, serialized); this.savedRaw = serialized }
   }
 }
 

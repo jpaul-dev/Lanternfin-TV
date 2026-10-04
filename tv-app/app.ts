@@ -80,6 +80,7 @@ let searching: AbortController | undefined, searchTimer: ReturnType<typeof setTi
 let library: TVLibrary | undefined, activeSource: Source | undefined
 let currentChannel: Channel | undefined, pendingChannel: Channel | undefined
 let lastTimeline = { position: 0, duration: 0 }, lastSaved = 0
+let progressSaveIssue = ''
 let libraryView: 'all' | 'favorites' | 'watchlist' | 'recent' = 'all'
 let nativeSelectOpen = false
 let browseView: 'home' | 'all' | 'search' | MediaKind = 'home'
@@ -316,6 +317,7 @@ $('source-form').addEventListener('submit', async event => {
     const sourceLibrary = library
     guide?.clear(); guide = new TVGuide(source, override || catalog.epgUrl, offset, channel => sourceLibrary?.guideMatch(channel)); guideChannel = undefined; browseCategory = undefined
     renderIndexStatus()
+    progressSaveIssue = ''
     $('library-note').textContent = persisted ? 'Favorites and recent streams are saved on this TV.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.'
     $('return-catalog').hidden = false
     // Credentials remain only in the form/session unless saving was explicitly chosen.
@@ -660,12 +662,22 @@ function updateFavorite() {
 }
 function saveProgress(ended = false) {
   if (!currentChannel || !hasPlayed) return
+  // Keep the normal retry interval after a failed write as well as a successful one.
+  lastSaved = Date.now()
   if (!ended) playbackDiagnostics.sample(player?.diagnostics?.())
   const timeline = player?.timeline()
   if (!ended && timeline && Number.isFinite(timeline.position) && timeline.position > 0) lastTimeline = timeline
   if (localDownload(currentChannel)) { downloads.progress(currentChannel, lastTimeline.position, lastTimeline.duration, ended || state === 'ended'); lastSaved = Date.now(); return }
-  try { library?.record(currentChannel, lastTimeline.position, lastTimeline.duration, ended || state === 'ended'); rememberLibraryChannel(currentChannel); lastSaved = Date.now() }
-  catch { $('library-note').textContent = 'TV storage is unavailable. Changes are kept for this session.' }
+  try {
+    library?.record(currentChannel, lastTimeline.position, lastTimeline.duration, ended || state === 'ended')
+    rememberLibraryChannel(currentChannel)
+    if (progressSaveIssue && $('library-note').textContent === progressSaveIssue) $('library-note').textContent = library?.persistent ? 'Favorites and recent streams are saved on this TV.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.'
+    progressSaveIssue = ''
+  } catch (error) {
+    rememberLibraryChannel(currentChannel)
+    progressSaveIssue = error instanceof Error ? error.message : 'Viewing progress could not be saved. Playback can continue.'
+    $('library-note').textContent = progressSaveIssue
+  }
 }
 function stopWatching() {
   const stopped = currentChannel
