@@ -3,6 +3,8 @@ import { ACCENTS } from './preferences'
 import { keyAction } from './remote'
 
 type Choice = { option: HTMLOptionElement; index: number; value: string; text: string; button: HTMLButtonElement }
+// Signed offsets and percentages contain no strong LTR character for dir=auto.
+export const choiceDirection = (text: string) => /^(?:UTC)?[+−-]?\d+(?:[.:]\d+)*(?:%|×)?$/.test(text) ? 'ltr' : 'auto'
 const enabled = (option: HTMLOptionElement) => !option.disabled && !option.closest('[hidden]') && !(option.parentElement instanceof HTMLOptGroupElement && option.parentElement.disabled)
 
 /** Keep the existing select/change contract, with an app-rendered TV choice list. */
@@ -48,7 +50,7 @@ export function settingsChoices(root: HTMLElement) {
     choices = [...target.options].map((option, index) => {
       const button = document.createElement('button'), text = document.createElement('span'), mark = document.createElement('span')
       button.type = 'button'; button.setAttribute('role', 'radio'); button.setAttribute('aria-checked', String(index === originalIndex)); button.disabled = !enabled(option)
-      button.hidden = !!option.closest('[hidden]'); text.textContent = option.text; mark.className = 'settings-choice-mark'; mark.setAttribute('aria-hidden', 'true'); mark.textContent = index === originalIndex ? '✓' : ''
+      button.hidden = !!option.closest('[hidden]'); text.textContent = option.text; text.dir = choiceDirection(option.text); mark.className = 'settings-choice-mark'; mark.setAttribute('aria-hidden', 'true'); mark.textContent = index === originalIndex ? '✓' : ''
       if (['pref-accent', 'source-accent'].includes(target.id) && Object.prototype.hasOwnProperty.call(ACCENTS, option.value)) {
         const swatch = document.createElement('span'); swatch.className = 'settings-choice-swatch'; swatch.setAttribute('aria-hidden', 'true')
         swatch.style.backgroundColor = ACCENTS[option.value as keyof typeof ACCENTS][document.documentElement.dataset.theme === 'light' ? 1 : 0]; button.append(swatch)

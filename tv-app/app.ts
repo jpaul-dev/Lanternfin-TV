@@ -7,7 +7,7 @@ import { sourceAccent, clearAccentRoll, type Accent } from './accent'
 import { ScreenSaver, bindLifecycle, type AppCommon } from './lifecycle'
 import { PlaybackDiagnostics, capabilities, buildInfo, type DiagnosticReport } from './diagnostics'
 import { diagnosticsUI } from './diagnostics-ui'
-import { settingsChoices } from './settings-choices'
+import { choiceDirection, settingsChoices } from './settings-choices'
 import { categoryBrowser, playlistCategories } from './category-browser'
 import { groupPicker } from './group-picker'
 import { libraryUI } from './library-ui'
@@ -25,7 +25,7 @@ import { TrackPreferences } from './track-preferences'
 import { relatedTitles, type RelatedTitle } from './related-titles'
 import { DEFAULT_BROWSE_CHOICE, type BrowseChoice, type BrowseView } from './browse-options'
 import { BrowseHistory, browseFocus, resolveBrowseVisit, type BrowseFocus, type BrowseSection, type BrowseVisit } from './browse-history'
-import { INTERFACE_LANGUAGES, interfaceLocale, setInterfaceLanguage, staticTranslations, tr } from './i18n'
+import { INTERFACE_LANGUAGES, interfaceLocale, setInterfaceLanguage, staticTranslations, translatedText, tr } from './i18n'
 import { contentLanguageChoices, contentLanguageTags } from './content-language'
 import { loadCatalog, validateSource, type Source, type Channel, type Catalog } from './catalog'
 import { readSource, storeSource } from './storage'
@@ -151,6 +151,7 @@ const embeddedSubtitles = mp4SubtitleUI($('track-menu'), {
 function resetSubtitles() { embeddedSubtitles.reset(); externalSubtitles.reset() }
 navigationIcons($('tv-nav'))
 const translateStatic = staticTranslations($('app'))
+const settingsNote = translatedText($('settings-note')), libraryNote = translatedText($('library-note'))
 try { preferenceStorage = localStorage; preferences = readPreferences(localStorage) } catch { /* Session settings still work. */ }
 applyPreferences(preferences, document.documentElement, activeAccent)
 const hero = homeHero($('home-content'), {
@@ -247,6 +248,7 @@ function sourceKind() {
   input('username').required = input('password').required = kind === 'xtream'
   $('url-label').textContent = kind === 'xtream' ? 'Provider server address' : kind === 'direct' ? 'Stream address' : 'Playlist address'
   input('source-url').placeholder = kind === 'xtream' ? 'https://your-provider.example:443' : kind === 'direct' ? 'https://your-provider.example/video.m3u8' : 'https://your-provider.example/playlist.m3u'
+  syncChoiceDirections()
 }
 function currentSource(): Source {
   return validateSource({ kind: select('source-kind').value, url: input('source-url').value, username: input('username').value, password: input('password').value })
@@ -320,7 +322,7 @@ $('source-form').addEventListener('submit', async event => {
     guide?.clear(); guide = new TVGuide(source, override || catalog.epgUrl, offset, channel => sourceLibrary?.guideMatch(channel)); guideChannel = undefined; browseCategory = undefined
     renderIndexStatus()
     progressSaveIssue = ''
-    $('library-note').textContent = library.persistent ? 'Favorites and recent streams are saved on this TV.' : persisted ? 'Your source is saved, but library changes last for this session. Reopen the source to retry saving them.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.'
+    libraryNote.set(library.persistent ? 'Favorites and recent streams are saved on this TV.' : persisted ? 'Your source is saved, but library changes last for this session. Reopen the source to retry saving them.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.')
     $('return-catalog').hidden = false
     // Credentials remain only in the form/session unless saving was explicitly chosen.
     await updateGroups(); await filter(); if (loading !== controller || controller.signal.aborted) return; goHome()
@@ -338,13 +340,13 @@ input('remember').onchange = async () => {
   input('keep-library').checked = false
   try {
     if (editingSource) { removeProfile(localStorage, editingSource); forgetLibrary(localStorage, editingSource); if (activeSource && sourceId(activeSource) === sourceId(editingSource)) { library?.setStorage(null); keepActiveLibrary = false; cacheSaving?.abort() }; await catalogCache.forget(editingSource) }
-    renderProfiles(); $('library-note').textContent = 'Favorites and recent streams last for this session.'
+    renderProfiles(); libraryNote.set('Favorites and recent streams last for this session.')
   }
   catch { notice('The TV could not remove saved settings. Try clearing app data in TV settings.') }
 }
 $('forget').onclick = async () => {
   activeAccent = undefined; select('profile-accent').value = ''; applyPreferences(preferences)
-  activeGuideOffset = 0; select('guide-offset').value = '0'
+  activeGuideOffset = 0; select('guide-offset').value = '0'; syncChoiceDirections()
   browseHistory.forget(); cancelBrowseEntry(); catalogReturnVisit = undefined
   groups.clear(); categoryList.clear()
   pooledLibrary = undefined; knownLibraryVersion++
@@ -673,12 +675,12 @@ function saveProgress(ended = false) {
   try {
     library?.record(currentChannel, lastTimeline.position, lastTimeline.duration, ended || state === 'ended')
     rememberLibraryChannel(currentChannel)
-    if (progressSaveIssue && $('library-note').textContent === progressSaveIssue) $('library-note').textContent = library?.persistent ? 'Favorites and recent streams are saved on this TV.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.'
+    if (progressSaveIssue && libraryNote.source === progressSaveIssue) libraryNote.set(library?.persistent ? 'Favorites and recent streams are saved on this TV.' : 'Favorites and recent streams last for this session. Enable Remember this source to save them.')
     progressSaveIssue = ''
   } catch (error) {
     rememberLibraryChannel(currentChannel)
     progressSaveIssue = error instanceof Error ? error.message : 'Viewing progress could not be saved. Playback can continue.'
-    $('library-note').textContent = progressSaveIssue
+    libraryNote.set(progressSaveIssue)
   }
 }
 function stopWatching() {
@@ -1506,7 +1508,7 @@ $('settings-back').onclick = goHome
 const layoutEditor = homeLayoutUI($('layout'), layout => {
   if (!library) throw new Error('Open a source first.')
   library.setHomeLayout(layout)
-  $('settings-note').textContent = tr(library.persistent ? 'Home layout saved for this source.' : 'Home layout applies for this session. Remember the source to keep it.')
+  settingsNote.set(library.persistent ? 'Home layout saved for this source.' : 'Home layout applies for this session. Remember the source to keep it.')
 }, () => { show('settings'); button('settings-home').focus() }, (kind, query, signal) => {
   if (!activeSource) return Promise.resolve({ choices: [], more: false })
   return findHomeCategories(activeSource, channels, { ...providerCategories, ...providerIndex?.categories }, kind, query, signal)
@@ -1541,8 +1543,8 @@ $('diagnostics-back').onclick = () => show(diagnosticsReturn)
 $('settings-source').onclick = () => show('setup')
 $('settings-clear-cache').onclick = async () => {
   cacheSaving?.abort(); cacheSaving = undefined; playlistCachePending = false
-  try { await catalogCache.forget(); playlistCachedAt = 0; playlistCacheMessage = 'Saved catalog cleared. Refresh to save a new copy.'; renderIndexStatus(); $('settings-note').textContent = 'Saved catalogs cleared. Sources, favorites and playback progress are retained. The next library refresh can save a new catalog.' }
-  catch { $('settings-note').textContent = 'Saved catalogs could not be cleared. Try clearing app data in TV settings.' }
+  try { await catalogCache.forget(); playlistCachedAt = 0; playlistCacheMessage = 'Saved catalog cleared. Refresh to save a new copy.'; renderIndexStatus(); settingsNote.set('Saved catalogs cleared. Sources, favorites and playback progress are retained. The next library refresh can save a new catalog.') }
+  catch { settingsNote.set('Saved catalogs could not be cleared. Try clearing app data in TV settings.') }
 }
 $('settings-refresh').onclick = () => button('refresh-catalog').click()
 $('settings-reset').onclick = () => { preferences = { ...DEFAULTS }; syncPreferences(); persistPreferences() }
@@ -1558,8 +1560,8 @@ function persistPreferences() {
   applyPreferences(preferences, document.documentElement, activeAccent); syncAccent()
   void applyInterfaceLanguage()
   syncGuideDays()
-  try { savePreferences(preferenceStorage, preferences); $('settings-note').textContent = preferenceStorage ? 'Preferences saved. Language choices apply when the next stream starts.' : 'Preferences apply for this session.' }
-  catch { $('settings-note').textContent = 'TV storage is unavailable. Preferences apply for this session.' }
+  try { savePreferences(preferenceStorage, preferences); settingsNote.set(preferenceStorage ? 'Preferences saved. Language choices apply when the next stream starts.' : 'Preferences apply for this session.') }
+  catch { settingsNote.set('TV storage is unavailable. Preferences apply for this session.') }
 }
 for (const id of ['profile-accent', 'source-accent']) select(id).add(new Option('App default', ''))
 for (const accent of Object.keys(ACCENTS)) for (const id of ['pref-accent', 'profile-accent', 'source-accent']) select(id).add(new Option(accent[0].toUpperCase() + accent.slice(1), accent))
@@ -1573,8 +1575,8 @@ select('source-accent').onchange = () => {
   activeAccent = sourceAccent(select('source-accent').value)
   applyPreferences(preferences, document.documentElement, activeAccent); syncAccent()
   if (editingSource && sourceId(editingSource) === sourceId(activeSource)) select('profile-accent').value = activeAccent || ''
-  try { const saved = saveSourceAccent(localStorage, activeSource, activeAccent); $('settings-note').textContent = tr(saved ? 'Source color saved.' : 'Source color applies for this session. Remember the source to keep it.'); renderProfiles() }
-  catch { $('settings-note').textContent = tr('TV storage is unavailable. Source color applies for this session.') }
+  try { const saved = saveSourceAccent(localStorage, activeSource, activeAccent); settingsNote.set(saved ? 'Source color saved.' : 'Source color applies for this session. Remember the source to keep it.'); renderProfiles() }
+  catch { settingsNote.set('TV storage is unavailable. Source color applies for this session.') }
 }
 for (let value = 0; value <= 8; value++) select('pref-overscan').add(new Option(value ? `${value}%` : 'Off', String(value)))
 select('pref-subtitles').add(new Option('Off', 'off'))
@@ -1602,27 +1604,35 @@ for (const id of ['guide-offset', 'source-guide-offset']) {
   picker.value = '0'
 }
 function chosenGuideCorrection(id: string) { const value = select(id).value; return guideOffset(value === 'auto' ? 'auto' : Number(value)) }
+function syncChoiceDirections() {
+  for (const id of ['pref-scale', 'pref-overscan', 'pref-clock', 'source-guide-offset', 'guide-offset']) {
+    const picker = select(id)
+    picker.dir = choiceDirection(picker.selectedOptions[0]?.text || '') === 'ltr' ? 'ltr' : document.documentElement.dir || 'ltr'
+  }
+}
+select('guide-offset').addEventListener('change', syncChoiceDirections)
 function syncGuideCorrection() {
+  syncChoiceDirections()
   const note = $('guide-auto-note'); note.hidden = activeGuideOffset !== 'auto'
   const estimate = guide?.automaticCorrection
   note.textContent = tr(!guide?.canMatch ? 'Automatic correction needs an XMLTV guide. Provider programme timestamps are left unchanged.'
     : !estimate ? 'The automatic estimate will appear here after the guide loads.'
     : estimate.reason === 'explicit' ? 'The guide includes explicit time zones. Automatic correction leaves its times unchanged.'
     : estimate.reason === 'empty' ? 'The guide has too little current schedule evidence for an estimate. No automatic correction is applied.'
-    : 'Estimated correction: {offset}. Based on programme coverage across {count} channels; check against a known broadcast.', { offset: guideOffsetLabel(estimate?.minutes || 0), count: estimate?.channels || 0 })
+    : 'Estimated correction: {offset}. Based on programme coverage across {count} channels; check against a known broadcast.', { offset: tr(guideOffsetLabel(estimate?.minutes || 0)), count: estimate?.channels || 0 })
 }
 select('source-guide-offset').onchange = () => {
   if (!activeSource || activeSource.kind === 'direct') return
   activeGuideOffset = chosenGuideCorrection('source-guide-offset')
   cancelGuide(); playbackGuideLoading?.abort(); playbackGuideLoading = undefined; playbackProgrammes = []; guideItems = []; guideChannel = undefined; selectedProgramme = undefined
   guide?.setOffset(activeGuideOffset)
-  syncGuideCorrection()
   if (editingSource && sourceId(editingSource) === sourceId(activeSource)) select('guide-offset').value = String(activeGuideOffset)
+  syncGuideCorrection()
   try {
     const saved = saveGuideOffset(localStorage, activeSource, activeGuideOffset)
-    $('settings-note').textContent = tr(saved ? 'Guide correction saved for this source.' : 'Guide correction applies for this session. Remember the source to keep it.')
+    settingsNote.set(saved ? 'Guide correction saved for this source.' : 'Guide correction applies for this session. Remember the source to keep it.')
     renderProfiles()
-  } catch { $('settings-note').textContent = tr('TV storage is unavailable. Guide correction applies for this session.') }
+  } catch { settingsNote.set('TV storage is unavailable. Guide correction applies for this session.') }
 }
 syncPreferences()
 async function applyInterfaceLanguage() {
@@ -1633,10 +1643,16 @@ async function applyInterfaceLanguage() {
     syncContentLanguages()
     for (const id of ['pref-accent', 'profile-accent', 'source-accent']) for (const option of select(id).options) option.text = tr(option.value ? option.value[0].toUpperCase() + option.value.slice(1) : 'App default')
     syncAccent()
+    syncGuideCorrection(); settingsNote.refresh(); libraryNote.refresh()
     select('pref-overscan').options[0].text = tr('Off')
     select('pref-subtitles').options[0].text = tr('Off')
+    for (const id of ['pref-audio', 'pref-subtitles']) select(id).querySelector<HTMLOptionElement>('[value="auto"]')!.text = tr('Automatic')
+    select('pref-language').options[0].text = tr('Use device language')
+    select('pref-clock').options[0].text = tr('Device time zone')
+    for (const id of ['guide-offset', 'source-guide-offset']) for (const option of select(id).options) option.text = tr(guideOffsetLabel(option.value === 'auto' ? 'auto' : Number(option.value)))
+    syncChoiceDirections()
     if (screen === 'catalog') { if (browseView === 'home') renderHome(); else void filter(false) }
-  } catch { $('settings-note').textContent = 'This language file could not be loaded. The current interface language is still available; reinstall the complete package to try again.' }
+  } catch { settingsNote.set('This language file could not be loaded. The current interface language is still available; reinstall the complete package to try again.') }
 }
 void applyInterfaceLanguage()
 function contentLanguage() { return contentLanguageTags(preferences.contentLanguage, interfaceLocale()) }

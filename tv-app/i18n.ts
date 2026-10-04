@@ -39,6 +39,16 @@ export async function setInterfaceLanguage(value: string, loader = loadMessages)
   document.documentElement.dir = ['ar', 'ur'].includes(code) ? 'rtl' : 'ltr'
   return true
 }
+/** Remember only explicitly supplied UI copy, never arbitrary provider text. */
+export function translatedText(node: HTMLElement) {
+  let source = '', parameters: Record<string, string | number> | undefined
+  const refresh = () => { node.textContent = tr(source, parameters) }
+  return {
+    set(text: string, values?: Record<string, string | number>) { source = text; parameters = values ? { ...values } : undefined; refresh() },
+    refresh,
+    get source() { return source },
+  }
+}
 /** Capture shipped static nodes once, before any provider data is rendered. */
 export function staticTranslations(root: HTMLElement) {
   const texts: { node: Text; source: string; before: string; after: string }[] = []

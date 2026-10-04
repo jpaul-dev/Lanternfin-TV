@@ -13,6 +13,16 @@ const down = (key: string, keyCode = 0, repeat = false, shiftKey = false) => {
 }
 const press = (key: string, keyCode = 0, shiftKey = false) => { const event = down(key, keyCode, false, shiftKey); document.activeElement!.dispatchEvent(new KeyboardEvent('keyup', { key, keyCode, bubbles: true, cancelable: true })); return event }
 const open = () => { picker.focus(); press('Enter') }
+it('keeps signs and percentages in numeric order inside an Arabic chooser', async () => {
+  await setInterfaceLanguage('ar', async () => ({}))
+  picker.replaceChildren(...['+01:00', '−00:30', '150%', 'UTC−02:00', 'العربية'].map((label, i) => new Option(label, String(i))))
+  open()
+  const labels = [...dialog().querySelectorAll<HTMLElement>('[role=radio] span:not([aria-hidden])')]
+  expect(labels.map(label => label.textContent)).toEqual(['+01:00', '−00:30', '150%', 'UTC−02:00', 'العربية'])
+  expect(labels.map(label => label.dir)).toEqual(['ltr', 'ltr', 'ltr', 'ltr', 'auto'])
+  expect(document.documentElement.dir).toBe('rtl')
+  press('ArrowDown'); press('Enter'); expect(picker.value).toBe('1')
+})
 beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute('open', '') } })
   Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute('open'); this.dispatchEvent(new Event('close')) } })
