@@ -15,6 +15,8 @@ export class ProviderIndex {
   private controller?: AbortController
   private cache = new Map<string, Catalog>()
   private seen = new Map<string, IndexedTitle>()
+  // Only duplicate titles need another set; the ordinary index retains no per-title copy.
+  private memberships = new Map<string, Set<string>>()
   private retained = 0
   private records = 0
   cachedAt?: number
@@ -26,6 +28,10 @@ export class ProviderIndex {
   }
   private indexed(id: string) { const entry = this.seen.get(id); return entry && this.items[entry.index] === entry.channel ? entry.channel : undefined }
   has(channel: Channel) { const found = this.indexed(`${channel.mediaKind}:${channel.providerId}`); return !!found && (found === channel || found.url === channel.url) }
+  categoryOf(channel: Channel) {
+    const key = channel.mediaKind === 'episode' ? `series:${channel.seriesId}` : `${channel.mediaKind}:${channel.providerId}`
+    return this.memberships.get(key) || channel.categoryId || this.indexed(key)?.categoryId
+  }
   async restore(snapshot: CatalogSnapshot, signal?: AbortSignal) {
     if (this.items.length || this.controller) throw new Error('A saved catalog can only initialize an empty index.')
     const controller = new AbortController(); this.controller = controller
@@ -33,7 +39,7 @@ export class ProviderIndex {
     const check = () => { if (controller.signal.aborted || signal?.aborted) throw new Error('Saved library loading canceled.') }
     // Stage the complete snapshot off-screen. Cancellation or a budget failure
     // leaves the previous index untouched, including its original live categories.
-    const cache = new Map<string, Catalog>(), seen = new Map<string, IndexedTitle>(), items: Channel[] = []
+    const cache = new Map<string, Catalog>(), seen = new Map<string, IndexedTitle>(), items: Channel[] = [], memberships = new Map<string, Set<string>>()
     let retained = 0, records = 0, started = performance.now()
     try {
       check()
@@ -42,12 +48,18 @@ export class ProviderIndex {
           check(); records++; retained += item.name.length + item.url.length + item.group.length + (item.logo?.length || 0) + (item.description?.length || 0) + (item.categoryId?.length || 0) + (item.year?.length || 0)
           if (records > this.budget.records || retained > this.budget.characters) throw new IndexBudgetError('The saved library exceeds this TV’s memory budget.')
           const id = `${item.mediaKind}:${item.providerId}`
-          if (!seen.has(id)) { seen.set(id, { channel: item, index: items.length }); items.push(item) }
+          const existing = seen.get(id)
+          if (!existing) { seen.set(id, { channel: item, index: items.length }); items.push(item) }
+          else {
+            let ids = memberships.get(id)
+            if (!ids) memberships.set(id, ids = new Set(existing.channel.categoryId ? [existing.channel.categoryId] : []))
+            ids.add(entry.category.id)
+          }
           if (records % 512 === 0 && performance.now() - started >= 10) { await new Promise<void>(resolve => setTimeout(resolve, 0)); started = performance.now() }
         }
         cache.set(`${entry.kind}:${entry.category.id}`, { channels: entry.channels, skipped: entry.skipped })
       }
-      check(); this.cache = cache; this.seen = seen; this.indexedItems = items; this.records = records; this.retained = retained
+      check(); this.cache = cache; this.seen = seen; this.memberships = memberships; this.indexedItems = items; this.records = records; this.retained = retained
       Object.assign(this.categories, snapshot.categories); this.cachedAt = snapshot.at
       this.progress = { running: false, complete: true, loaded: cache.size, total: cache.size, titles: items.length, failed: 0, message: '' }
     } finally { signal?.removeEventListener('abort', abort); if (this.controller === controller) this.controller = undefined }
@@ -62,6 +74,7 @@ export class ProviderIndex {
     const budgetError = () => new IndexBudgetError('The library reached this TV’s memory budget. Loaded titles remain searchable; other categories can still be opened individually.')
     check(); if (this.records + result.channels.length > this.budget.records) throw budgetError()
     const base = this.items, seen = this.seen, pending = new Map<string, IndexedTitle>(), additions: Channel[] = []
+    const memberships = new Map<string, Set<string>>()
     let characters = 0, processed = 0, started = performance.now()
     const yieldIfNeeded = async () => {
       if (performance.now() - started >= 10) { await new Promise<void>(resolve => setTimeout(resolve, 0)); started = performance.now() }
@@ -74,6 +87,13 @@ export class ProviderIndex {
         if (!pending.has(id) && !this.indexed(id)) {
           const entry = { channel: item, index: base.length + additions.length }
           pending.set(id, entry); seen.set(id, entry); additions.push(item)
+        } else {
+          let ids = memberships.get(id)
+          if (!ids) {
+            const first = (pending.get(id)?.channel || this.indexed(id))?.categoryId
+            memberships.set(id, ids = new Set(this.memberships.get(id) || (first ? [first] : [])))
+          }
+          ids.add(category.id)
         }
         if (++processed % 512 === 0) { await yieldIfNeeded(); check() }
       }
@@ -81,6 +101,7 @@ export class ProviderIndex {
       // Entries become visible to has() only after this single array publication.
       // Building the membership map above can yield without exposing partial rows.
       if (additions.length) this.indexedItems = base.concat(additions)
+      for (const [id, ids] of memberships) this.memberships.set(id, ids)
       this.records += result.channels.length; this.retained += characters; this.cache.set(`${kind}:${category.id}`, result)
       this.progress.loaded = this.cache.size; this.progress.titles = this.items.length
     } catch (error) {

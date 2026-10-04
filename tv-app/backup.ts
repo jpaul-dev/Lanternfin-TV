@@ -8,6 +8,7 @@ import { readBrowseOptions } from './browse-options'
 import { guideOffset } from './guide-offset'
 import { readGuideMatches } from './guide-matches'
 import { isAccent } from './accent'
+import { readCategoryRules } from './category-rules'
 
 type Snapshot = ReturnType<TVLibrary['snapshot']>
 export type Backup = { format: 'lanternfin-tv'; version: 1; profiles: Array<SourceProfile & { library: Snapshot }>; preferences: Preferences }
@@ -31,6 +32,7 @@ function fromSnapshot(source: SourceProfile['source'], value: unknown): TVLibrar
   if (Object.prototype.hasOwnProperty.call(data, 'homeLayout') && !readSourceHome(data.homeLayout, source)) throw invalid()
   if (Object.prototype.hasOwnProperty.call(data, 'browseOptions') && !readBrowseOptions(data.browseOptions)) throw invalid()
   if (Object.prototype.hasOwnProperty.call(data, 'guideMatches') && !readGuideMatches(data.guideMatches)) throw invalid()
+  if (Object.prototype.hasOwnProperty.call(data, 'categoryRules') && !readCategoryRules(data.categoryRules, source)) throw invalid()
   // Reuse the same bounded reader used for TV storage; no supplied storage key is trusted.
   const memory = new MemoryStore(); memory.getItem = () => raw
   const library = new TVLibrary(memory, source), clean = library.snapshot()

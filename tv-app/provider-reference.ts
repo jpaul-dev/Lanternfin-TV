@@ -16,11 +16,13 @@ export function readProviderReference(value: unknown): ProviderReference | undef
     ? { seriesId: item.seriesId, ...(typeof item.seriesName === 'string' ? { seriesName: item.seriesName.slice(0, 200) } : {}) } : {}
   const addedAt = ['movie', 'series'].includes(item.mediaKind) ? catalogTimestamp(item.addedAt) : undefined
   const durationSeconds = ['movie', 'episode'].includes(item.mediaKind) ? providerRuntime(item.durationSeconds) : undefined
-  return { providerId: item.providerId, mediaKind: item.mediaKind, extension: item.extension, name: item.name, group: item.group, ...parent, ...(addedAt ? { addedAt } : {}), ...(durationSeconds ? { durationSeconds } : {}), ...(['movie', 'series'].includes(item.mediaKind) ? titleMetadata(item) : {}) }
+  const categoryId = typeof item.categoryId === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(item.categoryId) ? item.categoryId : undefined
+  return { providerId: item.providerId, mediaKind: item.mediaKind, extension: item.extension, name: item.name, group: item.group, ...parent, ...(addedAt ? { addedAt } : {}), ...(durationSeconds ? { durationSeconds } : {}), ...(['movie', 'series'].includes(item.mediaKind) ? titleMetadata(item) : {}), ...(categoryId ? { categoryId } : {}) }
 }
 export function referenceChannel(source: Source, reference: ProviderReference): Channel {
   return { name: reference.name, group: reference.group, mediaKind: reference.mediaKind, providerId: reference.providerId,
     ...(['movie', 'series'].includes(reference.mediaKind) ? titleMetadata(reference) : {}),
+    ...(reference.categoryId ? { categoryId: reference.categoryId } : {}),
     ...(reference.addedAt ? { addedAt: reference.addedAt } : {}),
     ...(reference.durationSeconds ? { durationSeconds: reference.durationSeconds } : {}),
     ...(reference.seriesId ? { seriesId: reference.seriesId, seriesName: reference.seriesName } : {}),

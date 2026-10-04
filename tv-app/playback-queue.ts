@@ -4,9 +4,9 @@ import { channelId } from './library'
 export class LiveQueue {
   private items: Channel[] = []
   private index = -1
-  reset(pool: Channel[], current: Channel) {
+  reset(pool: Channel[], current: Channel, include?: (channel: Channel) => boolean) {
     const seen = new Set<string>()
-    this.items = pool.filter(channel => channel.mediaKind === 'live' && !seen.has(channelId(channel)) && !!seen.add(channelId(channel)))
+    this.items = pool.filter(channel => channel.mediaKind === 'live' && (!include || include(channel)) && !seen.has(channelId(channel)) && !!seen.add(channelId(channel)))
     this.index = this.items.findIndex(channel => channelId(channel) === channelId(current))
     if (current.mediaKind === 'live' && this.index < 0) { this.index = this.items.length; this.items.push(current) }
   }

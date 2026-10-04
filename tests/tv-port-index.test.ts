@@ -4,6 +4,13 @@ import type { Source, Channel } from '../tv-app/catalog'
 import type { CatalogSnapshot } from '../tv-app/catalog-cache'
 const source: Source = { kind: 'xtream', url: 'https://example.com', username: 'u', password: 'p' }
 const categories = [{ id: '1', name: 'First' }, { id: '2', name: 'Second' }]
+it('retains all memberships for duplicated titles after indexing and saved-catalog restore', async () => {
+  const loader = { categories: async () => [], category: async (_s: Source, kind: 'live' | 'movie' | 'series', category: { id: string; name: string }) => ({ channels: [{ name: 'Shared', group: category.name, categoryId: category.id, url: 'https://example.com/shared', mediaKind: kind, providerId: '1' }] as Channel[], skipped: 0 }) }
+  const index = new ProviderIndex(source, categories, loader); await index.start(() => {})
+  expect(index.items).toHaveLength(1); expect([...index.categoryOf(index.items[0])!]).toEqual(['1','2'])
+  const restored = new ProviderIndex(source, []); await restored.restore(index.snapshot()!)
+  expect([...restored.categoryOf(restored.items[0])!]).toEqual(['1','2'])
+})
 it('indexes every media kind, deduplicates shared titles and reuses completed categories', async () => {
   const loader = { categories: vi.fn(async () => categories), category: vi.fn(async (_s, kind, category) => ({ channels: [{ name: category.name, group: category.name, url: 'https://example.com/a', mediaKind: kind, providerId: '1' }] as Channel[], skipped: 0 })) }
   const index = new ProviderIndex(source, categories, loader)

@@ -21,6 +21,14 @@ For a guided interface instead of terminal commands, open **Open TV Setup.vbs** 
 
 This remains **development software, not complete Android feature parity or certified TV support**. Xtream search spans the loaded library across live, movie, and series categories; incomplete indexing is explicitly labeled. New Xtream favorites/recent bookmarks restore immediately after reconnecting a saved account. Live now/next guides support Xtream and M3U XMLTV feeds. Samsung single-file downloads and manual update checks are implemented; signed distribution and physical-TV validation remain outstanding. Programme replay is implemented for supported provider archive formats. See [the parity ledger](TV_PARITY.md) for the remaining work; device testing does not replace unfinished software features.
 
+### A smaller channel lineup
+
+Open **Settings → Categories**, choose Live TV, Movies or Series, then use **Hide checked** or **Show only checked**. Check names with OK and choose **Save categories**. An empty selection shows all categories, matching Android behavior. **Show all in this section** clears that section's draft; Cancel or Back discards edits. Left/right moves between the mode controls and category list; up/down follows each column. Search covers the complete directory, with at most 16 category buttons per page and Channel/Page keys for paging.
+
+Choices belong to the current source and section. They apply to Home, category pickers, search, Favorites, Watchlist, Recent, the schedule and its finder, and live channel switching. Saved sources retain them, including in encrypted backups; session sources keep them only while open. Favorites and progress remain intact. Up to 10,000 marked categories can be saved across the three sections. Xtream uses category IDs, disambiguates repeated names in the editor, and preserves memberships when a title occurs in multiple categories. A title remains available if any of its indexed categories is visible. Legacy live catalog records gain category IDs on cache load; older bookmarks with no identifiable category stay out of filtered results until their catalog or parent series resolves them. These are browsing controls, not parental restrictions or a way to avoid loading provider data. Download management and viewing-data management remain available independently.
+
+Validation includes a 120,000-title / 10,000-category browser fixture reduced to one 12-title group, playlist and Xtream guide integration, duplicate membership/cache restoration, remote focus and cancellation, transactional persistence, and backup merging. Physical C1/Samsung acceptance remains outstanding for this addition.
+
 ### DRM and custom headers
 
 The port preserves M3U `#KODIPROP` license settings, `#EXTVLCOPT` User-Agent/Referer settings, and URL-pipe headers. Protected/header-dependent entries are no longer discarded. Artwork and media kind are retained, with HTTP/HTTPS-only artwork and inert text rendering.

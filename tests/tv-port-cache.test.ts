@@ -7,7 +7,7 @@ import { sourceId } from '../tv-app/profiles'
 import { mediaUrl } from '../tv-app/xtream'
 import type { Source } from '../tv-app/catalog'
 const source: Source = { kind: 'xtream', url: 'https://provider.example/sub', username: 'private-user', password: 'private-password' }
-const snapshot = (account = source, count = 1201): CatalogSnapshot => ({ at: Date.now(), categories: { live: [{ id: '1', name: 'Live' }], movie: [], series: [] }, entries: [{ kind: 'live', category: { id: '1', name: 'Live' }, skipped: 2, channels: Array.from({ length: count }, (_, id) => ({ providerId: String(id), name: `Channel ${id}`, group: 'Live', mediaKind: 'live', url: mediaUrl(account, 'live', String(id), 'm3u8'), logo: 'https://art.example/logo.png', tvArchive: 1, tvArchiveDuration: 7 })) }] })
+const snapshot = (account = source, count = 1201): CatalogSnapshot => ({ at: Date.now(), categories: { live: [{ id: '1', name: 'Live' }], movie: [], series: [] }, entries: [{ kind: 'live', category: { id: '1', name: 'Live' }, skipped: 2, channels: Array.from({ length: count }, (_, id) => ({ providerId: String(id), name: `Channel ${id}`, group: 'Live', categoryId: '1', mediaKind: 'live', url: mediaUrl(account, 'live', String(id), 'm3u8'), logo: 'https://art.example/logo.png', tvArchive: 1, tvArchiveDuration: 7 })) }] })
 afterEach(() => vi.restoreAllMocks())
 async function inspect(factory: IDBFactory, action: (tx: IDBTransaction) => void, mode: IDBTransactionMode = 'readonly') {
   const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = factory.open('lanternfin.tv.catalog.v1', 1); request.onsuccess = () => resolve(request.result); request.onerror = reject })

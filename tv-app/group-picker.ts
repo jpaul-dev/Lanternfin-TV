@@ -66,10 +66,10 @@ export function groupPicker(select: HTMLSelectElement) {
   document.addEventListener('keyup', keyup, true)
   return {
     value, sync, close,
-    async refresh(channels: Channel[]) {
+    async refresh(channels: Channel[], include?: (channel: Channel) => boolean) {
       loading?.abort(); const request = new AbortController(), token = ++revision; loading = request
       try {
-        const values = await playlistCategories(channels, request.signal)
+        const values = await playlistCategories(channels, request.signal, undefined, include)
         if (token !== revision) return
         entries = values
         const selected = select.value, focused = document.activeElement === select || document.activeElement === open

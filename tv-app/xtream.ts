@@ -98,7 +98,7 @@ export async function loadCategory(source: Source, kind: MediaKind, category: Ca
       const id = identifier(kind === 'series' ? row.series_id : row.stream_id)
       const addedAt = kind === 'live' ? undefined : providerTimestamp(row.added) ?? (kind === 'series' ? providerTimestamp(row.last_modified) : undefined)
       const rating = titleRating(row.rating, row.rating_5based), year = titleYear(row.year) || titleYear(row.releaseDate || row.releasedate)
-      const facts = kind === 'live' ? {} : { categoryId: category.id, ...(rating !== undefined ? { rating } : {}), ...(year ? { year } : {}) }
+      const facts = { categoryId: category.id, ...(kind !== 'live' && rating !== undefined ? { rating } : {}), ...(kind !== 'live' && year ? { year } : {}) }
       channels.push({ name: text(row.name, 'Untitled'), group: category.name, url: kind === 'series' ? '' : mediaUrl(source, kind, id, kind === 'live' ? 'm3u8' : row.container_extension), mediaKind: kind, providerId: id, logo: artwork(row.stream_icon || row.cover), description: text(row.plot), ...facts, ...(addedAt ? { addedAt } : {}), ...(kind === 'live' && Number(row.tv_archive) === 1 ? { tvArchive: 1, tvArchiveDuration: Math.max(1, Math.min(30, Number(row.tv_archive_duration) || 7)) } : {}) })
     } catch { skipped++ }
     if (index && index % 1000 === 0) await new Promise<void>(resolve => setTimeout(resolve, 0))
@@ -116,7 +116,7 @@ function parseEpisodes(source: Source, series: Channel, response: Record<string,
         const id = identifier(row.id), season = Number(row.season ?? seasonKey), episode = Number(row.episode_num)
         if (!Number.isSafeInteger(season) || season < 0 || !Number.isSafeInteger(episode) || episode < 0) { skipped++; continue }
         const info = record(row.info), durationSeconds = providerRuntime(info.duration_secs, info.duration) ?? providerRuntime(row.duration_secs, row.duration)
-        channels.push({ name: `S${season} E${episode} · ${detailText(200, row.title, info.name, series.name)}`, group: `Season ${season}`, url: mediaUrl(source, 'series', id, row.container_extension), mediaKind: 'episode', providerId: id, seriesId: series.providerId, seriesName: series.name, description: detailText(600, info.plot, info.description, row.plot, row.description), logo: detailArtwork(info.movie_image, info.cover, row.movie_image, series.logo), ...(durationSeconds ? { durationSeconds } : {}), season, episode })
+        channels.push({ name: `S${season} E${episode} · ${detailText(200, row.title, info.name, series.name)}`, group: `Season ${season}`, url: mediaUrl(source, 'series', id, row.container_extension), mediaKind: 'episode', providerId: id, seriesId: series.providerId, seriesName: series.name, ...(series.categoryId ? { categoryId: series.categoryId } : {}), description: detailText(600, info.plot, info.description, row.plot, row.description), logo: detailArtwork(info.movie_image, info.cover, row.movie_image, series.logo), ...(durationSeconds ? { durationSeconds } : {}), season, episode })
       } catch { skipped++ }
     }
   }

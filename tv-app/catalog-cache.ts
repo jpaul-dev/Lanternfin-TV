@@ -225,7 +225,7 @@ export class CatalogCache {
           const reference = readProviderReference(value?.reference)
           if (!reference || reference.mediaKind !== data.kind) throw fail()
           const channel = referenceChannel(source, reference)
-          if (data.kind !== 'live') channel.categoryId = data.category.id // Also upgrades older cached catalogs.
+          channel.categoryId = data.category.id // Also upgrades older cached catalogs, including live channels.
           try { if (typeof value.logo === 'string' && value.logo.length <= 2048) channel.logo = httpUrl(value.logo) } catch { /* Ignore invalid artwork. */ }
           if (typeof value.description === 'string') channel.description = value.description.slice(0, 200)
           if (value.tvArchive === 1) { channel.tvArchive = 1; channel.tvArchiveDuration = Math.max(1, Math.min(30, Number(value.tvArchiveDuration) || 7)) }

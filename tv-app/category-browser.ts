@@ -11,12 +11,12 @@ const pause = () => new Promise<void>(resolve => setTimeout(resolve, 0))
 const check = (signal: AbortSignal) => { if (signal.aborted) throw new Error('Category search cancelled.') }
 
 /** Only retain category names, never duplicate the full title arrays. */
-export async function playlistCategories(channels: Channel[], signal: AbortSignal, kind?: MediaKind): Promise<Category[]> {
+export async function playlistCategories(channels: Channel[], signal: AbortSignal, kind?: MediaKind, include?: (channel: Channel) => boolean): Promise<Category[]> {
   const names = new Set<string>(); let started = performance.now()
   check(signal)
   for (let index = 0; index < channels.length; index++) {
     const channel = channels[index]
-    if (!kind || homeKind(channel) === kind) names.add(channel.group)
+    if ((!kind || homeKind(channel) === kind) && (!include || include(channel))) names.add(channel.group)
     if (index % 512 === 0 && performance.now() - started >= 10) { await pause(); check(signal); started = performance.now() }
   }
   // Build the compact directory cooperatively too: a playlist may have a unique
@@ -56,7 +56,7 @@ export async function categoryPage(entries: readonly Category[], query: string, 
 }
 
 /** Shared bounded list for the category sidebar and the large group picker. */
-export function categoryBrowser(root: HTMLElement, list: HTMLElement, prefix: string, selected: () => string | undefined) {
+export function categoryBrowser(root: HTMLElement, list: HTMLElement, prefix: string, selected: () => string | undefined, marked?: (id: string) => boolean) {
   const tools = document.createElement('div'), search = document.createElement('input'), label = document.createElement('label'), status = document.createElement('p')
   const paging = document.createElement('div'), previous = document.createElement('button'), next = document.createElement('button'), pageLabel = document.createElement('span')
   tools.className = 'category-tools'; paging.className = 'category-paging'; status.className = 'hint'; status.setAttribute('role', 'status')
@@ -69,7 +69,7 @@ export function categoryBrowser(root: HTMLElement, list: HTMLElement, prefix: st
   let entries: readonly Category[] = [], choose: (entry: Category) => void = () => {}, controller: AbortController | undefined, timer: ReturnType<typeof setTimeout> | undefined
   let page = 0, pages = 0, revision = 0, suspended = false
   const cancel = () => { revision++; controller?.abort(); controller = undefined; clearTimeout(timer); timer = undefined }
-  const mark = () => { for (const button of list.querySelectorAll<HTMLButtonElement>('button')) button.setAttribute('aria-pressed', String(button.dataset.category === selected())) }
+  const mark = () => { for (const button of list.querySelectorAll<HTMLButtonElement>('button')) button.setAttribute('aria-pressed', String(marked ? marked(button.dataset.category!) : button.dataset.category === selected())) }
   async function find(focus = false, anchor?: string) {
     cancel(); const token = revision, request = new AbortController(); controller = request
     const ownedFocus = list.contains(document.activeElement), focusedId = ownedFocus ? (document.activeElement as HTMLElement).dataset.category : undefined

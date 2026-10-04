@@ -3,6 +3,8 @@ import { channelReference, readProviderReference, referenceChannel, type Provide
 import { cloneSourceHome, readSourceHome, type SourceHome } from './source-home'
 import { cloneBrowseOptions, DEFAULT_BROWSE_CHOICE, readBrowseOptions, type BrowseChoice, type BrowseOptions, type BrowseView } from './browse-options'
 import { MAX_GUIDE_MATCHES, readGuideMatches, validGuideId } from './guide-matches'
+import { categoryVisibility, cloneCategoryRules, readCategoryRules, type CategoryRules } from './category-rules'
+import type { MediaKind } from './xtream'
 
 export type Recent = { id: string; at: number; position: number; duration: number; completed?: boolean }
 export type LibraryArea = 'favorites' | 'watchlist' | 'history' | 'watched' | 'seasons'
@@ -40,8 +42,11 @@ export class TVLibrary {
   private home?: SourceHome
   private browsing: BrowseOptions = {}
   private guideMatches = new Map<string, string>()
+  private categories: CategoryRules = {}
+  private visibility: ReturnType<typeof categoryVisibility>
   constructor(private storage: Storage | null, private source: Source) {
     this.key = PREFIX + libraryId(JSON.stringify(source))
+    this.visibility = categoryVisibility(source, this.categories)
     try {
       const raw = storage?.getItem(this.key)
       this.savedRaw = raw ?? null
@@ -50,6 +55,8 @@ export class TVLibrary {
       this.home = readSourceHome(data.homeLayout, source)
       this.browsing = readBrowseOptions(data.browseOptions) || {}
       this.guideMatches = new Map(readGuideMatches(data.guideMatches) || [])
+      this.categories = readCategoryRules(data.categoryRules, source) || {}
+      this.visibility = categoryVisibility(source, this.categories)
       if (Array.isArray(data.favorites)) for (const id of data.favorites.slice(0, MAX_FAVORITES)) if (validId(id)) this.favorites.add(id)
       if (Array.isArray(data.watchlist)) for (const id of data.watchlist.slice(0, MAX_WATCHLIST)) if (validId(id)) this.watchlist.add(id)
       if (Array.isArray(data.recent)) for (const item of data.recent.slice(0, MAX_RECENT).reverse()) {
@@ -71,6 +78,14 @@ export class TVLibrary {
   isFavorite(channel: Channel) { return this.favorites.has(channelId(channel)) }
   get homeLayout() { return this.home && cloneSourceHome(this.home) }
   get persistent() { return !!this.storage }
+  get categoryRules() { return cloneCategoryRules(this.categories) }
+  categoryVisible(kind: MediaKind, id: string) { return this.visibility.category(kind, id) }
+  isVisible(channel: Channel, memberships?: string | Iterable<string>) { return this.visibility.channel(channel, memberships) }
+  setCategoryRules(value: CategoryRules) {
+    const rules = readCategoryRules(value, this.source)
+    if (!rules) throw new Error('Choose up to 10,000 categories across Live TV, Movies and Series.')
+    this.change(() => { this.categories = rules; this.visibility = categoryVisibility(this.source, rules) })
+  }
   guideMatch(channel: Channel) { return this.guideMatches.get(channelId(channel)) }
   setGuideMatch(channel: Channel, tvgId?: string) {
     if (channel.mediaKind && channel.mediaKind !== 'live' || tvgId !== undefined && !validGuideId(tvgId)) throw new Error('Choose a valid guide channel for a live stream.')
@@ -163,7 +178,7 @@ export class TVLibrary {
     }
   }
   bookmarkedChannels(): Channel[] { return [...this.references.values()].map(reference => referenceChannel(this.source, reference)) }
-  snapshot() { return { favorites: [...this.favorites], watchlist: [...this.watchlist], recent: [...this.recent.values()].reverse().map(item => ({ ...item })), references: [...this.references.values()].map(item => ({ ...item })), seasons: [...this.seasons], watched: [...this.watched], ...(this.home ? { homeLayout: cloneSourceHome(this.home) } : {}), ...(Object.keys(this.browsing).length ? { browseOptions: cloneBrowseOptions(this.browsing) } : {}), ...(this.guideMatches.size ? { guideMatches: [...this.guideMatches] } : {}) } }
+  snapshot() { return { favorites: [...this.favorites], watchlist: [...this.watchlist], recent: [...this.recent.values()].reverse().map(item => ({ ...item })), references: [...this.references.values()].map(item => ({ ...item })), seasons: [...this.seasons], watched: [...this.watched], ...(this.home ? { homeLayout: cloneSourceHome(this.home) } : {}), ...(Object.keys(this.browsing).length ? { browseOptions: cloneBrowseOptions(this.browsing) } : {}), ...(this.guideMatches.size ? { guideMatches: [...this.guideMatches] } : {}), ...(Object.keys(this.categories).length ? { categoryRules: cloneCategoryRules(this.categories) } : {}) } }
   counts(): Record<LibraryArea, number> { return { favorites: this.favorites.size, watchlist: this.watchlist.size, history: this.recent.size, watched: this.watched.size, seasons: this.seasons.size } }
   /** One storage write, with an in-session undo that never overwrites newer activity. */
   clearAreas(areas: LibraryArea[]) {
@@ -199,6 +214,8 @@ export class TVLibrary {
     } catch (error) { this.restoreSnapshot(before); this.revision = revision; throw error }
   }
   private restoreSnapshot(snapshot: ReturnType<TVLibrary['snapshot']>) {
+    this.categories = cloneCategoryRules(snapshot.categoryRules || {})
+    this.visibility = categoryVisibility(this.source, this.categories)
     this.home = snapshot.homeLayout && cloneSourceHome(snapshot.homeLayout)
     this.browsing = cloneBrowseOptions(snapshot.browseOptions || {})
     this.guideMatches = new Map(snapshot.guideMatches || [])
@@ -219,6 +236,11 @@ export class TVLibrary {
       this.guideMatches = guideMatches
       if (!this.home && other.home) this.home = cloneSourceHome(other.home)
       this.browsing = { ...cloneBrowseOptions(other.browsing), ...this.browsing }
+      // Explicit empty rules keep a newer "show all" choice when restoring an older backup.
+      const categories = readCategoryRules({ ...cloneCategoryRules(other.categories), ...this.categories }, this.source)
+      if (!categories) throw new Error('Combined category choices exceed 10,000. Restore without library data or reduce these choices first.')
+      this.categories = categories
+      this.visibility = categoryVisibility(this.source, this.categories)
       for (const id of favorites) this.favorites.add(id)
       for (const id of watchlist) this.watchlist.add(id)
       for (const id of watched) this.watched.add(id)

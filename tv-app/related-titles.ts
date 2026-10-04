@@ -4,7 +4,7 @@ import { groupVariants, type VariantPreference } from './variants'
 
 export type RelatedTitle = { channel: Channel; versions?: Channel[] }
 /** Category-local suggestions, like the original TV detail rail; no external recommendation service. */
-export async function relatedTitles(current: Channel, pool: Channel[], source: Source['kind'], language: VariantPreference | undefined, signal: AbortSignal): Promise<RelatedTitle[]> {
+export async function relatedTitles(current: Channel, pool: Channel[], source: Source['kind'], language: VariantPreference | undefined, signal: AbortSignal, include?: (channel: Channel) => boolean): Promise<RelatedTitle[]> {
   const check = () => { if (signal.aborted) throw new Error('Related titles canceled.') }
   check()
   if (!['movie', 'series'].includes(current.mediaKind || '')) return []
@@ -23,7 +23,7 @@ export async function relatedTitles(current: Channel, pool: Channel[], source: S
     if (!categoryId) return [] // Duplicate category labels must never be treated as the same category.
   }
   for (const channel of pool) {
-    if (channel.mediaKind === current.mediaKind && (source === 'xtream' ? channel.categoryId === categoryId : channel.group === current.group)) {
+    if ((!include || include(channel)) && channel.mediaKind === current.mediaKind && (source === 'xtream' ? channel.categoryId === categoryId : channel.group === current.group)) {
       matches.push(channel)
       if (channel === current || (source === 'xtream' ? channel.providerId === current.providerId : channel.url === current.url)) includesCurrent = true
     }

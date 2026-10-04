@@ -51,15 +51,16 @@ let rowGeneration = 0
 let grouping: AbortController | undefined
 let activeRows: HTMLElement | undefined
 export function cancelHomeRows() { rowGeneration++; grouping?.abort(); activeRows?.setAttribute('aria-busy', 'false') }
-export async function homeRows(root: HTMLElement, channels: Channel[], library: TVLibrary | undefined, activate: (channel: Channel, versions?: Channel[]) => void, language?: VariantPreference, layout: readonly HomeRowId[] = DEFAULT_HOME_ROWS, categoryRows: CategoryHomeRow[] = []) {
+export async function homeRows(root: HTMLElement, channels: Channel[], library: TVLibrary | undefined, activate: (channel: Channel, versions?: Channel[]) => void, language?: VariantPreference, layout: readonly HomeRowId[] = DEFAULT_HOME_ROWS, categoryRows: CategoryHomeRow[] = [], include?: (channel: Channel) => boolean) {
   grouping?.abort(); const controller = new AbortController(); grouping = controller
   const token = ++rowGeneration
   activeRows = root; root.setAttribute('aria-busy', 'true'); root.dataset.loading = tr('Loading…')
   try {
   let grouped: Awaited<ReturnType<typeof indexVariants>> | undefined
+  const visible = include || ((channel: Channel) => library?.isVisible(channel) !== false)
   const groupMovies = layout.includes('movies') || layout.includes('new-movies'), groupSeries = layout.includes('series') || layout.includes('new-series')
   if (language && (groupMovies || groupSeries)) {
-    try { grouped = await indexVariants(channels, language, controller.signal, channel => channel.mediaKind === 'movie' ? groupMovies : channel.mediaKind === 'series' && groupSeries) } catch { return }
+    try { grouped = await indexVariants(channels, language, controller.signal, channel => visible(channel) && (channel.mediaKind === 'movie' ? groupMovies : channel.mediaKind === 'series' && groupSeries)) } catch { return }
     if (token !== rowGeneration) return
   }
   // One bounded pass, rather than separate full-catalog copies for every rail.
@@ -76,6 +77,8 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
   }
   const seenRecent = new Set<string>(); let started = performance.now(), index = 0
   for (const channel of channels) {
+    if (++index % 512 === 0 && performance.now() - started >= 12) { await new Promise<void>(resolve => setTimeout(resolve, 0)); if (token !== rowGeneration) return; started = performance.now() }
+    if (!visible(channel)) continue
     const custom = playlistRows.get(channel.group)?.get(homeKind(channel))
     if (custom && custom.entries.length < 12) { const id = channelId(channel); if (!custom.seen.has(id)) { custom.seen.add(id); custom.entries.push(channel) } }
     if (library?.recent.size && library.lastPlayed(channel) && !seenRecent.has(channelId(channel))) { recent.push(channel); seenRecent.add(channelId(channel)) }
@@ -88,7 +91,6 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
     // user's preferred version. The original date on each item stays untouched.
     if (channel.mediaKind === 'movie' && wantMovies) newestMovies.add(group?.selected || channel, channel.addedAt)
     if (channel.mediaKind === 'series' && wantSeries) newestSeries.add(group?.selected || channel, channel.addedAt)
-    if (++index % 512 === 0 && performance.now() - started >= 12) { await new Promise<void>(resolve => setTimeout(resolve, 0)); if (token !== rowGeneration) return; started = performance.now() }
   }
   recent.sort((a, b) => (library?.lastPlayed(b)?.at || 0) - (library?.lastPlayed(a)?.at || 0))
   watchlist.sort((a, b) => watchlistOrder.get(channelId(a))! - watchlistOrder.get(channelId(b))!); watchlist.length = Math.min(12, watchlist.length)
@@ -97,7 +99,7 @@ export async function homeRows(root: HTMLElement, channels: Channel[], library: 
   const custom = new Map<string, { entries: Channel[]; groups?: WeakMap<Channel, VariantGroup>; row: CategoryHomeRow }>()
   for (const row of selectedCategories) {
     const playlist = row.category.group !== undefined
-    const include = playlist && language ? (channel: Channel) => channel.group === row.category.group && homeKind(channel) === row.category.kind : undefined
+    const include = (channel: Channel) => visible(channel) && (!(playlist && language) || channel.group === row.category.group && homeKind(channel) === row.category.kind)
     const entries = playlist && language ? channels : playlistEntries.get(row.category.id) || row.channels || []
     let groups: WeakMap<Channel, VariantGroup> | undefined
     // Group within this category, so a language version in a different category

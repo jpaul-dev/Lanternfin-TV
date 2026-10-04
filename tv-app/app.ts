@@ -9,6 +9,7 @@ import { PlaybackDiagnostics, capabilities, buildInfo, type DiagnosticReport } f
 import { diagnosticsUI } from './diagnostics-ui'
 import { choiceDirection, settingsChoices } from './settings-choices'
 import { categoryBrowser, playlistCategories } from './category-browser'
+import { categoryEditor } from './category-editor'
 import { groupPicker } from './group-picker'
 import { libraryUI } from './library-ui'
 import { TVDownloads, localDownload, type DownloadPlatform } from './downloads'
@@ -66,7 +67,7 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const input = (id: string) => $<HTMLInputElement>(id)
 const select = (id: string) => $<HTMLSelectElement>(id)
 const button = (id: string) => $<HTMLButtonElement>(id)
-const SCREENS = ['setup', 'catalog', 'schedule', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout', 'guide-match', 'reset'] as const
+const SCREENS = ['setup', 'catalog', 'schedule', 'playback', 'resume', 'about', 'exit', 'settings', 'detail', 'programme', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout', 'visibility', 'guide-match', 'reset'] as const
 type Screen = typeof SCREENS[number]
 let updatesReturn: 'settings' | 'about' = 'settings'
 let downloadsReturn: 'setup' | 'catalog' | 'settings' | 'detail' | 'reset' = 'setup'
@@ -191,16 +192,17 @@ const categoryList = categoryBrowser($('category-sidebar'), $('category-list'), 
 const schedule = scheduleUI($('schedule'), {
   async channels(category, signal) {
     if (!activeSource) return []
-    if (category && activeSource.kind === 'xtream') return (providerIndex?.cached('live', category) || await loadCategory(activeSource, 'live', category, signal)).channels
-    const pool = activeSource.kind === 'xtream' ? libraryPool() : channels, result: Channel[] = []
+    if (category && library?.categoryVisible('live', category.id) === false) return []
+    const categoryChannels = category && activeSource.kind === 'xtream' ? (providerIndex?.cached('live', category) || await loadCategory(activeSource, 'live', category, signal)).channels : undefined
+    const pool = categoryChannels || (activeSource.kind === 'xtream' ? libraryPool() : channels), result: Channel[] = []
     for (let index = 0; index < pool.length; index++) {
       const channel = pool[index]
-      if (homeKind(channel) === 'live' && (!category || channel.group === category.name)) result.push(channel)
+      if (visibleChannel(channel) && homeKind(channel) === 'live' && (!category || activeSource.kind === 'xtream' || channel.group === category.name)) result.push(channel)
       if (index % 2048 === 0) { if (signal.aborted) throw new Error('Cancelled'); if (index) await new Promise<void>(resolve => setTimeout(resolve, 0)) }
     }
     return result
   },
-  categories: signal => activeSource?.kind === 'xtream' ? Promise.resolve(providerIndex?.categories.live || providerCategories.live || loadCategories(activeSource, 'live', signal)) : playlistCategories(channels, signal, 'live'),
+  categories: async signal => (await sourceCategories('live', signal)).filter(category => library?.categoryVisible('live', category.id) !== false),
   programmes: (channel, signal, window) => guide?.load(channel, signal, false, window) || Promise.resolve([]),
   clock: () => preferences.guideClock,
   invalidate: () => guide?.refresh(),
@@ -244,6 +246,7 @@ function show(next: Screen) {
   if (screen === 'diagnostics' && next !== 'diagnostics') diagnostics.close()
   if (screen === 'manage' && next !== 'manage') libraryManager.close()
   if (screen === 'layout' && next !== 'layout') layoutEditor.close()
+  if (screen === 'visibility' && next !== 'visibility') visibilityEditor.close()
   if (screen === 'guide-match' && next !== 'guide-match') { guideMatcher.close(); matching = undefined }
   if (next !== 'account') { accountLoading?.abort(); accountLoading = undefined }
   if (next !== 'programme') { replayLoading?.abort(); replayLoading = undefined }
@@ -257,7 +260,7 @@ function show(next: Screen) {
   syncNav()
   document.documentElement.dataset.screen = next
   for (const id of SCREENS) $(id).hidden = id !== next
-  $('tv-nav').hidden = !activeSource || !['catalog', 'schedule', 'settings', 'detail', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout'].includes(next)
+  $('tv-nav').hidden = !activeSource || !['catalog', 'schedule', 'settings', 'detail', 'account', 'backup', 'diagnostics', 'manage', 'downloads', 'updates', 'layout', 'visibility'].includes(next)
   document.documentElement.classList.toggle('in-library', !$('tv-nav').hidden)
   $('player-surface').hidden = next !== 'playback'
   document.documentElement.classList.toggle('watching', next === 'playback')
@@ -402,6 +405,7 @@ async function filter(resetPage = true) {
   try {
     const tags = new Set<string>(), language = browseView === 'live' ? '' : select('language-filter').value
     const include = (channel: Channel) => {
+      if (!visibleChannel(channel)) return false
       const kind = select('media-filter').value
       if (['search', 'all'].includes(browseView) && kind && (kind === 'series' ? !['series', 'episode'].includes(channel.mediaKind || '') : (channel.mediaKind || 'live') !== kind)) return false
       if (browseView !== 'live' && !watchedFilter(select('watched-filter').value, !!library?.isWatched(channel))) return false
@@ -553,6 +557,7 @@ function report(next: State, detail?: string) {
   if (screen === 'playback') { if (!keepControlsHidden) controls(); if (['error', 'ended'].includes(next)) button('stop').focus() }
 }
 function watch(channel: Channel, versions?: Channel[]) {
+  if (!visibleChannel(channel)) { notice('This category is hidden. Change Categories in Settings to show it.'); return }
   if (!versions && document.activeElement instanceof HTMLElement && cardChannel(document.activeElement) === channel) versions = cardVersions(document.activeElement)
   if (channel.mediaKind === 'series' || channel.mediaKind === 'movie') { void openTitle(channel, versions); return }
   playChannel(channel)
@@ -611,7 +616,7 @@ function startWatching(channel: Channel, position = 0) {
       player = tvPlayer(video, report, { api: window.webapis!.avplay!, surface: object })
     } else player = tvPlayer(video, report)
   }
-  if (screen !== 'playback' && screen !== 'schedule' && channel.mediaKind === 'live') liveQueue.reset(browseView === 'live' && filtered.some(item => channelId(item) === channelId(channel)) ? filtered : libraryPool(), channel)
+  if (screen !== 'playback' && screen !== 'schedule' && channel.mediaKind === 'live') liveQueue.reset(browseView === 'live' && filtered.some(item => channelId(item) === channelId(channel)) ? filtered : libraryPool(), channel, visibleChannel)
   cancelZap(); playbackGuideLoading?.abort(); playbackProgrammes = []
   currentAspect = 'fit'; $('seek-controls').hidden = true; input('seek-position').value = String(position)
   $('playback-time').textContent = $('playback-remaining').textContent = ''
@@ -788,6 +793,7 @@ function back() {
   else if (screen === 'schedule') goHome()
   else if (screen === 'about') show(previousScreen)
   else if (screen === 'layout') { show('settings'); button('settings-home').focus() }
+  else if (screen === 'visibility') { show('settings'); button('settings-categories').focus() }
   else if (screen === 'settings') goHome()
   else if (screen === 'account') show('settings')
   else if (screen === 'backup') returnFromBackup()
@@ -935,6 +941,7 @@ document.addEventListener('focusin', () => {
 for (const event of ['pointerdown', 'keydown']) document.addEventListener(event, () => { browseInputRevision++; pendingBrowseVisit = undefined }, { capture: true })
 bindLifecycle(document, window, () => {
   schedule.suspend()
+  if (screen === 'visibility') { show('settings'); button('settings-categories').focus(); notice('Category edits were cancelled while the app was away.') }
   preferenceChoices.close(false)
   diagnostics.suspend()
   guideMatcher.close()
@@ -980,7 +987,7 @@ for (const key of ['MediaPlay', 'MediaPause', 'MediaPlayPause', 'MediaStop', 'Me
 }
 function updateGroups() {
   const pool = providerIndex && ['search', 'all'].includes(browseView) ? libraryPool() : channels
-  return groups.refresh(pool)
+  return groups.refresh(pool, visibleChannel)
 }
 function cancelGuide() { clearTimeout(guideTimer); guideLoading?.abort(); guideLoading = undefined }
 function selectGuide(channel?: Channel, refresh = false) {
@@ -1101,7 +1108,7 @@ function returnFromProgramme() {
   focusGuideEntry(selectedProgramme && $('guide-programmes').querySelector<HTMLElement>(`[data-programme="${selectedProgramme.start}"]`) || $('guide-programmes').querySelector<HTMLElement>('button') || button('guide-watch'))
 }
 $('programme-back').onclick = returnFromProgramme
-$('programme-live').onclick = () => { if (programmeChannel) { playbackReturn = 'programme'; liveQueue.reset(libraryPool(), programmeChannel); startWatching(programmeChannel) } }
+$('programme-live').onclick = () => { if (programmeChannel) { playbackReturn = 'programme'; liveQueue.reset(libraryPool(), programmeChannel, visibleChannel); startWatching(programmeChannel) } }
 $('programme-replay').onclick = async () => {
   if (!activeSource || !programmeChannel || !selectedProgramme || replayLoading) return
   const controller = new AbortController(); replayLoading = controller; button('programme-replay').disabled = true; $('programme-note').textContent = 'Opening the provider archive…'
@@ -1216,19 +1223,19 @@ function browseLayout(title: string) {
 }
 function syncNav() {
   for (const element of Array.from($('tv-nav').querySelectorAll('button'))) {
-    const selected = screen === 'downloads' ? element.id === 'nav-downloads' : ['settings', 'updates', 'layout'].includes(screen) ? element.id === 'nav-settings' : element.id === `nav-${browseView}` && libraryView === 'all'
+    const selected = screen === 'downloads' ? element.id === 'nav-downloads' : ['settings', 'updates', 'layout', 'visibility'].includes(screen) ? element.id === 'nav-settings' : element.id === `nav-${browseView}` && libraryView === 'all'
     if (selected) element.setAttribute('aria-current', 'page'); else element.removeAttribute('aria-current')
   }
 }
 async function refreshHomeRows(activate: (channel: Channel, versions?: Channel[]) => void) {
   const token = ++homeGeneration
   const layout = library?.homeLayout || { rows: preferences.homeRows, categories: [] }, source = activeSource
-  const categories = layout.categories.map(category => {
+  const categories = layout.categories.filter(category => library?.categoryVisible(category.kind, category.categoryId || category.group || '') !== false).map(category => {
     const cached = category.categoryId ? providerIndex?.cached(category.kind, { id: category.categoryId, name: category.title })?.channels : undefined
     const current = browseCategory?.kind === category.kind && browseCategory.id === category.categoryId ? channels : undefined
     return { category, channels: cached || current, open: () => { if (activeSource === source) void openHomeCategory(category) } }
   })
-  await homeRows($('home-rows'), source?.kind === 'xtream' ? libraryPool() : channels, library, activate, preferences.groupLanguages ? contentLanguage() : undefined, layout.rows, categories)
+  await homeRows($('home-rows'), source?.kind === 'xtream' ? libraryPool() : channels, library, activate, preferences.groupLanguages ? contentLanguage() : undefined, layout.rows, categories, visibleChannel)
   if (token === homeGeneration && source === activeSource && screen === 'catalog' && browseView === 'home' && !away) hero.refresh()
 }
 async function openHomeCategory(category: HomeCategory) {
@@ -1332,7 +1339,7 @@ async function browse(kind: 'search' | MediaKind, categoryToOpen?: Category, fre
     if (kind !== 'search') {
       const request = new AbortController(); categoryDirectory = request
       try {
-        const categories = await playlistCategories(channels, request.signal, kind)
+        const categories = await playlistCategories(channels, request.signal, kind, visibleChannel)
         if (browseGeneration !== entry.generation) return
         await categoryList.set(categories, category => { groups.value(category.name); void filter() }, visit?.categories, visit?.focus?.kind === 'category' ? visit.focus.id : categoryToOpen?.name || (!visit?.categories ? visit?.group : undefined))
         if (browseGeneration !== entry.generation) return
@@ -1355,7 +1362,7 @@ async function browse(kind: 'search' | MediaKind, categoryToOpen?: Category, fre
     if (providerLoading !== controller) return
     providerCategories[kind] = categories
     $('categories-back').hidden = false
-    await categoryList.set(categories, category => { void openCategory(kind, category) }, visit?.categories, visit?.focus?.kind === 'category' ? visit.focus.id : categoryToOpen?.id || (!visit?.categories ? visit?.category?.id : undefined))
+    await categoryList.set(categories.filter(category => library?.categoryVisible(kind, category.id) !== false), category => { void openCategory(kind, category) }, visit?.categories, visit?.focus?.kind === 'category' ? visit.focus.id : categoryToOpen?.id || (!visit?.categories ? visit?.category?.id : undefined))
     if (browseGeneration !== entry.generation || providerLoading !== controller) return
     if (categoryToOpen) { await openCategory(kind, categoryToOpen); return }
     if (visit?.category) {
@@ -1373,6 +1380,7 @@ async function browse(kind: 'search' | MediaKind, categoryToOpen?: Category, fre
 }
 async function openCategory(kind: MediaKind, category: Category, visit?: BrowseVisit, revision = browseInputRevision) {
   if (!activeSource) return
+  if (library?.categoryVisible(kind, category.id) === false) { notice('This category is hidden. Change Categories in Settings to show it.'); return }
   cancelProviderLoad(); searching?.abort(); pendingBrowseVisit = undefined
   const generation = ++browseGeneration; enteringBrowse = generation; focusedBrowse = undefined
   const controller = new AbortController(); providerLoading = controller
@@ -1435,7 +1443,7 @@ function refreshRelated(force = false): Promise<void> {
   if (!force && relatedFor === channel && relatedPool === pool) return relatedTask
   cancelRelated(); const controller = new AbortController(); relatedLoading = controller; relatedFor = channel; relatedPool = pool
   $('detail-related-note').textContent = tr('Finding titles in this category…'); $('detail-related-rail').setAttribute('aria-busy', 'true')
-  relatedTask = relatedTitles(channel, pool, source.kind, preferences.groupLanguages ? contentLanguage() : undefined, controller.signal).then(items => {
+  relatedTask = relatedTitles(channel, pool, source.kind, preferences.groupLanguages ? contentLanguage() : undefined, controller.signal, visibleChannel).then(items => {
     if (relatedLoading !== controller || controller.signal.aborted || screen !== 'detail') return
     relatedItems = items; renderRelated()
     $('detail-related-note').textContent = tr(items.length ? items.some(item => item.channel.rating) ? 'From the same library category · highest provider ratings first' : 'From the same library category · provider order' : providerIndex && !providerIndex.progress.complete ? 'No matching titles loaded yet. Suggestions update as your library loads.' : 'No other titles in this category are available.')
@@ -1551,6 +1559,28 @@ async function showAccount() {
 $('settings-account').onclick = showAccount; $('account-retry').onclick = showAccount; $('account-back').onclick = () => show('settings')
 $('nav-settings').onclick = () => { cancelProviderLoad(); show('settings'); syncNav() }
 $('settings-back').onclick = goHome
+function visibleChannel(channel: Channel) { return library?.isVisible(channel, providerIndex?.categoryOf(channel)) !== false }
+async function sourceCategories(kind: MediaKind, signal: AbortSignal) {
+  if (!activeSource || activeSource.kind === 'direct') return []
+  return activeSource.kind === 'xtream' ? providerIndex?.categories[kind] || providerCategories[kind] || await loadCategories(activeSource, kind, signal) : playlistCategories(channels, signal, kind)
+}
+let visibilityLibrary: TVLibrary | undefined
+const visibilityEditor = categoryEditor($('visibility'), {
+  load: sourceCategories,
+  save(rules) {
+    if (!library || library !== visibilityLibrary || away) throw new Error('The active source changed. Reopen Categories to try again.')
+    library.setCategoryRules(rules)
+    // Old visits/guide queues may point to a newly hidden category.
+    browseHistory.forget(); pendingBrowseVisit = catalogReturnVisit = undefined; browseCategory = undefined
+    groups.value(''); categoryList.clear(); schedule.reset(); hero.reset(); cancelHomeRows()
+    settingsNote.set(library.persistent ? 'Category choices saved for this source.' : 'Category choices apply for this session. Remember the source to keep them.')
+  },
+  close() { show('settings'); button('settings-categories').focus() },
+})
+$('settings-categories').onclick = () => {
+  if (!library || !activeSource || activeSource.kind === 'direct') { settingsNote.set('Open a playlist or Xtream source first.'); return }
+  visibilityLibrary = library; visibilityEditor.open(library.categoryRules); show('visibility')
+}
 const layoutEditor = homeLayoutUI($('layout'), layout => {
   if (!library) throw new Error('Open a source first.')
   library.setHomeLayout(layout)
