@@ -1,4 +1,5 @@
-/** Provider metadata stays in memory. Never include URLs, keys or header values in diagnostics. */
+/** Provider metadata is session-only unless the user explicitly saves an M3U
+ * catalog. Never include URLs, keys or header values in diagnostics. */
 import { licenseFormat, type LicenseFormat } from './license-format'
 export type DRM = { system: string; licenseUrl?: string; headers?: Record<string, string>; clearKeys?: Record<string, string>; format?: LicenseFormat }
 export type PlaybackOptions = { headers?: Record<string, string>; drm?: DRM; manifestType?: string; problem?: string }

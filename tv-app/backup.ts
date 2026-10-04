@@ -49,7 +49,7 @@ export function validateBackup(value: unknown): Backup {
     const source = validateSource(entry.source), id = sourceId(source)
     if (ids.has(id)) throw invalid(); ids.add(id)
     const guideUrl = guideAddress(entry.guideUrl), offset = guideOffset(entry.guideOffset), library = fromSnapshot(source, entry.library).snapshot()
-    return { id, name: entry.name, source, library, ...(entry.accent ? { accent: entry.accent } : {}), ...(guideUrl ? { guideUrl } : {}), ...(offset ? { guideOffset: offset } : {}), ...(source.kind === 'xtream' && entry.keepLibrary === true ? { keepLibrary: true } : {}) }
+    return { id, name: entry.name, source, library, ...(entry.accent ? { accent: entry.accent } : {}), ...(guideUrl ? { guideUrl } : {}), ...(offset ? { guideOffset: offset } : {}), ...(source.kind !== 'direct' && entry.keepLibrary === true ? { keepLibrary: true } : {}) }
   })
   const result: Backup = { format: 'lanternfin-tv', version: 1, profiles, preferences: normalizePreferences(input.preferences) }
   if (new TextEncoder().encode(JSON.stringify(result)).byteLength > BACKUP_BYTES) throw invalid()

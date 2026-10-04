@@ -35,7 +35,7 @@ export function rememberProfile(storage: Storage, input: Source, name: string, r
   const source = validateSource(input), id = sourceId(source)
   const profiles = readProfiles(storage).filter(profile => !replaces || sourceId(replaces) === id || profile.id !== sourceId(replaces))
   const guideUrl = guideAddress(options.guideUrl), offset = guideOffset(options.guideOffset), accent = sourceAccent(options.accent)
-  const index = profiles.findIndex(profile => profile.id === id), profile = { id, source, name: label(name, source), ...(accent ? { accent } : {}), ...(options.keepLibrary === true && source.kind === 'xtream' ? { keepLibrary: true } : {}), ...(guideUrl ? { guideUrl } : {}), ...(offset ? { guideOffset: offset } : {}) }
+  const index = profiles.findIndex(profile => profile.id === id), profile = { id, source, name: label(name, source), ...(accent ? { accent } : {}), ...(options.keepLibrary === true && source.kind !== 'direct' ? { keepLibrary: true } : {}), ...(guideUrl ? { guideUrl } : {}), ...(offset ? { guideOffset: offset } : {}) }
   if (index >= 0) profiles[index] = profile
   else { if (profiles.length >= MAX) throw new Error('You can save up to 20 sources. Remove one before saving another.'); profiles.push(profile) }
   storage.setItem(KEY, JSON.stringify(profiles)); storeSource(storage, source)

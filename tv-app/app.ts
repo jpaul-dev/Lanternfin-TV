@@ -121,6 +121,7 @@ const playbackDiagnostics = new PlaybackDiagnostics()
 let suspendedIndex: ProviderIndex | undefined
 let away = document.hidden
 let keepActiveLibrary = false, cacheSaving: AbortController | undefined, cacheAttempted: ProviderIndex | undefined, forceFresh = false
+let activePlaylistCatalog: Catalog | undefined, playlistCachedAt = 0, playlistCachePending = false, playlistCacheMessage = ''
 const knownLibraryChannels = new Map<string, Channel>()
 let knownLibraryVersion = 0
 let pooledLibrary: { index?: ProviderIndex; count: number; channels: Channel[]; known: number; result: Channel[] } | undefined
@@ -169,6 +170,7 @@ const resetFlow = resetUI($('reset'), async removeDownloads => {
   searching?.abort(); clearTimeout(searchTimer); clearTimeout(indexTimer); indexTimer = undefined
   providerIndex?.pause(); providerIndex = undefined; suspendedIndex = undefined
   keepActiveLibrary = false; cacheSaving?.abort(); library?.setStorage(null)
+  activePlaylistCatalog = undefined; playlistCachePending = false; playlistCachedAt = 0; playlistCacheMessage = ''
   cancelHomeRows(); hero.reset(); titlePreviews?.clear(); titlePreviews = undefined; guide?.clear(); playbackGuideLoading?.abort(); accountLoading?.abort(); replayLoading?.abort()
   clearTimeout(holdTimer); clearTimeout(nextTimer); cancelZap(); episodeContext.clear(); browseHistory.forget()
   resetSubtitles(); player?.stop(); screenSaver.release(); downloads.suspend()
@@ -235,7 +237,8 @@ function show(next: Screen) {
 function sourceKind() {
   const kind = select('source-kind').value
   $('login-fields').hidden = kind !== 'xtream'
-  $('keep-library-field').hidden = kind !== 'xtream'
+  $('keep-library-field').hidden = kind === 'direct'
+  $('playlist-cache-help').hidden = kind !== 'playlist'
   input('keep-library').disabled = !input('remember').checked
   input('username').required = input('password').required = kind === 'xtream'
   $('url-label').textContent = kind === 'xtream' ? 'Provider server address' : kind === 'direct' ? 'Stream address' : 'Playlist address'
@@ -261,13 +264,17 @@ $('source-form').addEventListener('submit', async event => {
   const controller = new AbortController(); loading = controller
   setBusy(true); notice('Opening your playlist…')
   const fresh = forceFresh; forceFresh = false
-  const useCache = input('remember').checked && input('keep-library').checked && source.kind === 'xtream'
+  const useCache = input('remember').checked && input('keep-library').checked && source.kind !== 'direct'
   let savedCatalog: CatalogSnapshot | undefined
+  let savedPlaylist: (Catalog & { at: number }) | undefined
   try {
-    if (useCache && !fresh) { notice('Checking your saved library…'); try { savedCatalog = await catalogCache.load(source, controller.signal) } catch { /* Live loading is the fallback for missing/corrupt/unavailable storage. */ } }
+    if (useCache && !fresh) {
+      notice('Checking your saved library…')
+      try { if (source.kind === 'playlist') savedPlaylist = await catalogCache.loadPlaylist(source, controller.signal); else savedCatalog = await catalogCache.load(source, controller.signal) } catch { /* Live loading is the fallback for missing/corrupt/unavailable storage. */ }
+    }
     if (controller.signal.aborted) return
     const initialCategories = source.kind === 'xtream' ? savedCatalog?.categories.live || await loadCategories(source, 'live', controller.signal) : undefined
-    const catalog: Catalog = initialCategories ? { channels: [] as Channel[], skipped: 0 } : await loadCatalog(source, controller.signal, progress => {
+    const catalog: Catalog = initialCategories ? { channels: [] as Channel[], skipped: 0 } : savedPlaylist || await loadCatalog(source, controller.signal, progress => {
       if (loading !== controller) return
       const megabytes = (progress.bytes / 1024 / 1024).toFixed(1)
       notice(`Loading ${megabytes} MB${progress.total ? ` of ${(progress.total / 1024 / 1024).toFixed(1)} MB` : ''} · ${progress.channels.toLocaleString()} streams found. You can cancel at any time.`)
@@ -299,6 +306,8 @@ $('source-form').addEventListener('submit', async event => {
     if (!keepActiveLibrary) void catalogCache.forget(source).catch(() => { notice('The saved catalog could not be removed. Use Clear saved catalogs in Settings.') })
     groups.clear(); categoryList.clear()
     activeSource = source; activeGuideUrl = override; activeGuideOffset = offset; episodeContext.clear()
+    activePlaylistCatalog = source.kind === 'playlist' ? catalog : undefined
+    playlistCachedAt = savedPlaylist?.at || 0; playlistCachePending = !!activePlaylistCatalog && keepActiveLibrary && !playlistCachedAt; playlistCacheMessage = ''
     titlePreviews?.clear(); titlePreviews = source.kind === 'xtream' ? new TitlePreviews(source) : undefined
     activeAccent = accent; applyPreferences(preferences, document.documentElement, activeAccent)
     providerIndex?.pause(); clearTimeout(indexTimer); indexTimer = undefined
@@ -311,12 +320,13 @@ $('source-form').addEventListener('submit', async event => {
     // Credentials remain only in the form/session unless saving was explicitly chosen.
     await updateGroups(); await filter(); if (loading !== controller || controller.signal.aborted) return; goHome()
     startIndex()
+    savePlaylistCache()
     notice((catalog.skipped ? `${catalog.skipped} entries with invalid addresses were skipped.` : '') + storageMessage)
   } catch (error) { if (loading === controller) notice((error as Error).message) }
   finally { if (loading === controller) { loading = undefined; setBusy(false); if (screen === 'setup') button('connect').focus() } }
 })
 $('cancel-load').onclick = () => { cancelLoad(); notice('Loading cancelled.'); button('connect').focus() }
-select('source-kind').onchange = sourceKind
+select('source-kind').onchange = () => { input('keep-library').checked = false; sourceKind() }
 input('remember').onchange = async () => {
   input('keep-library').disabled = !input('remember').checked
   if (input('remember').checked) return
@@ -334,6 +344,7 @@ $('forget').onclick = async () => {
   groups.clear(); categoryList.clear()
   pooledLibrary = undefined; knownLibraryVersion++
   keepActiveLibrary = false; cacheSaving?.abort()
+  activePlaylistCatalog = undefined; playlistCachePending = false; playlistCachedAt = 0; playlistCacheMessage = ''
   episodeContext.clear()
   titlePreviews?.clear(); titlePreviews = undefined; hero.reset(); cancelHomeRows(); $('home-rows').replaceChildren()
   cancelGuide(); guide?.clear(); guide = undefined; guideChannel = undefined; guideItems = []
@@ -877,6 +888,9 @@ bindLifecycle(document, window, () => {
   downloads.suspend()
   updates.close()
   away = true; hero.sync(); screenSaver.release()
+  if (activePlaylistCatalog && cacheSaving && !cacheSaving.signal.aborted) {
+    cacheSaving.abort(); cacheSaving = undefined; playlistCachePending = keepActiveLibrary; playlistCacheMessage = 'Saving paused while the app is away.'
+  }
   suspendedIndex = providerIndex?.progress.running ? providerIndex : undefined
   providerIndex?.pause(); renderIndexStatus()
   const interrupted = !!loading || !!providerLoading
@@ -895,6 +909,7 @@ bindLifecycle(document, window, () => {
 }, () => {
   downloads.foreground()
   away = false; screenSaver.release()
+  savePlaylistCache()
   hero.sync()
   syncGuideDays()
   const index = suspendedIndex; suspendedIndex = undefined
@@ -1148,13 +1163,29 @@ function libraryPool(): Channel[] {
 }
 function renderIndexStatus() {
   const progress = providerIndex?.progress
-  $('library-loading').hidden = !progress
+  const playlist = activeSource?.kind === 'playlist' && activePlaylistCatalog && keepActiveLibrary
+  $('library-loading').hidden = !progress && !playlist
+  if (playlist && !progress) {
+    $('index-status').textContent = `${activePlaylistCatalog!.channels.length.toLocaleString()} titles · ${playlistCachedAt ? 'Saved playlist · refresh for updates' : 'Playlist ready'}`
+    $('index-message').textContent = playlistCacheMessage; button('index-toggle').hidden = true; return
+  }
   if (!progress) return
   $('index-status').textContent = progress.complete ? `${progress.titles.toLocaleString()} titles · ${providerIndex?.cachedAt ? 'Saved library · refresh for updates' : 'Library ready'}` : `${progress.running ? 'Loading library' : 'Library paused'} · ${progress.titles.toLocaleString()} titles · ${progress.loaded}/${progress.total} categories${progress.failed ? ` · ${progress.failed} unavailable` : ''}`
   $('index-message').textContent = progress.message
   renderEmpty()
   button('index-toggle').hidden = progress.complete
   button('index-toggle').textContent = progress.running ? 'Pause loading' : 'Continue loading'
+}
+function savePlaylistCache() {
+  if (away || !playlistCachePending || !keepActiveLibrary || !activePlaylistCatalog || activeSource?.kind !== 'playlist') return
+  const catalog = activePlaylistCatalog, source = activeSource, controller = new AbortController()
+  cacheSaving?.abort(); cacheSaving = controller; playlistCachePending = false; playlistCacheMessage = 'Saving this playlist for faster startup…'; renderIndexStatus()
+  const current = () => cacheSaving === controller && !controller.signal.aborted && activePlaylistCatalog === catalog && activeSource === source && keepActiveLibrary
+  void catalogCache.savePlaylist(source, catalog, controller.signal).then(() => {
+    if (current()) { playlistCachedAt = Date.now(); playlistCacheMessage = 'Playlist saved for faster startup. Refresh checks for new titles and access details.' }
+  }).catch(() => {
+    if (current()) playlistCacheMessage = 'The TV could not save this playlist. It remains available for this session; an earlier saved copy is retained if present.'
+  }).finally(() => { if (cacheSaving === controller) { cacheSaving = undefined; renderIndexStatus() } })
 }
 function startIndex() {
   const index = providerIndex
@@ -1453,7 +1484,11 @@ $('manage-backup').onclick = () => { backupReturn = 'manage'; backups.open(); bu
 for (const from of ['setup', 'settings'] as const) $(`${from}-diagnostics`).onclick = () => { diagnosticsReturn = from; diagnostics.open(); show('diagnostics') }
 $('diagnostics-back').onclick = () => show(diagnosticsReturn)
 $('settings-source').onclick = () => show('setup')
-$('settings-clear-cache').onclick = async () => { cacheSaving?.abort(); try { await catalogCache.forget(); $('settings-note').textContent = 'Saved catalogs cleared. Sources, favorites and playback progress are retained. The next library refresh can save a new catalog.' } catch { $('settings-note').textContent = 'Saved catalogs could not be cleared. Try clearing app data in TV settings.' } }
+$('settings-clear-cache').onclick = async () => {
+  cacheSaving?.abort(); cacheSaving = undefined; playlistCachePending = false
+  try { await catalogCache.forget(); playlistCachedAt = 0; playlistCacheMessage = 'Saved catalog cleared. Refresh to save a new copy.'; renderIndexStatus(); $('settings-note').textContent = 'Saved catalogs cleared. Sources, favorites and playback progress are retained. The next library refresh can save a new catalog.' }
+  catch { $('settings-note').textContent = 'Saved catalogs could not be cleared. Try clearing app data in TV settings.' }
+}
 $('settings-refresh').onclick = () => button('refresh-catalog').click()
 $('settings-reset').onclick = () => { preferences = { ...DEFAULTS }; syncPreferences(); persistPreferences() }
 function openReset(from: typeof resetReturn) { resetReturn = from; resetFlow.open(); show('reset') }
