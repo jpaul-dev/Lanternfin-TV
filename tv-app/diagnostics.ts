@@ -2,10 +2,10 @@ import type { Media } from './media'
 import type { State } from './player'
 import type { DRMReport } from './drm-support'
 
-export type PlayerStats = { engine?: 'html' | 'shaka' | 'mpegts' | 'samsung'; width?: number; height?: number; decodedFrames?: number; droppedFrames?: number; bandwidth?: number; bufferedSeconds?: number }
+export type PlayerStats = { engine?: 'html' | 'shaka' | 'mpegts' | 'mp4' | 'samsung'; width?: number; height?: number; decodedFrames?: number; droppedFrames?: number; bandwidth?: number; bufferedSeconds?: number }
 export function safeStats(raw: PlayerStats = {}): PlayerStats {
   const value: PlayerStats = {}
-  if (['html', 'shaka', 'mpegts', 'samsung'].includes(raw.engine || '')) value.engine = raw.engine
+  if (['html', 'shaka', 'mpegts', 'mp4', 'samsung'].includes(raw.engine || '')) value.engine = raw.engine
   for (const key of ['width', 'height', 'decodedFrames', 'droppedFrames', 'bandwidth', 'bufferedSeconds'] as const) {
     const number = raw[key]
     if (typeof number === 'number' && Number.isFinite(number) && number >= 0 && number <= 1e12) value[key] = Math.round(number * 10) / 10

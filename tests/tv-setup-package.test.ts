@@ -3,13 +3,13 @@ import { inspectLgPackage, inspectSignedWidget, inspectUnsignedWidget, LG_ID } f
 import { buildFiles, widget, ipk, zip, ar, tar, COMMIT } from './helpers/tv-package-fixture'
 
 it('verifies complete LG and signed Samsung assets and reports the exact source revision', () => {
-  for (const compress of [false, true]) expect(inspectSignedWidget(widget(true, undefined, compress)).build).toEqual({ target: 'tizen', version: '0.1.0', commit: COMMIT, modified: false, assets: 32 })
-  expect(inspectLgPackage(ipk()).build).toEqual({ target: 'webos', version: '0.1.0', commit: COMMIT, modified: false, assets: 33 })
-  expect(inspectUnsignedWidget(widget(false)).build.assets).toBe(32)
+  for (const compress of [false, true]) expect(inspectSignedWidget(widget(true, undefined, compress)).build).toEqual({ target: 'tizen', version: '0.1.0', commit: COMMIT, modified: false, assets: 34 })
+  expect(inspectLgPackage(ipk()).build).toEqual({ target: 'webos', version: '0.1.0', commit: COMMIT, modified: false, assets: 35 })
+  expect(inspectUnsignedWidget(widget(false)).build.assets).toBe(34)
   expect(() => inspectSignedWidget(widget(false))).toThrow('unsigned')
 })
 
-it.each(['app.css', 'app.js', 'startup.js', 'epg-worker.js', 'mp4-text-worker.js', 'mkv-text-worker.js', 'shaka-player.compiled.js', 'locale-fr.js', 'LICENSE-Shaka.txt'])('rejects missing %s even when identity and signatures remain', name => {
+it.each(['app.css', 'app.js', 'startup.js', 'epg-worker.js', 'mp4-text-worker.js', 'mkv-text-worker.js', 'mp4-media-worker.js', 'LICENSE-MP4Box.txt', 'shaka-player.compiled.js', 'locale-fr.js', 'LICENSE-Shaka.txt'])('rejects missing %s even when identity and signatures remain', name => {
   for (const target of ['webos', 'tizen']) {
     const files = buildFiles(target); files.delete(name)
     const inspect = () => target === 'webos' ? inspectLgPackage(ipk(undefined, files)) : inspectSignedWidget(widget(true, undefined, true, files))

@@ -5,7 +5,7 @@ export const LG_ID = 'io.github.jpauldev.lanternfin'
 export const SAMSUNG_ID = 'LantFin001.LanternfinTV'
 const LIMIT = 100 * 1024 * 1024, MEMBER_LIMIT = 32 * 1024 * 1024, MAX_FILES = 512
 const locales = ['es', 'de', 'fr', 'pt-BR', 'it', 'ru', 'zh', 'ja', 'tr', 'ar', 'ur', 'nl', 'hi', 'id', 'pl']
-export const CORE_ASSETS = ['app.js', 'app.css', 'index.html', 'startup.js', 'icon.png', 'epg-worker.js', 'mp4-text-worker.js', 'mkv-text-worker.js', 'shaka-player.compiled.js', 'mpegts.js', 'LICENSE', 'NOTICE.txt', 'LICENSE-Shaka.txt', 'LICENSE-mpegts.txt', 'LICENSE-Geist.txt', 'LICENSE-fflate.txt', ...locales.map(code => `locale-${code}.js`)]
+export const CORE_ASSETS = ['app.js', 'app.css', 'index.html', 'startup.js', 'icon.png', 'epg-worker.js', 'mp4-text-worker.js', 'mkv-text-worker.js', 'mp4-media-worker.js', 'shaka-player.compiled.js', 'mpegts.js', 'LICENSE', 'NOTICE.txt', 'LICENSE-Shaka.txt', 'LICENSE-mpegts.txt', 'LICENSE-MP4Box.txt', 'LICENSE-Geist.txt', 'LICENSE-fflate.txt', ...locales.map(code => `locale-${code}.js`)]
 const digest = data => createHash('sha256').update(data).digest('hex')
 const crcTable = Uint32Array.from({ length: 256 }, (_, byte) => { for (let i = 0; i < 8; i++) byte = byte & 1 ? 0xedb88320 ^ byte >>> 1 : byte >>> 1; return byte >>> 0 })
 function crc32(data) { let crc = 0xffffffff; for (const byte of data) crc = crcTable[(crc ^ byte) & 255] ^ crc >>> 8; return (crc ^ 0xffffffff) >>> 0 }

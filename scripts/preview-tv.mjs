@@ -10,10 +10,30 @@ const port = portFlag < 0 ? 4323 : Number(process.argv[portFlag + 1])
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Use a port from 1024 to 65535.')
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json' }
 const drmFixture = createDRMFixture({ port, directory: resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/tv-drm-demo') })
+const mp4Stats = { authorized: 0, denied: 0, ranges: 0 }
 createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1:4323').pathname)
     if (fixtures && await drmFixture(request, response)) return
+    if (fixtures && pathname === '/_test/authenticated-mp4.m3u') {
+      response.writeHead(200, { 'Content-Type': 'audio/x-mpegurl', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
+      response.end(`#EXTM3U\n#EXTINF:-1 tvg-type="movie",Authorized MP4 demo\nhttp://localhost:${port}/_test/authenticated.mp4|Authorization=fixture-only\n#EXTINF:-1 tvg-type="movie",Rejected MP4 authorization demo\nhttp://localhost:${port}/_test/authenticated.mp4|Authorization=incorrect\n`); return
+    }
+    if (fixtures && pathname === '/_test/mp4-stats.json') { response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(mp4Stats)); return }
+    if (fixtures && pathname === '/_test/authenticated.mp4') {
+      const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Authorization, Range, If-Range', 'Access-Control-Expose-Headers': 'Content-Range, ETag', 'Access-Control-Allow-Methods': 'GET, OPTIONS' }
+      if (request.method === 'OPTIONS') { response.writeHead(204, cors); response.end(); return }
+      if (request.headers.authorization !== 'fixture-only') { mp4Stats.denied++; response.writeHead(401, cors); response.end(); return }
+      mp4Stats.authorized++
+      const data = await readFile(resolve(dirname(fileURLToPath(import.meta.url)), '../tests/fixtures/tv-authenticated-mp4.mp4'))
+      const range = /^bytes=(\d+)-(\d+)$/.exec(request.headers.range || '')
+      if (!range) { response.writeHead(400, cors); response.end(); return }
+      mp4Stats.ranges++
+      const start = Number(range[1]), end = Math.min(Number(range[2]), data.length - 1)
+      if (start > end || !Number.isSafeInteger(start)) { response.writeHead(416, cors); response.end(); return }
+      response.writeHead(206, { ...cors, 'Content-Type': 'video/mp4', 'Content-Length': end - start + 1, 'Content-Range': `bytes ${start}-${end}/${data.length}`, ETag: '"local-mp4-fixture"', 'Cache-Control': 'no-store' })
+      response.end(data.subarray(start, end + 1)); return
+    }
     if (fixtures && ['/_test/subtitled.mp4', '/_test/webvtt.mp4', '/_test/subtitled.mkv'].includes(pathname)) {
       // Optional locally generated video, never copied into a TV package.
       const data = await readFile(resolve(dirname(fileURLToPath(import.meta.url)), pathname === '/_test/subtitled.mkv' ? '../artifacts/tv-mkv-text-demo.mkv' : pathname === '/_test/webvtt.mp4' ? '../artifacts/tv-mp4-webvtt-demo.mp4' : '../artifacts/tv-mp4-text-demo.mp4'))

@@ -20,6 +20,8 @@ This is the implementation checklist for the standalone TV ports. Reference: the
 
 ## External validation gates
 
+Header-authenticated progressive MP4/M4V/MOV now uses a bounded worker/MSE route with byte-range fetching, seeks, pause and audio-language selection. Generated cross-origin Authorization playback and rejection were checked in the browser. It still requires provider CORS/range support and device codecs; LG browser-controlled headers, encrypted/fragmented files and MKV/WebM header injection are not covered. See [limits and acceptance](TV_PORTS.md#header-authenticated-progressive-mp4).
+
 - The user confirmed the app is working on the LG C1 after the startup compatibility fix. They subsequently reported unpredictable arrow navigation and requested a traditional channel/time guide. The new grid and remote changes have local validation; their physical C1 acceptance remains open. No Samsung hardware acceptance is recorded. Native decoding, DRM/CDM, provider CORS/TLS, standby, screen saver, TV keyboards and vendor remotes require a device acceptance log.
 - Samsung packaging still needs the TV SDK, the owner's certificate profile and target DUID. The unsigned archive is not installable as-is.
 - LG Simulator explicitly lacks DRM and mediaOption support; it demonstrates UI and supported unprotected media, not protected playback.

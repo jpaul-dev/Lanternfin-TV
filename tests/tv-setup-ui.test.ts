@@ -13,7 +13,7 @@ it('shows the package revision and last installed revision, and disables a damag
     win.fetch = async () => ({ ok: true, json: async () => status }) as Response
     await win.eval('(async () => {\n' + readFileSync('tv-setup/public/app.js', 'utf8') + '\n})()')
     const text = win.document.querySelector('.package-details')!.textContent!
-    expect(text).toContain('Ready to install'); expect(text).toContain('abcde123'); expect(text).toContain('33 app files checked')
+    expect(text).toContain('Ready to install'); expect(text).toContain('abcde123'); expect(text).toContain('35 app files checked')
     expect(text).toContain('bbbbbbbb · local changes'); expect(text).toContain('different package')
     expect((win.document.querySelector('[data-action="install-lg"]') as HTMLButtonElement).disabled).toBe(false)
     status.lgPackage = false; status.lgPackageInfo = null as never; status.lgPackageProblem = 'The LG installer is incomplete or damaged. Choose Build this checkout to replace it.'

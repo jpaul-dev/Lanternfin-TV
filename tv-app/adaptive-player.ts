@@ -5,6 +5,7 @@ import { transportPlayer, transportType, loadTransportRuntime } from './transpor
 import { safeStats, type PlayerStats } from './diagnostics'
 import { localDownload } from './downloads'
 import { needsSamsungPlayReady } from './samsung-drm'
+import { mp4MediaPlayer, needsMp4Media } from './mp4-media-player'
 
 type Request = { headers: Record<string, string>; body?: ArrayBuffer | ArrayBufferView | string | null }
 type AdaptiveTrack = { id?: number; active: boolean; language: string; label?: string; roles?: string[]; channelsCount?: number; codecs?: string; spatialAudio?: boolean }
@@ -171,6 +172,7 @@ export function canUseNativeHls(media: Media, video: HTMLVideoElement): boolean 
 export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api: AVPlay; surface: HTMLElement }, getShaka = loadRuntime, getTransport = loadTransportRuntime): Player {
   const html = htmlPlayer(video, report), samsung = native && samsungPlayer(native.api, report)
   const transport = transportPlayer(video, report, getTransport)
+  const mp4 = mp4MediaPlayer(video, report)
   let current: Player = html, generation = 0, mediaForFallback: Media | undefined, fallbackPosition = 0
   let live = false
   const adaptive = adaptivePlayer(video, (state, detail) => {
@@ -183,7 +185,7 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
   }, getShaka)
   return {
     diagnostics() {
-      const engine = current === samsung ? 'samsung' : current === adaptive ? 'shaka' : current === transport ? 'mpegts' : 'html'
+      const engine = current === samsung ? 'samsung' : current === adaptive ? 'shaka' : current === transport ? 'mpegts' : current === mp4 ? 'mp4' : 'html'
       if (engine === 'samsung') return { engine }
       const stats: PlayerStats = { engine, width: video.videoWidth, height: video.videoHeight }
       try { const frames = video.getVideoPlaybackQuality?.(); stats.decodedFrames = frames?.totalVideoFrames; stats.droppedFrames = frames?.droppedVideoFrames } catch {}
@@ -203,7 +205,7 @@ export function tvPlayer(video: HTMLVideoElement, report: Report, native?: { api
       const useNative = !!samsung && !media.playback?.problem && nativeHeaders && (!media.playback?.drm || !!native?.api.setDrm && needsSamsungPlayReady(media))
       const begin = () => {
         if (token !== generation) return
-        current = useNative ? samsung! : transportType(media) ? transport : needsAdaptivePlayer(media) ? adaptive : html
+        current = useNative ? samsung! : transportType(media) ? transport : needsMp4Media(media) ? mp4 : needsAdaptivePlayer(media) ? adaptive : html
         video.hidden = useNative; if (native) native.surface.hidden = !useNative
         current.play(media, position)
       }

@@ -89,7 +89,7 @@ importers:
         specifier: ^18.0.11
         version: 18.0.11
       mp4box:
-        specifier: ^2.4.1
+        specifier: 2.4.1
         version: 2.4.1
       mpegts.js:
         specifier: 1.8.0

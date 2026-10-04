@@ -26,7 +26,7 @@ const result = await build({
 for (const bundle of Array.isArray(result) ? result : [result]) {
   for (const output of bundle.output) await writeFile(resolve(out, output.fileName), output.type === 'chunk' ? output.code : output.source)
 }
-for (const [entry, name, file] of [['src/scripts/lib/epg-worker.ts', 'LanternfinGuide', 'epg-worker.js'], ['tv-app/mp4-text-worker.ts', 'LanternfinMp4Text', 'mp4-text-worker.js'], ['tv-app/mkv-text-worker.ts', 'LanternfinMkvText', 'mkv-text-worker.js']]) {
+for (const [entry, name, file] of [['src/scripts/lib/epg-worker.ts', 'LanternfinGuide', 'epg-worker.js'], ['tv-app/mp4-text-worker.ts', 'LanternfinMp4Text', 'mp4-text-worker.js'], ['tv-app/mkv-text-worker.ts', 'LanternfinMkvText', 'mkv-text-worker.js'], ['tv-app/mp4-media-worker.ts', 'LanternfinMp4Media', 'mp4-media-worker.js']]) {
   const worker = await build({ configFile: false, root, publicDir: false, resolve: { alias: { '@': resolve(root, 'src') } }, build: { write: false, target: 'chrome79', minify: true, sourcemap: false, lib: { entry: resolve(root, entry), name, formats: ['iife'] }, rollupOptions: { output: { entryFileNames: file } } } })
   for (const bundle of Array.isArray(worker) ? worker : [worker]) for (const output of bundle.output) await writeFile(resolve(out, output.fileName), output.type === 'chunk' ? output.code : output.source)
 }
@@ -41,6 +41,7 @@ await copyFile(resolve(root, 'node_modules/shaka-player/dist/shaka-player.compil
 await copyFile(resolve(root, 'node_modules/shaka-player/LICENSE'), resolve(out, 'LICENSE-Shaka.txt'))
 await copyFile(resolve(root, 'node_modules/mpegts.js/dist/mpegts.js'), resolve(out, 'mpegts.js'))
 await copyFile(resolve(root, 'node_modules/mpegts.js/LICENSE'), resolve(out, 'LICENSE-mpegts.txt'))
+await copyFile(resolve(root, 'node_modules/mp4box/LICENSE'), resolve(out, 'LICENSE-MP4Box.txt'))
 await copyFile(resolve(root, 'node_modules/@fontsource-variable/geist/LICENSE'), resolve(out, 'LICENSE-Geist.txt'))
 await copyFile(resolve(root, 'node_modules/fflate/LICENSE'), resolve(out, 'LICENSE-fflate.txt'))
 await copyFile(resolve(root, 'tv-app/icons', target === 'webos' ? '80.png' : '117.png'), resolve(out, 'icon.png'))
