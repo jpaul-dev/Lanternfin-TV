@@ -5,6 +5,7 @@
   "license": "GPL-3.0-or-later",
   "packageManager": "pnpm@10.31.0",
   "scripts": {
+    "pairing:build": "node scripts/build-phone-pairing.mjs",
     "tv:setup": "node tv-setup/server.mjs --open",
     "tv:check": "tsc -p tv-app/tsconfig.json",
     "tv:preview": "node scripts/preview-tv.mjs",
@@ -56,6 +57,7 @@
     "marked": "^18.0.11",
     "mp4box": "2.4.1",
     "mpegts.js": "1.8.0",
+    "qrcode-generator": "2.0.4",
     "shaka-player": "^5.2.8",
     "svelte": "^5.57.0",
     "tailwindcss": "^4.3.3",

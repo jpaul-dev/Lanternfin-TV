@@ -1,0 +1,11 @@
+{
+  "name": "lanternfin-pairing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "wrangler types && tsc --noEmit && wrangler deploy --dry-run"
+  },
+  "devDependencies": { "wrangler": "4.151.0", "typescript": "6.0.3" }
+}

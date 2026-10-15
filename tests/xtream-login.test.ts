@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const { providerFetch, navigate } = vi.hoisted(() => ({ providerFetch: vi.fn(), navigate: vi.fn() }))
+const { providerFetch, navigate, openPhonePairing } = vi.hoisted(() => ({ providerFetch: vi.fn(), navigate: vi.fn(), openPhonePairing: vi.fn() }))
+vi.mock('@/shared/pairing/tv-dialog', () => ({ openPhonePairing }))
 vi.mock("@/scripts/lib/provider-fetch.js", () => ({ providerFetch }))
 vi.mock("astro:transitions/client", () => ({ navigate }))
 vi.mock("@/scripts/lib/i18n", () => ({ t: (key: string) => key, applyI18nDOM: vi.fn(), LOCALE_EVENT: "test:locale" }))
@@ -104,6 +105,31 @@ describe("Xtream account check", () => {
 })
 
 describe("Android TV login", () => {
+  it('checks and saves an account received from the phone before navigating', async () => {
+    compatibleProvider(); mount(); field('phone-setup').click()
+    const options = openPhonePairing.mock.calls[0][0]
+    await options.onAccount({ version: 1, kind: 'xtream', name: 'Living room', url: credentials.serverUrl, username: credentials.username, password: credentials.password, epgUrl: 'https://guide.example/guide.xml' }, new AbortController().signal)
+    expect(await getEntries()).toEqual([expect.objectContaining({ type: 'xtream', ...credentials, title: 'Living room', epgUrl: 'https://guide.example/guide.xml' })])
+    expect(navigate).not.toHaveBeenCalled()
+    options.onSuccess(); expect(navigate).toHaveBeenCalledWith('/tv', { history: 'replace' })
+  })
+
+  it('does not save a rejected phone account', async () => {
+    providerFetch.mockImplementation(async () => json({ user_info: { auth: 0 } })); mount(); field('phone-setup').click()
+    const options = openPhonePairing.mock.calls[0][0]
+    await expect(options.onAccount({ version: 1, kind: 'xtream', name: '', url: credentials.serverUrl, username: credentials.username, password: credentials.password, epgUrl: '' }, new AbortController().signal)).rejects.toThrow()
+    expect(await getEntries()).toEqual([]); expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('does not save a phone account cancelled while the provider check is pending', async () => {
+    let finish!: (value: Response) => void
+    providerFetch.mockImplementation(() => new Promise(resolve => { finish = resolve })); mount(); field('phone-setup').click()
+    const options = openPhonePairing.mock.calls[0][0], controller = new AbortController()
+    const checking = options.onAccount({ version: 1, kind: 'xtream', name: '', url: credentials.serverUrl, username: credentials.username, password: credentials.password, epgUrl: '' }, controller.signal)
+    await vi.waitFor(() => expect(providerFetch).toHaveBeenCalled()); controller.abort(); finish(json(account))
+    await expect(checking).rejects.toThrow('cancelled'); expect(await getEntries()).toEqual([])
+  })
+
   it("saves and opens a valid account when unsupported actions return an empty array", async () => {
     compatibleProvider()
     mount()

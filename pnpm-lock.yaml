@@ -94,6 +94,9 @@ importers:
       mpegts.js:
         specifier: 1.8.0
         version: 1.8.0(patch_hash=2ea2f6966ba08084f38602edaf3dd8b7735c3bdd68a02e8674b737077463c026)
+      qrcode-generator:
+        specifier: 2.0.4
+        version: 2.0.4
       shaka-player:
         specifier: ^5.2.8
         version: 5.2.8
@@ -2486,6 +2489,9 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
+
+  qrcode-generator@2.0.4:
+    resolution: {integrity: sha512-mZSiP6RnbHl4xL2Ap5HfkjLnmxfKcPWpWe/c+5XxCuetEenqmNFf1FH/ftXPCtFG5/TDobjsjz6sSNL0Sr8Z9g==}
 
   radix3@1.1.2:
     resolution: {integrity: sha512-b484I/7b8rDEdSDKckSSBA8knMpcdsXudlE/LNL639wFoHKwLbEkQFZHWEYwDC0wa0FKUcCY+GAF73Z7wxNVFA==}
@@ -5256,6 +5262,8 @@ snapshots:
   property-information@7.2.0: {}
 
   punycode@2.3.1: {}
+
+  qrcode-generator@2.0.4: {}
 
   radix3@1.1.2: {}
 

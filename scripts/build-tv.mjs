@@ -13,10 +13,11 @@ if (!['webos', 'tizen', 'browser'].includes(target)) throw new Error('Usage: nod
 const out = resolve(root, 'dist', 'tv', target)
 const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
 const dirty = !!execFileSync('git', ['status', '--porcelain', '--untracked-files=normal'], { cwd: root, encoding: 'utf8' }).trim()
+const pairingConfig = JSON.parse(await readFile(resolve(root, 'src/config/pairing.json'), 'utf8'))
 await mkdir(out, { recursive: true })
 const result = await build({
   configFile: false, root, publicDir: false,
-  define: { __TV_TARGET__: JSON.stringify(target), __TV_BUILD__: JSON.stringify({ version: '0.1.0', commit, dirty }) },
+  define: { __TV_TARGET__: JSON.stringify(target), __TV_BUILD__: JSON.stringify({ version: '0.1.0', commit, dirty }), __TV_PAIRING_ORIGIN__: JSON.stringify(process.env.PUBLIC_PAIRING_URL || pairingConfig.origin) },
   build: {
     write: false, target: 'chrome79', cssTarget: 'chrome79', minify: true, sourcemap: false,
     lib: { entry: resolve(root, 'tv-app/app.ts'), name: 'LanternfinTV', formats: ['iife'] },
@@ -44,6 +45,7 @@ await copyFile(resolve(root, 'node_modules/mpegts.js/LICENSE'), resolve(out, 'LI
 await copyFile(resolve(root, 'node_modules/mp4box/LICENSE'), resolve(out, 'LICENSE-MP4Box.txt'))
 await copyFile(resolve(root, 'node_modules/@fontsource-variable/geist/LICENSE'), resolve(out, 'LICENSE-Geist.txt'))
 await copyFile(resolve(root, 'node_modules/fflate/LICENSE'), resolve(out, 'LICENSE-fflate.txt'))
+await copyFile(resolve(root, 'public/licenses/qrcode-generator-MIT.txt'), resolve(out, 'LICENSE-qrcode-generator.txt'))
 await copyFile(resolve(root, 'tv-app/icons', target === 'webos' ? '80.png' : '117.png'), resolve(out, 'icon.png'))
 if (target === 'webos') {
   await copyFile(resolve(root, 'tv-app/icons/130.png'), resolve(out, 'large-icon.png'))

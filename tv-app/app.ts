@@ -1,5 +1,7 @@
 import './compatibility'
 import './app.css'
+import { openPhonePairing } from '../src/shared/pairing/tv-dialog'
+declare const __TV_PAIRING_ORIGIN__: string
 import { backupUI } from './backup-ui'
 import { resetAppData } from './reset'
 import { resetUI } from './reset-ui'
@@ -294,7 +296,7 @@ function currentSource(): Source {
   return validateSource({ kind: select('source-kind').value, url: input('source-url').value, username: input('username').value, password: input('password').value })
 }
 function setBusy(busy: boolean) {
-  for (const id of ['connect', 'source-name', 'source-kind', 'source-url', 'username', 'password', 'remember', 'forget', 'profile-new', 'guide-url', 'guide-offset', 'source-advanced-toggle', 'keep-library', 'profile-accent']) ( $(id) as HTMLInputElement).disabled = busy
+  for (const id of ['phone-setup', 'connect', 'source-name', 'source-kind', 'source-url', 'username', 'password', 'remember', 'forget', 'profile-new', 'guide-url', 'guide-offset', 'source-advanced-toggle', 'keep-library', 'profile-accent']) ( $(id) as HTMLInputElement).disabled = busy
   for (const item of $('profile-list').querySelectorAll<HTMLButtonElement>('button')) item.disabled = busy
   input('keep-library').disabled = busy || !input('remember').checked
   $('cancel-load').hidden = !busy
@@ -302,7 +304,7 @@ function setBusy(busy: boolean) {
 }
 function cancelLoad() { loading?.abort(); loading = undefined; refreshReturn = undefined; refreshDialog.close(); setBusy(false) }
 
-$('source-form').addEventListener('submit', async event => {
+async function connectSource(event: Event) {
   event.preventDefault()
   if (loading) return
   let source: Source, override: string | undefined, offset: GuideCorrection, accent: Accent | undefined
@@ -382,6 +384,7 @@ $('source-form').addEventListener('submit', async event => {
     startIndex()
     savePlaylistCache()
     notice((catalog.skipped ? `${catalog.skipped} entries with invalid addresses were skipped.` : '') + storageMessage)
+    return persisted || !input('remember').checked
   } catch (error) {
     if (loading === controller) {
       if (refreshing && !applied) refreshDialog.failed((error as Error).message)
@@ -389,7 +392,27 @@ $('source-form').addEventListener('submit', async event => {
     }
   }
   finally { if (loading === controller) { loading = undefined; setBusy(false); if (screen === 'setup') button('connect').focus() } }
-})
+}
+$('source-form').addEventListener('submit', event => { void connectSource(event) })
+$('phone-setup').onclick = () => {
+  if (loading) return
+  openPhonePairing({
+    origin: typeof __TV_PAIRING_ORIGIN__ === 'string' ? __TV_PAIRING_ORIGIN__ : '',
+    deviceName: __TV_TARGET__ === 'webos' ? 'Lanternfin LG TV' : __TV_TARGET__ === 'tizen' ? 'Lanternfin Samsung TV' : 'Lanternfin TV demo',
+    async onAccount(account, signal) {
+      if (signal.aborted) throw new Error('Phone setup cancelled.')
+      editingSource = undefined
+      select('source-kind').value = account.kind === 'xtream' ? 'xtream' : 'playlist'
+      input('source-name').value = account.name; input('source-url').value = account.url
+      input('username').value = account.username; input('password').value = account.password
+      input('guide-url').value = account.epgUrl; select('guide-offset').value = '0'; select('profile-accent').value = ''
+      input('remember').checked = true; input('keep-library').checked = false; sourceKind()
+      const abort = () => cancelLoad(); signal.addEventListener('abort', abort, { once: true })
+      try { if (!await connectSource(new Event('submit', { cancelable: true }))) throw new Error($('notice').textContent || 'The account could not be opened. Check your provider details.') }
+      finally { signal.removeEventListener('abort', abort) }
+    },
+  })
+}
 $('cancel-load').onclick = () => { cancelLoad(); notice('Loading cancelled.'); button('connect').focus() }
 select('source-kind').onchange = () => { input('keep-library').checked = false; sourceKind() }
 input('remember').onchange = async () => {

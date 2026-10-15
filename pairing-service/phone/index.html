@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#101e27"><title>Connect your TV · Lanternfin</title><link rel="icon" href="/mark.svg"><link rel="stylesheet" href="/phone.css"><script src="/phone.js" defer></script></head>
+<body>
+  <header class="brand"><img src="/mark.svg" alt=""><span>Lanternfin <b>TV</b></span><span class="tag">PHONE SETUP</span></header>
+  <main>
+    <p class="eyebrow">YOUR PHONE. YOUR BIG SCREEN.</p><h1>Less typing.<br><em>More watching.</em></h1>
+    <p class="intro">Bring your account to Lanternfin on your TV. Your remote can take a break.</p>
+    <ol class="steps" aria-label="Setup progress"><li id="step-match" aria-current="step"><span>1</span>Match</li><li id="step-account"><span>2</span>Account</li><li id="step-watch"><span>3</span>Watch</li></ol>
+    <section class="card">
+      <div id="join-panel"><p class="eyebrow">LET’S FIND YOUR TV</p><h2>Enter the TV code</h2><p>On your TV, choose <strong>Set up with your phone</strong>. Scan its QR code, or enter the eight characters below.</p><form id="join-form"><label for="code">TV pairing code</label><input id="code" class="code-input" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD EFGH" required><button id="join" class="primary">Connect to TV <span aria-hidden="true">↗</span></button></form></div>
+      <div id="match-panel" hidden><p class="eyebrow">A QUICK DOUBLE CHECK</p><h2 id="tv-name">Is this your TV?</h2><p>Make sure these six digits match the ones on your TV. Choose <strong>Approve phone</strong> on the TV, then continue here.</p><div id="confirmation" class="confirmation" aria-label="Confirmation code"></div><p class="small">If the codes don’t match, cancel on your TV and start again.</p><button id="confirm-match" class="primary">The codes match <span aria-hidden="true">→</span></button></div>
+      <div id="account-panel" hidden><p class="eyebrow">READY FOR YOUR ACCOUNT</p><h2>What do you watch with?</h2><p>Use the account or playlist from your provider. Lanternfin doesn’t supply channels or subscriptions.</p>
+        <form id="account-form" autocomplete="off">
+          <label for="kind">Account type</label><select id="kind"><option value="xtream">Xtream account</option><option value="m3u">M3U playlist</option></select>
+          <label for="name">Name on your TV <span class="optional">optional</span></label><input id="name" maxlength="80" placeholder="My television" autocomplete="off">
+          <label id="url-label" for="url">Provider server address</label><input id="url" type="text" inputmode="url" maxlength="8192" autocapitalize="off" spellcheck="false" placeholder="https://your-provider.example" required>
+          <p id="url-help" class="small">A complete provider link works here too.</p>
+          <div id="credentials"><label for="username">Username</label><input id="username" maxlength="1024" autocomplete="off" autocapitalize="off" spellcheck="false"><label for="password">Password</label><div class="password-field"><input id="password" type="password" maxlength="1024" autocomplete="off"><button id="show-password" type="button" aria-label="Show password">Show</button></div></div>
+          <details><summary>Guide address <span class="optional">optional</span></summary><label for="epg">XMLTV guide URL</label><input id="epg" type="text" inputmode="url" maxlength="8192" autocapitalize="off" spellcheck="false" placeholder="Use the provider’s guide"></details>
+          <button id="send" class="primary">Sign in on my TV <span aria-hidden="true">→</span></button><p class="small">Your TV will save this account for next time.</p>
+        </form>
+      </div>
+      <div id="sending-panel" hidden><div class="state-mark" aria-hidden="true">↗</div><p class="eyebrow">OVER TO YOUR TV</p><h2>Opening your account…</h2><p>Your details have been sent securely. Keep this page open until your TV finishes.</p></div>
+      <div id="done-panel" hidden><div class="state-mark" aria-hidden="true">✓</div><p class="eyebrow">YOU’RE ALL SET</p><h2>Take the good seat.</h2><p>Your account is ready on the TV. You can close this page and start watching.</p></div>
+      <div id="ended-panel" hidden><p class="eyebrow">LET’S TRY THAT AGAIN</p><h2 id="ended-title">This session ended</h2><p id="ended-copy">Choose Set up with your phone on the TV to get a new code.</p><button id="restart" class="primary">Enter a new code</button></div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <p id="remaining" class="remaining" hidden></p>
+    </section>
+    <p class="privacy"><span aria-hidden="true">◇</span> Your account goes to your TV.<br>This page doesn’t save your provider details.</p>
+  </main><footer>Lanternfin TV · An independent player, made for your screen.<br><a href="https://github.com/jpaul-dev/Lanternfin-TV">Source &amp; credits</a> · <a href="/LICENSE.txt">GPL license</a></footer>
+</body></html>
