@@ -37,13 +37,12 @@ android {
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
         manifestPlaceholders["usesCleartextTraffic"] = "false"
 
-        // TV build (XTREAM_TV_BUILD): leanback required + versionCode offset
+        // Only the TV edition requires Leanback. Both editions share an app ID
+        // and version sequence so switching installers doesn't require deleting data.
         val isTvBuild = (System.getenv("XTREAM_TV_BUILD") ?: "").lowercase(Locale.ROOT) in listOf("1", "true", "yes")
         manifestPlaceholders["leanbackRequired"] = if (isTvBuild) "true" else "false"
-        if (isTvBuild) {
-            val tvVersionCodeOffset = 500
-            versionCode = (versionCode ?: 0) + tvVersionCodeOffset
-        }
+        val alphaVersionCodeOffset = 500
+        versionCode = (versionCode ?: 0) + alphaVersionCodeOffset
 
         // Lets CI (beta builds) assign a versionCode ahead of the sync-version pin.
         val versionCodeOverride = (System.getenv("XTREAM_VERSION_CODE_OVERRIDE") ?: "").toIntOrNull()

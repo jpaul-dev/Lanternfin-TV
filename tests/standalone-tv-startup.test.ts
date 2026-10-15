@@ -109,6 +109,17 @@ describe("standalone TV startup", () => {
     expect(app.replace).not.toHaveBeenCalled()
   })
 
+  it.each(["/", "/login", "/movies", "/settings"])("keeps an Android phone on its touch interface at %s", (path) => {
+    const app = startup({}, path, false)
+    app.context.appMode = "standalone"
+    app.context.navigator.userAgent = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36"
+    app.run()
+    expect(app.replace).not.toHaveBeenCalled()
+    expect(app.context.document.documentElement.dataset.tv).toBeUndefined()
+    expect(app.values.get("xt_receiver_mode")).toBe("0")
+    expect(app.values.get("xt_receiver_boot")).toBe("0")
+  })
+
   it("does not migrate an explicitly requested kiosk build", () => {
     const app = startup({ xt_receiver_mode: "1", xt_receiver_mode_auto: "1" })
     app.context.receiverBuild = true
