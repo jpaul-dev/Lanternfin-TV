@@ -224,6 +224,42 @@ async function seedTvState(page: Page, extra: () => void = () => {}) {
 
 const TV_VIEWPORT = { width: 1920, height: 1080 }
 
+test("TMDB fills episode gaps and a corrected show match survives reopening", async ({ page }) => {
+  await page.setViewportSize(TV_VIEWPORT)
+  await mockProvider(page)
+  await seedTvState(page, seedTvContent)
+  await page.context().addInitScript(() => {
+    localStorage.setItem("xt_tmdb_key", "fixture-key")
+    localStorage.setItem("xt_tmdb_enabled", "")
+    localStorage.setItem("xt_tmdb_enabled_v2", "1")
+  })
+  await page.route("https://api.themoviedb.org/**", route => {
+    const path = new URL(route.request().url()).pathname
+    const corrected = path.includes("/987")
+    if (path.endsWith("/search/tv")) return route.fulfill({ json: { results: [{ id: 987, name: "Correct Observatory", first_air_date: "2025-01-01" }] } })
+    if (path.includes("/season/")) return route.fulfill({ json: { episodes: [{ episode_number: 1, name: corrected ? "Correct episode" : "Matched episode", overview: corrected ? "Corrected episode synopsis." : "Fetched episode synopsis.", runtime: 42, air_date: "2025-04-12" }] } })
+    return route.fulfill({ json: { id: corrected ? 987 : 1396, name: corrected ? "Correct Observatory" : "Show 1", overview: "Series overview.", external_ids: { imdb_id: "tt0903747" } } })
+  })
+  await page.goto("/tv")
+  await page.waitForSelector(RAIL_ITEMS)
+  await page.evaluate(() => {
+    const fixture = (window as any).__xtTvFixtures
+    fixture.seriesInfo.info.tmdb = 1396
+    fixture.seriesInfo.episodes["1"][0].title = "Episode 1"
+    fixture.seriesInfo.episodes["1"][0].info = {}
+  })
+  await seedCatalogCache(page)
+  await page.goto("/tv/series/detail?id=101")
+  await expect(page.locator('[data-focus-key="ep:1:1"]')).toContainText("Fetched episode synopsis.")
+  await page.getByRole("button", { name: "Match show", exact: true }).click()
+  await page.getByRole("textbox", { name: "Search shows" }).fill("Correct Observatory")
+  await page.getByRole("button", { name: "Search shows", exact: true }).click()
+  await page.getByRole("button", { name: "Correct Observatory 2025" }).click()
+  await expect(page.locator('[data-focus-key="ep:1:1"]')).toContainText("Corrected episode synopsis.")
+  await page.reload()
+  await expect(page.locator('[data-focus-key="ep:1:1"]')).toContainText("Corrected episode synopsis.")
+})
+
 test("episode details follow remote focus and provider synopsis variants", async ({ page }) => {
   await page.setViewportSize(TV_VIEWPORT)
   await mockProvider(page)
@@ -243,6 +279,7 @@ test("episode details follow remote focus and provider synopsis variants", async
   await page.goto("/tv/series/detail?id=101")
   const first = page.locator('[data-focus-key="ep:1:1"]')
   await expect(first).toBeVisible()
+  await expect(page.locator('[data-focus-key="action:play"]')).toBeFocused()
   await first.focus()
   await expect(page.locator("#tv-episode-preview")).toContainText("Mara returns to the mountain")
   await expect(page.locator("#tv-episode-preview")).toContainText("2025-04-12")

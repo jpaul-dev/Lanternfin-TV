@@ -5,7 +5,10 @@ import { t, getActiveLocale } from "@/scripts/lib/i18n"
 
 const STORAGE = "lanternfin_series_matches"
 function saved(): Record<string, number> {
-  try { return JSON.parse(localStorage.getItem(STORAGE) || "{}") || {} } catch { return {} }
+  try {
+    const value = JSON.parse(localStorage.getItem(STORAGE) || "{}")
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {}
+  } catch { return {} }
 }
 export function seriesMatch(playlist: string, series: number): number | null {
   const id = saved()[JSON.stringify([playlist, series])]
@@ -55,6 +58,7 @@ export function chooseSeriesMatch(playlist: string, series: number, name: string
       const matches = await tmdbSearchTv(getTmdbApiKey(), query, { language: getActiveLocale() })
       if (!dialog.open || id !== request) return
       for (const match of matches.slice(0, 12)) {
+        if (!Number.isSafeInteger(match.id) || match.id <= 0) continue
         results.append(button(`${match.name || match.original_name || ""} ${match.first_air_date?.slice(0, 4) || ""}`, () => apply(match.id)))
       }
       status.textContent = matches.length ? t("tv.episodes.choose") : t("tv.episodes.noMatches")
@@ -65,8 +69,8 @@ export function chooseSeriesMatch(playlist: string, series: number, name: string
   dialog.append(heading, input, button(t("tv.episodes.search"), () => void search()), status, results,
     button(t("tv.episodes.resetMatch"), () => apply(null)), button(t("common.cancel"), () => dialog.close()))
   document.body.append(dialog)
-  attachDialogSpatialNav(dialog)
-  dialog.addEventListener("close", () => { request++; dialog.remove(); if (previous?.isConnected) previous.focus() }, { once: true })
+  const cleanup = attachDialogSpatialNav(dialog)
+  dialog.addEventListener("close", () => { request++; cleanup?.(); dialog.remove(); if (previous?.isConnected) previous.focus() }, { once: true })
   dialog.showModal()
   input.focus()
   if (!isTmdbActive()) status.textContent = t("tv.episodes.keyRequired")

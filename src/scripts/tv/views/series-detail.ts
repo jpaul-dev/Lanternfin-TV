@@ -56,7 +56,7 @@ import { createRail } from "@/scripts/tv/ui/rail"
 import { formatCardMeta, type PosterCardItem } from "@/scripts/tv/ui/card"
 import { registerFocusSection, keepFocusedInView, remPx } from "@/scripts/tv/focus"
 import { STAR_OUTLINE, STAR_FILLED, BOOKMARK_FILLED } from "@/scripts/lib/entry-card.ts"
-import { mountCachedImage } from "@/scripts/lib/img-cache.ts"
+import { mountCachedImage, releaseCachedImages } from "@/scripts/lib/img-cache.ts"
 import { ICON_PLAYER_PLAY, ICON_DOWNLOAD, ICON_CHECK } from "@/scripts/lib/icons"
 import { toast } from "@/scripts/lib/toast"
 import { confirmDialog } from "@/scripts/lib/confirm-dialog"
@@ -186,7 +186,7 @@ const view: TvView = {
     const episodePanel = document.createElement("aside")
     episodePanel.className = "min-w-0 rounded-2xl bg-surface-2 p-4"
     episodePanel.id = "tv-episode-preview"
-    const episodeImage = document.createElement("img")
+    let episodeImage = document.createElement("img")
     episodeImage.alt = ""
     episodeImage.className = "mb-3 aspect-video w-full rounded-xl object-cover"
     const episodeTitle = document.createElement("h2")
@@ -455,7 +455,13 @@ const view: TvView = {
       episodeTitle.textContent = `S${entry.season} · E${entry.episodeNum} · ${entry.title || t("series.episode.fallback", { n: entry.episodeNum })}`
       episodeMeta.textContent = [entry.durationText, entry.airDate, entry.ratingText ? `★ ${entry.ratingText}` : ""].filter(Boolean).join(" · ")
       episodePlot.textContent = entry.plot || t("detail.noDescription")
-      episodeImage.hidden = !entry.thumbUrl
+      // A slow image from the previous selection must not overwrite the current episode.
+      const nextImage = episodeImage.cloneNode(false) as HTMLImageElement
+      nextImage.removeAttribute("src")
+      nextImage.hidden = !entry.thumbUrl
+      releaseCachedImages(episodeImage)
+      episodeImage.replaceWith(nextImage)
+      episodeImage = nextImage
       if (entry.thumbUrl) mountCachedImage(episodeImage, entry.thumbUrl, "poster")
     }
 
@@ -552,6 +558,7 @@ const view: TvView = {
       const previouslyFocusedKey =
         focused instanceof HTMLElement && episodesTrack.contains(focused) ? focused.dataset.focusKey : null
 
+      releaseCachedImages(episodesTrack)
       episodesTrack.replaceChildren()
       const seasonEpisodes = episodesForCurrentSeason()
       episodePanel.hidden = !seasonEpisodes.length
@@ -925,6 +932,7 @@ const view: TvView = {
 
     return () => {
       destroyed = true
+      releaseCachedImages(episodeBrowser)
       document.removeEventListener("xt:favorites-changed", onFavoritesChanged)
       document.removeEventListener("xt:watchlist-changed", onWatchlistChanged)
       document.removeEventListener("xt:progress-changed", onProgressChanged)

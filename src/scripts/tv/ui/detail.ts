@@ -211,11 +211,20 @@ export function createDetailChrome(root: HTMLElement): DetailChromeHandle {
   }
 
   // Native focus-scroll leaves the hero above the viewport; the action row is the way back to it.
+  let pointerFocusingAction = false
+  const onActionPointerDown = () => { pointerFocusingAction = true }
+  const onActionPointerEnd = () => { pointerFocusingAction = false }
   function onActionsFocusIn(): void {
+    // Moving the target between pointer-down and pointer-up cancels its click.
+    if (pointerFocusingAction) return
     const scroller = pageScroller()
     if (scroller && scroller.scrollTop !== 0) scroller.scrollTop = 0
   }
   actionsRow.addEventListener("focusin", onActionsFocusIn)
+  actionsRow.addEventListener("pointerdown", onActionPointerDown)
+  window.addEventListener("pointerup", onActionPointerEnd)
+  window.addEventListener("pointercancel", onActionPointerEnd)
+  actionsRow.addEventListener("keydown", onActionPointerEnd)
 
   let currentAmbientUrl: string | null = null
 
@@ -318,6 +327,10 @@ export function createDetailChrome(root: HTMLElement): DetailChromeHandle {
   document.addEventListener("astro:page-load", clearPosterMorphName, { once: true })
 
   function destroy(): void {
+    window.removeEventListener("pointerup", onActionPointerEnd)
+    window.removeEventListener("pointercancel", onActionPointerEnd)
+    actionsRow.removeEventListener("pointerdown", onActionPointerDown)
+    actionsRow.removeEventListener("keydown", onActionPointerEnd)
     document.removeEventListener("astro:page-load", clearPosterMorphName)
     actionsRow.removeEventListener("focusin", onActionsFocusIn)
     unregisterActionsSection()
