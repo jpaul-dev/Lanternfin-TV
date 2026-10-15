@@ -722,12 +722,12 @@ class VideoActivity : AppCompatActivity() {
         put("attempt", recoveryPolicy.attempts)
         if (httpStatus > 0) put("httpStatus", httpStatus)
       })
-      val wantsPlayback = player.playWhenReady
       val task = Runnable {
         if (!playbackResumed && !isInPictureInPictureMode) return@Runnable
         recoveryTask = null
         if (generation != recoveryGeneration || exoPlayer !== player || isFinishing || isDestroyed) return@Runnable
-        retryPlayback(player, code, wantsPlayback)
+        // Respect a pause pressed during the reconnect delay.
+        retryPlayback(player, code, player.playWhenReady)
       }
       recoveryTask = task
       if (playbackResumed || isInPictureInPictureMode) progressHandler.postDelayed(task, delay)
