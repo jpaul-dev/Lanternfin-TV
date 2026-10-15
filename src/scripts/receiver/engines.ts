@@ -659,7 +659,7 @@ export function createAndroidNativeReceiverEngine(callbacks: ReceiverEngineCallb
     errorReported = true
     const httpStatus = event.payload.httpStatus ?? null
     const mapped = mapNativeErrorCode(event.payload.code, httpStatus)
-    const { messageKey, verdict } = httpStatus
+    const { messageKey, verdict } = httpStatus || event.payload.playerRetained
       ? { messageKey: mapped, verdict: null }
       : await refineParseFailureKey(mapped, { src: activeSrc, userAgent: activeUserAgent })
     // A new play() during the probe owns the session; reporting this error would kill it.
@@ -669,7 +669,10 @@ export function createAndroidNativeReceiverEngine(callbacks: ReceiverEngineCallb
     const technical = `${event.payload.code || "?"}${statusPart}${event.payload.message ? `: ${event.payload.message}` : ""}${verdictPart}`
     const detail = `${t(messageKey)} (${technical})`.slice(0, 300)
     log.error("[xt:receiver] native playback failed:", detail)
-    report({ state: "error", error: detail, positionSeconds: 0 })
+    report({ state: "error", error: detail })
+    // The current native player owns its Retry/Return dialog. Do not turn a
+    // temporary stream failure into an Activity exit or discard its resume point.
+    if (event.payload.playerRetained) return
     finishAndEndSession()
     callbacks.onSessionEnded()
   }
@@ -678,6 +681,7 @@ export function createAndroidNativeReceiverEngine(callbacks: ReceiverEngineCallb
     if (!isCurrentEvent(sessionGeneration, event.payload.contentKey)) return
     switch (event.type) {
       case "xt:android-native-progress": {
+        errorReported = false
         const reportedDuration = durationSecondsFromMs(event.payload.durationMs)
         if (reportedDuration !== undefined) knownDurationSeconds = reportedDuration
         report({
@@ -687,6 +691,12 @@ export function createAndroidNativeReceiverEngine(callbacks: ReceiverEngineCallb
         })
         break
       }
+      case "xt:android-native-buffering":
+        errorReported = false
+        if (event.payload.code) log.warn("[xt:receiver] native recovery:", event.payload.code,
+          "HTTP", event.payload.httpStatus ?? 0, "attempt", event.payload.attempt ?? 0)
+        report({ state: "buffering", positionSeconds: Math.max(0, Math.floor((event.payload.positionMs || 0) / 1000)), durationSeconds: knownDurationSeconds })
+        break
       case "xt:android-native-play-state":
         // The only signal that can move a tick-less live cast off the one-shot "playing" from play().
         report({

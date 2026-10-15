@@ -33,6 +33,14 @@
     <string name="receiver_wake_notification_title">Casting to this TV</string>
     <string name="receiver_wake_notification_text">Tap to open and start playback</string>
     <string name="intro_skip">Skip intro · OK</string>
+    <string name="playback_reconnecting">Connection interrupted. Reconnecting… (%1$d/%2$d)</string>
+    <string name="playback_interrupted">Playback interrupted</string>
+    <string name="playback_connection_failed">The stream connection could not recover. Retry continues from your current position.</string>
+    <string name="playback_provider_refused">The provider refused this request. Check your account or connection limit before retrying.</string>
+    <string name="playback_ended_early">The stream stopped before the movie or episode finished. Your position has been kept.</string>
+    <string name="playback_format_failed">The player could not continue this stream. The error code below can help identify a format, decoder or protection problem.</string>
+    <string name="playback_retry">Retry</string>
+    <string name="playback_return">Return to library</string>
     <string name="intro_settings">Intro skipping</string>
     <string name="intro_behavior">Skipping preference</string>
     <string name="intro_off">Off</string>

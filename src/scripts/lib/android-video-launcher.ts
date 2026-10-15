@@ -27,6 +27,7 @@ export type AndroidNativeEventType =
   | "xt:android-native-error"
   | "xt:android-native-play-state"
   | "xt:android-native-volume"
+  | "xt:android-native-buffering"
 
 export interface AndroidNativeEvent {
   type: AndroidNativeEventType
@@ -46,6 +47,8 @@ export interface AndroidNativeEvent {
     playing?: boolean
     volume?: number
     muted?: boolean
+    playerRetained?: boolean
+    attempt?: number
   }
 }
 
@@ -175,6 +178,7 @@ function installListeners(): void {
     "xt:android-native-error",
     "xt:android-native-play-state",
     "xt:android-native-volume",
+    "xt:android-native-buffering",
   ]
   for (const type of types) {
     document.addEventListener(type, (event: Event) => {
@@ -255,7 +259,7 @@ export function launchAndroidNativeVodWithProgress(
         try { opts.onCompleted?.() } catch {}
       }
       unsubscribe()
-    } else if (event.type === "xt:android-native-error") {
+    } else if (event.type === "xt:android-native-error" && !event.payload.playerRetained) {
       unsubscribe()
     }
   })
