@@ -60,3 +60,15 @@ it('cancels a session that finishes creation after the dialog was closed', async
   await flush(); close(); resolve(current); await flush()
   expect(current.cancel).toHaveBeenCalledOnce(); expect(current.poll).not.toHaveBeenCalled(); expect(document.querySelector('[role="dialog"]')).toBeNull()
 })
+
+it('does not navigate after cancellation while the completion acknowledgement is pending', async () => {
+  const current = session(); current.poll.mockResolvedValue({ status: 'claimed', confirmation: '123456' }); create.mockResolvedValue(current)
+  let acknowledge!: () => void
+  current.complete.mockImplementation(() => new Promise<void>(resolve => { acknowledge = resolve }))
+  const success = vi.fn()
+  close = openPhonePairing({ origin: 'https://pair.example', deviceName: 'TV', onAccount: vi.fn().mockResolvedValue(undefined), onSuccess: success })
+  await flush(); select('approve').click(); await flush(); current.poll.mockResolvedValue({ status: 'offered', account })
+  await vi.advanceTimersByTimeAsync(3000); expect(current.complete).toHaveBeenCalled()
+  close(); acknowledge(); await flush()
+  expect(success).not.toHaveBeenCalled(); expect(document.querySelector('[role="dialog"]')).toBeNull()
+})

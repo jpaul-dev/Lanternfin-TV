@@ -66,6 +66,7 @@ export function openPhonePairing(options: { origin: string; deviceName: string; 
         await options.onAccount(result.account, controller.signal)
         if (closed || token !== generation) return
         await session.complete('accepted').catch(() => {})
+        if (closed || token !== generation) return
         close(true); options.onSuccess?.(); return
       }
     } catch (error) {

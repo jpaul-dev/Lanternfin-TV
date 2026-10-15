@@ -2,7 +2,7 @@ name: LG and Samsung TV previews
 on:
   push:
     branches: [main, 'ports/**']
-    paths: ['tv-app/**', 'tv-setup/**', 'Open TV Setup*', 'scripts/*-tv.mjs', 'tests/tv-port-*.test.ts', 'tests/tv-setup-*.test.ts', 'src/scripts/lib/m3u-parser.ts', 'packaging/tv-tools/**', 'package.json', 'pnpm-lock.yaml', '.github/workflows/tv-ports.yml']
+    paths: ['tv-app/**', 'tv-setup/**', 'Open TV Setup*', 'scripts/*-tv.mjs', 'tests/tv-port-*.test.ts', 'tests/tv-setup-*.test.ts', 'src/scripts/lib/m3u-parser.ts', 'src/shared/pairing/**', 'src/config/pairing.json', 'public/licenses/**', 'packaging/tv-tools/**', 'package.json', 'pnpm-lock.yaml', '.github/workflows/tv-ports.yml']
   workflow_dispatch:
 permissions:
   contents: read
