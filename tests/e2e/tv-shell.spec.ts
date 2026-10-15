@@ -224,6 +224,36 @@ async function seedTvState(page: Page, extra: () => void = () => {}) {
 
 const TV_VIEWPORT = { width: 1920, height: 1080 }
 
+test("TV metadata settings reject bad keys, enable valid keys and can turn enrichment off", async ({ page }) => {
+  await page.setViewportSize(TV_VIEWPORT)
+  await mockProvider(page)
+  await seedTvState(page)
+  await page.route("https://api.themoviedb.org/**", route => {
+    const valid = new URL(route.request().url()).searchParams.get("api_key") === "fixture-valid-key"
+    return route.fulfill({ status: valid ? 200 : 401, json: valid ? { images: {} } : { status_message: "Invalid key" } })
+  })
+  await page.goto("/tv/settings")
+  const row = page.locator('[data-focus-key="set:metadata"]')
+  await row.click()
+  const dialog = page.locator("#lanternfin-metadata-settings")
+  await dialog.getByLabel("API key", { exact: true }).fill("fixture-rejected-key")
+  await dialog.getByRole("button", { name: "Test and enable" }).click()
+  await expect(dialog.getByRole("status")).toHaveText("TMDB rejected this key")
+  expect(await page.evaluate(() => localStorage.getItem("xt_tmdb_key"))).toBeNull()
+  await dialog.getByLabel("API key", { exact: true }).fill("fixture-valid-key")
+  await dialog.getByRole("button", { name: "Test and enable" }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(row).toContainText("On")
+  await expect(row).toBeFocused()
+  await page.reload()
+  await expect(row).toContainText("On")
+  await row.click()
+  await expect(dialog.getByLabel("API key", { exact: true })).toHaveAttribute("type", "password")
+  await dialog.getByRole("button", { name: "Turn off enrichment" }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(row).toContainText("Off")
+})
+
 test("TMDB fills episode gaps and a corrected show match survives reopening", async ({ page }) => {
   await page.setViewportSize(TV_VIEWPORT)
   await mockProvider(page)
@@ -290,9 +320,14 @@ test("episode details follow remote focus and provider synopsis variants", async
   await expect(first).toBeFocused()
   await page.screenshot({ path: "artifacts/android-tv-episode-details.png" })
   await page.getByRole("button", { name: "Match show", exact: true }).click()
-  await expect(page.getByRole("dialog")).toContainText("Enable TMDB metadata")
+  await expect(page.getByRole("dialog")).toContainText("Choose Metadata enrichment")
   await page.keyboard.press("Escape")
   await expect(page.getByRole("button", { name: "Match show", exact: true })).toBeFocused()
+  await page.keyboard.press("Enter")
+  await page.getByRole("button", { name: "Metadata enrichment", exact: true }).click()
+  await expect(page.locator("#lanternfin-metadata-settings")).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("dialog")).toHaveCount(0)
 })
 const HOME_RAIL_TRACKS = "[data-tv-view-root] section > div:nth-child(2)"
 

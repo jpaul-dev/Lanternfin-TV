@@ -5,7 +5,9 @@
   "tv.episodes.choose": "Choose the correct show. This updates episode details and intro matching on this TV.",
   "tv.episodes.noMatches": "No matches. Try the original show title.",
   "tv.episodes.resetMatch": "Use automatic matching",
-  "tv.episodes.keyRequired": "Enable TMDB metadata and add your API key in Settings → Network to search shows and fill missing episode details.",
+  "tv.episodes.keyRequired": "Choose Metadata enrichment below, or in Settings, to add your TMDB API key and fill missing episode details.",
+  "tv.episodes.enableMetadata": "Test and enable",
+  "tv.episodes.disableMetadata": "Turn off enrichment",
   "tv.episodes.saveFailed": "The match could not be saved. Check available storage.",
   "tv.episodes.lookupFailed": "Could not reach TMDB. Try again shortly.",
   "_meta": {

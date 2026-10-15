@@ -7,6 +7,7 @@ import { getEntries, getActiveEntry, isTauri } from "@/scripts/lib/creds.js"
 import { renderPlaylistRow, getPlaylistListEmptyCopy } from "@/scripts/lib/playlist-rows.js"
 import { attachDialogSpatialNav } from "@/scripts/lib/dialog-spatial-nav"
 import { confirmDialog } from "@/scripts/lib/confirm-dialog"
+import { openMetadataSettings } from "@/scripts/tv/ui/metadata-settings"
 import {
   createSettingsList,
   openChoiceDialog,
@@ -34,6 +35,7 @@ import {
   setLanguageGroupingEnabled,
   getContentLanguage,
   setContentLanguage,
+  isTmdbActive,
 } from "@/scripts/lib/app-settings.js"
 import { getOffsetSetting, setOffsetSetting } from "@/scripts/lib/epg-data.js"
 import { LANGUAGE_TOKENS, languageTagLabel } from "@/scripts/lib/language-tags.ts"
@@ -177,6 +179,15 @@ const view: TvView = {
         value: activeEntry?.title || t("list.noPlaylistSelected"),
         kind: "action",
         onActivate: () => void openPlaylistsDialog(),
+      })
+
+      rows.push({
+        id: "metadata",
+        icon: ICON_LIST_DETAILS,
+        label: t("settings.tmdb.title"),
+        value: t(isTmdbActive() ? "settings.tmdb.on" : "settings.tmdb.off"),
+        kind: "action",
+        onActivate: () => openMetadataSettings(() => void renderRows()),
       })
 
       rows.push({

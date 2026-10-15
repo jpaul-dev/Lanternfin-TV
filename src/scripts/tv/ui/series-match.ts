@@ -2,6 +2,7 @@ import { attachDialogSpatialNav } from "@/scripts/lib/dialog-spatial-nav"
 import { getTmdbApiKey, isTmdbActive } from "@/scripts/lib/app-settings.js"
 import { tmdbSearchTv } from "@/scripts/lib/tmdb"
 import { t, getActiveLocale } from "@/scripts/lib/i18n"
+import { openMetadataSettings } from "@/scripts/tv/ui/metadata-settings"
 
 const STORAGE = "lanternfin_series_matches"
 function saved(): Record<string, number> {
@@ -67,6 +68,7 @@ export function chooseSeriesMatch(playlist: string, series: number, name: string
   }
   input.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); void search() } })
   dialog.append(heading, input, button(t("tv.episodes.search"), () => void search()), status, results,
+    button(t("settings.tmdb.title"), () => { dialog.close(); openMetadataSettings(onChange) }),
     button(t("tv.episodes.resetMatch"), () => apply(null)), button(t("common.cancel"), () => dialog.close()))
   document.body.append(dialog)
   const cleanup = attachDialogSpatialNav(dialog)
