@@ -3,7 +3,7 @@ import type { TvView, TvViewContext } from "@/scripts/tv/router"
 import { t, applyI18nDOM, LOCALE_EVENT } from "@/scripts/lib/i18n"
 import { navigate } from "astro:transitions/client"
 import { addEntry, getEntries, resolveServerScheme, resolveM3UScheme } from "@/scripts/lib/creds.js"
-import { parsePlaylistLinks, type ParsedXtreamCandidate } from "@/scripts/lib/playlist-link"
+import { parsePlaylistLink, parsePlaylistLinks, type ParsedXtreamCandidate } from "@/scripts/lib/playlist-link"
 import { toastSuccess, toastWarn } from "@/scripts/lib/toast"
 
 type Method = "xtream" | "m3u"
@@ -334,7 +334,18 @@ const view: TvView = {
       label.textContent = t(key)
     }
 
+    function normalizeServerInput(): void {
+      const parsed = parsePlaylistLink(refs.serverUrlInput.value)
+      if (parsed?.type !== "xtream") return
+      // Match the phone form: a full provider link also works in Server URL.
+      // Keep credentials the user has already entered in the separate fields.
+      refs.serverUrlInput.value = parsed.serverUrl
+      if (!refs.usernameInput.value.trim()) refs.usernameInput.value = parsed.username
+      if (!refs.passwordInput.value.trim()) refs.passwordInput.value = parsed.password
+    }
+
     async function connectXtream(): Promise<void> {
+      normalizeServerInput()
       const serverUrl = refs.serverUrlInput.value.trim()
       const username = refs.usernameInput.value.trim()
       const password = refs.passwordInput.value.trim()
@@ -433,6 +444,8 @@ const view: TvView = {
     refs.methodXtream.addEventListener("click", () => setMethod("xtream"))
     refs.methodM3u.addEventListener("click", () => setMethod("m3u"))
     refs.pasteInput.addEventListener("input", onPasteInput)
+    // Wait until editing finishes so typing a link doesn't truncate its password.
+    refs.serverUrlInput.addEventListener("change", normalizeServerInput)
     refs.togglePasswordBtn.addEventListener("click", togglePasswordVisibility)
     refs.cancelBtn.addEventListener("click", () => void onCancelClick())
     refs.form.addEventListener("submit", (event) => void onConnect(event))

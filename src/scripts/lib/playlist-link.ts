@@ -25,7 +25,8 @@ export function parsePlaylistLink(input: string): ParsedPlaylistLink {
 
   const schemeMatch = trimmed.match(SCHEME_RX)
   if (schemeMatch && !/^https?$/i.test(schemeMatch[1])) return null
-  const withScheme = schemeMatch ? trimmed : `http://${trimmed}`
+  // Match the phone form and scheme resolver; HTTP requires an explicit URL.
+  const withScheme = schemeMatch ? trimmed : `https://${trimmed}`
   let url: URL
   try {
     url = new URL(withScheme)

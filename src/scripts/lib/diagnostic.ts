@@ -3,7 +3,7 @@
 //   - Settings page: per-playlist "Run diagnostic" button inside the health panel.
 //
 // Xtream pipeline (4 steps):
-//   1. Authenticate (get_account_info) - blocking; reach + creds + account info
+//   1. Authenticate (no action) - blocking; reach + creds + account info
 //   2. Live channels   (get_live_streams,  parallel after auth)
 //   3. Movies          (get_vod_streams,   parallel after auth)
 //   4. Series          (get_series,        parallel after auth)
@@ -374,7 +374,7 @@ export async function runXtreamDiagnostic(
   // catalogue endpoints with bad creds.
   const authStart = Date.now()
   try {
-    const url = buildApiUrl(apiCreds, "get_account_info")
+    const url = buildApiUrl(apiCreds)
     const response = await withTimeout(providerFetch(url), STEP_TIMEOUT_MS)
     const latency = Date.now() - authStart
     if (!response.ok) {
