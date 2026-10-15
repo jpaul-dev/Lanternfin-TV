@@ -4,6 +4,10 @@ import { playVod, playEpisode, type TvPlaybackEvents } from "@/scripts/tv/playba
 import { resolveSeriesNextUp } from "@/scripts/lib/tv-cast-next.ts"
 import { getCached } from "@/scripts/lib/cache.js"
 import { log } from "@/scripts/lib/log.js"
+import { peekTitleEnrichmentDetailed } from "@/scripts/lib/enrichment"
+import { peekCachedSeasonEnrichment } from "@/scripts/lib/tmdb-enrich"
+import { parseProviderTmdbId } from "@/scripts/lib/tvdb-proxy"
+import { seriesMatch } from "@/scripts/tv/ui/series-match"
 
 export interface ContinueWatchingRow {
   kind: "vod" | "episode"
@@ -46,6 +50,11 @@ async function resumeEpisode(playlistId: string, row: ContinueWatchingRow, event
   if (row.seriesId == null) return false
   const nextUp = await resolveSeriesNextUp(playlistId, row.seriesId)
   if (!nextUp) return false
+  const info = getCached(playlistId, `series_info_${row.seriesId}`)?.data?.info || {}
+  const cached = await peekTitleEnrichmentDetailed("series", playlistId, String(row.seriesId)).catch(() => null)
+  const tmdbId = seriesMatch(playlistId, Number(row.seriesId)) ?? cached?.tmdbId ?? parseProviderTmdbId(info)
+  const season = tmdbId ? await peekCachedSeasonEnrichment(tmdbId, nextUp.season).catch(() => null) : null
+  const metadata = season?.episodes.find((entry) => entry.episodeNumber === nextUp.episodeNum)
   return playEpisode(
     {
       playlistId,
@@ -53,6 +62,10 @@ async function resumeEpisode(playlistId: string, row: ContinueWatchingRow, event
       season: nextUp.season,
       episodeNum: nextUp.episodeNum,
       episodeId: nextUp.episodeId,
+      tmdbId,
+      imdbId: cached?.enrichment.imdbId || info.imdb_id || info.imdb || null,
+      metadataSeason: metadata?.metadataSeason ?? nextUp.season,
+      metadataEpisode: metadata?.metadataEpisode ?? nextUp.episodeNum,
       title: nextUp.title || row.name || "",
       seriesName: row.seriesName || "",
       logo: row.seriesLogo ?? null,

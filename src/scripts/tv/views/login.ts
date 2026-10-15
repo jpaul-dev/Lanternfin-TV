@@ -3,8 +3,10 @@ import type { TvView, TvViewContext } from "@/scripts/tv/router"
 import { t, applyI18nDOM, LOCALE_EVENT } from "@/scripts/lib/i18n"
 import { navigate } from "astro:transitions/client"
 import { addEntry, getEntries, resolveServerScheme, resolveM3UScheme } from "@/scripts/lib/creds.js"
-import { parsePlaylistLinks, type ParsedXtreamCandidate } from "@/scripts/lib/playlist-link"
+import { parsePlaylistLink, parsePlaylistLinks, type ParsedXtreamCandidate } from "@/scripts/lib/playlist-link"
 import { toastSuccess, toastWarn } from "@/scripts/lib/toast"
+import { openPhonePairing } from "@/shared/pairing/tv-dialog"
+import pairingConfig from "@/config/pairing.json"
 
 type Method = "xtream" | "m3u"
 
@@ -22,6 +24,7 @@ interface M3UTestResult {
 
 interface Refs {
   form: HTMLFormElement
+  phoneSetup: HTMLButtonElement
   methodXtream: HTMLButtonElement
   methodM3u: HTMLButtonElement
   pasteInput: HTMLInputElement
@@ -107,6 +110,7 @@ function buildMarkup(): string {
           </button>
         </div>
 
+        <button type="button" data-role="phone-setup" data-focus-key="phone-setup" class="min-h-11 rounded-2xl border border-line bg-accent-soft px-5 py-3 text-base font-semibold text-accent outline-none tv-focus-inset">Set up with your phone</button>
         <form data-role="form" class="flex flex-col gap-4" autocomplete="off">
           <label class="flex flex-col gap-2">
             <span data-i18n="tv.login.field.pasteLink" class="${TV_LABEL_CLASS}">Paste a playlist link</span>
@@ -189,6 +193,7 @@ function collectRefs(root: HTMLElement): Refs {
   const query = <T extends HTMLElement>(role: string) => root.querySelector<T>(`[data-role="${role}"]`)!
   return {
     form: query("form"),
+    phoneSetup: query("phone-setup"),
     methodXtream: query("method-xtream"),
     methodM3u: query("method-m3u"),
     pasteInput: query("paste"),
@@ -231,6 +236,7 @@ const view: TvView = {
     let destroyed = false
     let cancelAllowed = false
     let pendingMirrors: ParsedXtreamCandidate[] = []
+    let closePhoneSetup: (() => void) | undefined
 
     function paintMethodButtons(): void {
       refs.methodXtream.className =
@@ -275,6 +281,7 @@ const view: TvView = {
     function setBusy(next: boolean): void {
       busy = next
       for (const el of [
+        refs.phoneSetup,
         refs.pasteInput,
         refs.serverUrlInput,
         refs.usernameInput,
@@ -334,7 +341,18 @@ const view: TvView = {
       label.textContent = t(key)
     }
 
+    function normalizeServerInput(): void {
+      const parsed = parsePlaylistLink(refs.serverUrlInput.value)
+      if (parsed?.type !== "xtream") return
+      // Match the phone form: a full provider link also works in Server URL.
+      // Keep credentials the user has already entered in the separate fields.
+      refs.serverUrlInput.value = parsed.serverUrl
+      if (!refs.usernameInput.value.trim()) refs.usernameInput.value = parsed.username
+      if (!refs.passwordInput.value.trim()) refs.passwordInput.value = parsed.password
+    }
+
     async function connectXtream(): Promise<void> {
+      normalizeServerInput()
       const serverUrl = refs.serverUrlInput.value.trim()
       const username = refs.usernameInput.value.trim()
       const password = refs.passwordInput.value.trim()
@@ -430,9 +448,42 @@ const view: TvView = {
       updateMirrorHint()
     }
 
+    refs.phoneSetup.addEventListener("click", () => {
+      if (busy) return
+      closePhoneSetup = openPhonePairing({
+        origin: import.meta.env.PUBLIC_PAIRING_URL || pairingConfig.origin,
+        deviceName: "Lanternfin Android TV",
+        async onAccount(account, signal) {
+          const active = () => { if (destroyed || signal.aborted) throw new Error("Phone setup cancelled.") }
+          active(); setBusy(true); pendingMirrors = []; updateMirrorHint()
+          refs.nameInput.value = account.name; refs.epgUrlInput.value = account.epgUrl
+          try {
+            if (account.kind === "xtream") {
+              setMethod("xtream"); refs.serverUrlInput.value = account.url; refs.usernameInput.value = account.username; refs.passwordInput.value = account.password
+              const resolved = await resolveServerScheme({ serverUrl: account.url, username: account.username, password: account.password })
+              active()
+              if (resolved.test.status !== "active") throw new Error(describeXtreamResult(resolved.test as XtreamTestResult))
+              const formats = (resolved.test as { allowedOutputFormats?: string[] }).allowedOutputFormats
+              await addEntry({ type: "xtream", title: account.name, serverUrl: resolved.serverUrl, username: account.username, password: account.password, epgUrl: account.epgUrl, liveContainer: formats?.includes("ts") && !formats.includes("m3u8") ? "ts" : "m3u8" })
+            } else {
+              setMethod("m3u"); refs.m3uUrlInput.value = account.url
+              const resolved = await resolveM3UScheme(account.url)
+              active()
+              if (resolved.test.status !== "active") throw new Error(describeM3UResult(resolved.test as M3UTestResult))
+              await addEntry({ type: "m3u", title: account.name, url: resolved.url, epgUrl: account.epgUrl })
+            }
+            active(); toastSuccess("Account received from your phone")
+          } catch (error) { if (!destroyed) setStatus("unavailable", (error as Error).message); throw error }
+          finally { if (!destroyed) setBusy(false) }
+        },
+        onSuccess() { if (!destroyed) void navigate("/tv", { history: "replace" }) },
+      })
+    })
     refs.methodXtream.addEventListener("click", () => setMethod("xtream"))
     refs.methodM3u.addEventListener("click", () => setMethod("m3u"))
     refs.pasteInput.addEventListener("input", onPasteInput)
+    // Wait until editing finishes so typing a link doesn't truncate its password.
+    refs.serverUrlInput.addEventListener("change", normalizeServerInput)
     refs.togglePasswordBtn.addEventListener("click", togglePasswordVisibility)
     refs.cancelBtn.addEventListener("click", () => void onCancelClick())
     refs.form.addEventListener("submit", (event) => void onConnect(event))
@@ -443,6 +494,7 @@ const view: TvView = {
 
     return () => {
       destroyed = true
+      closePhoneSetup?.()
       document.removeEventListener(LOCALE_EVENT, onLocaleChanged)
       root.replaceChildren()
     }

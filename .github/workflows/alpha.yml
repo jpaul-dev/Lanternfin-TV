@@ -4,17 +4,24 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      edition:
+        description: Android device edition
+        type: choice
+        required: true
+        default: tv
+        options: [tv, phone]
 
 permissions:
   contents: read
 
 concurrency:
-  group: alpha-${{ github.ref }}
+  group: alpha-${{ github.ref }}-${{ inputs.edition || 'tv' }}
   cancel-in-progress: false
 
 env:
   PUBLIC_APP_MODE: standalone
-  XTREAM_TV_BUILD: "1"
+  XTREAM_TV_BUILD: ${{ inputs.edition == 'phone' && '0' || '1' }}
   XT_SKIP_FFMPEG_SIDECAR: "1"
 
 jobs:
@@ -70,10 +77,14 @@ jobs:
           workspaces: "src-tauri -> target"
           key: lanternfin-${{ matrix.target }}
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - name: Build standalone TV APK (unsigned alpha)
+      - name: Build standalone ${{ inputs.edition || 'tv' }} APK (unsigned alpha)
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/29.0.13846066
         run: pnpm tauri android build --ci --apk --target ${{ matrix.target }}
+      - name: Test Android intro timing and manifest parsing
+        if: matrix.target == 'armv7'
+        working-directory: src-tauri/gen/android
+        run: ./gradlew :app:testArmReleaseUnitTest
       - name: Verify APK identity and record checksums
         shell: bash
         run: |
@@ -84,6 +95,12 @@ jobs:
             "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" > "$apk.manifest.txt"
             grep -q "package: name='io.github.jpauldev.lanternfin'" "$apk.manifest.txt"
             grep -q "application-label:'Lanternfin TV'" "$apk.manifest.txt"
+            if [ "$XTREAM_TV_BUILD" = "0" ]; then
+              grep -q "uses-feature-not-required: name='android.software.leanback'" "$apk.manifest.txt"
+              ! grep -q "uses-feature: name='android.software.leanback'" "$apk.manifest.txt"
+            else
+              grep -q "uses-feature: name='android.software.leanback'" "$apk.manifest.txt"
+            fi
             sha256sum "$apk" > "$apk.sha256"
           done
           {
@@ -95,7 +112,7 @@ jobs:
           } > src-tauri/gen/android/app/build/outputs/apk/toolchain.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: lanternfin-android-${{ matrix.target }}-unsigned-${{ github.sha }}
+          name: lanternfin-android-${{ inputs.edition == 'phone' && 'phone-' || '' }}${{ matrix.target }}-unsigned-${{ github.sha }}
           path: |
             src-tauri/gen/android/app/build/outputs/apk/**/*.apk
             src-tauri/gen/android/app/build/outputs/apk/**/*.txt

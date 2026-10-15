@@ -1,0 +1,3 @@
+`tv-mkv-text.mkv` is our generated, silent 70-second 640×360 solid-color H.264 video with English and French SRT tracks. It contains no downloaded media. The French cue lasts the entire video so seeking into a long-running subtitle is covered. The English track includes a gap before its last cue.
+
+Regenerate with `node scripts/create-tv-mkv-fixture.mjs <existing-ffmpeg-path>` and copy `artifacts/tv-mkv-text-demo.mkv` here. The checked fixture was muxed with FFmpeg / Lavf 61.7.100. The generator downloads neither FFmpeg nor media. Tests read the checked file directly and do not require FFmpeg. The separate sparse fixture builder exercises larger layouts, malformed data and limits. Neither test fixture is packaged in the TV app.

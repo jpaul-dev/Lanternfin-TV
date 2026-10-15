@@ -160,6 +160,7 @@ export interface TmdbRecommendationOut {
 
 export interface TmdbTitleEnrichment {
   tmdbId: number
+  imdbId?: string | null
   title: string
   overview: string
   posterUrl: string | null
@@ -239,6 +240,7 @@ function mapBundleToEnrichment(
 
   return {
     tmdbId,
+    imdbId: /^tt\d{7,12}$/.test(bundle.external_ids?.imdb_id || "") ? bundle.external_ids!.imdb_id : null,
     title: (mediaType === "movie" ? bundle.title : bundle.name) || "",
     overview: bundle.overview || "",
     posterUrl: tmdbImageUrl(bundle.poster_path, TMDB_POSTER_SIZE),
@@ -312,7 +314,7 @@ export async function fetchSeriesEnrichment(tmdbId: number): Promise<TmdbTitleEn
   if (!isTmdbActive()) return null
   const apiKey = getTmdbApiKey()
   const language = tmdbLanguageFor(getActiveLocale())
-  const cacheKind = `tmdb_series_${tmdbId}:${language}:v4`
+  const cacheKind = `tmdb_series_${tmdbId}:${language}:v5`
   try {
     const result = await cachedFetch(TMDB_CACHE_ENTRY_ID, cacheKind, TMDB_DETAIL_TTL_MS, async () => {
       const bundle = await tmdbTvBundle(apiKey, tmdbId, language)
@@ -328,6 +330,11 @@ export async function fetchSeriesEnrichment(tmdbId: number): Promise<TmdbTitleEn
 
 export interface TmdbSeasonEpisodeOut {
   episodeNumber: number
+  airDate?: string
+  runtimeMinutes?: number
+  voteAverage?: number
+  metadataSeason?: number
+  metadataEpisode?: number
   name: string
   overview: string
   stillUrl: string | null
@@ -374,6 +381,11 @@ async function fetchTmdbSeasonEpisodes(
   const season = await tmdbTvSeason(apiKey, tmdbId, seasonNumber, language)
   const episodes = (season.episodes || []).map((episode) => ({
     episodeNumber: episode.episode_number,
+    metadataSeason: seasonNumber,
+    metadataEpisode: episode.episode_number,
+    ...(episode.air_date ? { airDate: episode.air_date } : {}),
+    ...(episode.runtime && episode.runtime > 0 ? { runtimeMinutes: episode.runtime } : {}),
+    ...(episode.vote_average && episode.vote_average > 0 ? { voteAverage: episode.vote_average } : {}),
     name: episode.name || "",
     overview: episode.overview || "",
     stillUrl: tmdbImageUrl(episode.still_path, TMDB_STILL_SIZE),
@@ -483,7 +495,7 @@ export async function fetchSeasonEnrichment(
   if (!isTmdbActive()) return null
   const apiKey = getTmdbApiKey()
   const language = tmdbLanguageFor(getActiveLocale())
-  const cacheKind = `tmdb_season_${tmdbId}_${seasonNumber}:${language}:v2`
+  const cacheKind = `tmdb_season_${tmdbId}_${seasonNumber}:${language}:v3`
   try {
     const result = await cachedFetch(TMDB_CACHE_ENTRY_ID, cacheKind, TMDB_DETAIL_TTL_MS, async () => {
       try {
@@ -579,7 +591,7 @@ export interface CachedTmdbEnrichment {
 }
 
 function tmdbDetailCacheKind(kind: TmdbKind, tmdbId: number, language: string): string {
-  return kind === "series" ? `tmdb_series_${tmdbId}:${language}:v4` : `tmdb_movie_${tmdbId}:${language}:v4`
+  return kind === "series" ? `tmdb_series_${tmdbId}:${language}:v5` : `tmdb_movie_${tmdbId}:${language}:v4`
 }
 
 /** Cache-only lookup, no isTmdbActive() gate: reading cache is harmless even with TMDb disabled. */
@@ -618,7 +630,7 @@ export async function peekCachedSeasonEnrichment(
 ): Promise<TmdbSeasonEnrichment | null> {
   if (!isTmdbActive()) return null
   const language = tmdbLanguageFor(getActiveLocale())
-  const cacheKind = `tmdb_season_${tmdbId}_${seasonNumber}:${language}:v2`
+  const cacheKind = `tmdb_season_${tmdbId}_${seasonNumber}:${language}:v3`
   return withProbeTimeout(peekFreshCache<TmdbSeasonEnrichment>(cacheKind), null)
 }
 

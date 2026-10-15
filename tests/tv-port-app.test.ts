@@ -1,0 +1,111 @@
+// @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { afterEach, expect, it, vi } from 'vitest'
+
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers() })
+
+it('runs source loading, favorites, resume, failed-refresh recovery and forgetting through the actual UI', async () => {
+  vi.useFakeTimers(); localStorage.clear()
+  vi.stubGlobal('__TV_TARGET__', 'browser')
+  vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {})
+  document.documentElement.innerHTML = readFileSync(resolve('tv-app/index.html'), 'utf8')
+  await import('../tv-app/app')
+  const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
+  const click = async (id: string) => { el<HTMLButtonElement>(id).click(); await vi.advanceTimersByTimeAsync(0) }
+  const kind = el<HTMLSelectElement>('source-kind'); kind.value = 'direct'; kind.dispatchEvent(new Event('change'))
+  el<HTMLInputElement>('source-url').value = 'https://example.com/movie.mp4'
+  el<HTMLInputElement>('remember').checked = true
+  await click('connect'); expect(el('catalog').hidden).toBe(false)
+  ;(el('channels').querySelector('button') as HTMLButtonElement).click()
+  const video = document.querySelector('video')!
+  Object.defineProperty(video, 'duration', { value: 600 })
+  video.currentTime = 120; video.dispatchEvent(new Event('playing'))
+  await vi.advanceTimersByTimeAsync(1000)
+  expect(el('seek-controls').hidden).toBe(false)
+  el<HTMLInputElement>('seek-position').focus()
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+  expect(video.currentTime).toBe(130)
+  video.currentTime = 120
+  await click('tracks-open'); el<HTMLSelectElement>('aspect-mode').value = 'zoom'; el('aspect-mode').dispatchEvent(new Event('change'))
+  expect(video.style.objectFit).toBe('cover'); expect(el<HTMLSelectElement>('quality-track').disabled).toBe(true)
+  expect(el<HTMLSelectElement>('subtitle-size').disabled).toBe(true); expect(el<HTMLSelectElement>('subtitle-delay').disabled).toBe(true)
+  el<HTMLSelectElement>('playback-speed').value = '1.5'; el('playback-speed').dispatchEvent(new Event('change'))
+  expect(video.playbackRate).toBe(1.5)
+  await click('tracks-close')
+  await click('favorite'); expect(el('favorite').getAttribute('aria-pressed')).toBe('true')
+  await click('stop'); await click('view-favorites')
+  expect(el('channels').querySelectorAll('button')).toHaveLength(1)
+  ;(el('channels').querySelector('button') as HTMLButtonElement).click()
+  expect(el('resume').hidden).toBe(false); expect(el('resume-description').textContent).toContain('2:00')
+  await click('resume-start'); video.currentTime = 0; video.dispatchEvent(new Event('playing'))
+  await click('favorite'); await click('stop')
+  expect(el('channels').querySelectorAll('button')).toHaveLength(0)
+  await click('view-all'); await click('change-source')
+  kind.value = 'playlist'; kind.dispatchEvent(new Event('change'))
+  el<HTMLInputElement>('source-url').value = 'https://example.com/broken.m3u'
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('private provider detail')))
+  await click('connect')
+  expect(el('notice').textContent).toContain('Cannot reach'); expect(el('notice').textContent).not.toContain('private provider detail')
+  await click('return-catalog'); expect(el('channels').querySelectorAll('button')).toHaveLength(1)
+  // Refresh uses the loaded source, not an unsuccessful edit still in the form.
+  await click('refresh-catalog'); expect(el('catalog').hidden).toBe(false); expect(kind.value).toBe('direct')
+  await click('change-source'); await click('forget')
+  expect(localStorage.length).toBe(0); expect(el('return-catalog').hidden).toBe(true)
+  // Native provider browsing keeps a series separate from its playable episodes.
+  kind.value = 'xtream'; kind.dispatchEvent(new Event('change'))
+  el<HTMLInputElement>('source-url').value = 'https://example.com'
+  el<HTMLInputElement>('username').value = 'demo'; el<HTMLInputElement>('password').value = 'demo'
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    const action = new URL(url).searchParams.get('action') || ''
+    const data = action.endsWith('_categories') ? [{ category_id: '1', category_name: 'Drama' }] : action === 'get_series_info' ? { episodes: { 1: [{ id: 5, episode_num: 1, title: 'Opening', container_extension: 'mp4' }, { id: 6, episode_num: 2, title: 'Following', container_extension: 'mp4' }], 2: [{ id: 7, episode_num: 1, title: 'Return', container_extension: 'mp4' }] } } : [{ series_id: 42, name: 'Test series' }]
+    return new Response(JSON.stringify(data))
+  }))
+  await click('connect'); expect(el('home-content').hidden).toBe(false)
+  await click('nav-settings'); el<HTMLSelectElement>('pref-autonext').value = 'true'; el('pref-autonext').dispatchEvent(new Event('change')); await click('settings-back')
+  await click('nav-series'); expect(el('category-list').textContent).toContain('Drama')
+  ;(el('category-list').querySelector('button') as HTMLButtonElement).click(); await vi.advanceTimersByTimeAsync(0)
+  expect(el('channels').textContent).toContain('Test series')
+  ;(el('channels').querySelector('button') as HTMLButtonElement).click(); await vi.advanceTimersByTimeAsync(0)
+  expect(el('episode-grid').textContent).toContain('S1 E1 · Opening'); expect(el('detail').hidden).toBe(false)
+  await click('detail-favorite'); expect(el('detail-favorite').getAttribute('aria-pressed')).toBe('true')
+  await click('detail-play'); expect(el('playback').hidden).toBe(false)
+  video.dispatchEvent(new Event('playing'))
+  await click('tracks-open'); expect(el('track-menu').hidden).toBe(false)
+  expect(el('track-status').textContent).toContain('does not expose')
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  expect(el('track-menu').hidden).toBe(true); expect(el('playback').hidden).toBe(false)
+  video.dispatchEvent(new Event('ended')); expect(el('player-status').textContent).toContain('10 seconds')
+  await click('cancel-next'); await vi.advanceTimersByTimeAsync(11000); expect(el('playing-title').textContent).toContain('Opening')
+  await click('play-next'); expect(el('playing-title').textContent).toContain('Following')
+  video.dispatchEvent(new Event('playing')); video.dispatchEvent(new Event('ended'))
+  await vi.advanceTimersByTimeAsync(10000); expect(el('playing-title').textContent).toContain('S2 E1 · Return')
+  await click('stop'); expect(el('detail').hidden).toBe(false)
+  expect(el<HTMLSelectElement>('detail-season').value).toBe('Season 2')
+  expect(el('detail-title').textContent).toBe('Test series')
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await vi.advanceTimersByTimeAsync(0)
+  expect(el('channels').textContent).toContain('Test series'); expect(el('catalog').hidden).toBe(false)
+  ;(el('channels').querySelector('button') as HTMLButtonElement).click(); await vi.advanceTimersByTimeAsync(0)
+  expect(el<HTMLSelectElement>('detail-season').value).toBe('Season 2'); expect(el('detail-play').textContent).toContain('season 2')
+  await click('detail-back')
+  await click('nav-settings'); expect(el('settings').hidden).toBe(false)
+  await click('settings-back'); expect(el('home-content').hidden).toBe(false)
+  await click('view-favorites')
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ info: {}, episodes: {} }))))
+  ;(el('channels').querySelector('button') as HTMLButtonElement).click(); await vi.advanceTimersByTimeAsync(0)
+  expect(el('episode-page').textContent).toBe('No episodes available')
+  expect(el<HTMLButtonElement>('detail-play').disabled).toBe(true)
+  await click('nav-settings'); await click('settings-manage')
+  expect(el('manage').hidden).toBe(false); expect(el('manage-favorites-count').textContent).toBe('1')
+  await click('manage-favorites'); await click('manage-review')
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  expect(el('manage').hidden).toBe(false); expect(el('manage-confirmation').hidden).toBe(true)
+  await click('manage-review'); await click('manage-apply'); expect(el('manage-favorites-count').textContent).toBe('0')
+  await click('manage-undo'); expect(el('manage-favorites-count').textContent).toBe('1')
+  await click('manage-backup'); expect(el('backup').hidden).toBe(false)
+  await click('backup-back'); expect(el('manage').hidden).toBe(false); expect(el('manage-favorites-count').textContent).toBe('1')
+  await click('manage-back'); expect(el('settings').hidden).toBe(false)
+  vi.clearAllTimers()
+})

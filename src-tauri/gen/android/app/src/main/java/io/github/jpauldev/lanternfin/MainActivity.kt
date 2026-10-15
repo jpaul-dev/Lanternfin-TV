@@ -1236,6 +1236,23 @@ class AndroidVideoBridge(
   fun isSupported(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
 
   @JavascriptInterface
+  fun launchEpisode(
+    contentKey: String, url: String, ua: String, referer: String,
+    title: String, posterUrl: String, startMs: Long, episodeJson: String,
+  ): Boolean {
+    return tryLaunch(VideoActivity.MODE_VOD) { intent ->
+      intent.putExtra(VideoActivity.EXTRA_URL, url)
+      intent.putExtra(VideoActivity.EXTRA_START_MS, startMs)
+      intent.putExtra(VideoActivity.EXTRA_CONTENT_KEY, contentKey)
+      intent.putExtra(VideoActivity.EXTRA_UA, ua)
+      intent.putExtra(VideoActivity.EXTRA_REFERER, referer)
+      intent.putExtra(VideoActivity.EXTRA_TITLE, title)
+      intent.putExtra(VideoActivity.EXTRA_POSTER, posterUrl)
+      intent.putExtra(VideoActivity.EXTRA_EPISODE, episodeJson.take(2048))
+    }
+  }
+
+  @JavascriptInterface
   fun launchVod(
     contentKey: String,
     url: String,

@@ -91,6 +91,7 @@ export interface TmdbImagesResponse {
 
 export interface TmdbBundle {
   id: number
+  external_ids?: { imdb_id?: string | null }
   title?: string
   name?: string
   overview?: string
@@ -106,6 +107,9 @@ export interface TmdbBundle {
 
 export interface TmdbSeasonEpisode {
   episode_number: number
+  air_date?: string
+  runtime?: number
+  vote_average?: number
   name?: string
   overview?: string
   still_path?: string | null
@@ -373,7 +377,7 @@ export async function tmdbTvBundle(
   language?: string
 ): Promise<TmdbBundle> {
   return tmdbFetch<TmdbBundle>(key, `/tv/${tmdbId}`, {
-    append_to_response: "credits,videos,recommendations,images",
+    append_to_response: "credits,videos,recommendations,images,external_ids",
     include_image_language: includeImageLanguageFor(language),
     language,
   })

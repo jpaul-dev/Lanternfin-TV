@@ -11,6 +11,7 @@ interface AndroidPipBridge {
 }
 
 interface AndroidVideoBridge {
+  launchEpisode?: (contentKey: string, url: string, ua: string, referer: string, title: string, posterUrl: string, startMs: number, episodeJson: string) => boolean
   isSupported?: () => boolean
   launchVod?: (
     contentKey: string,

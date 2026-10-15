@@ -646,7 +646,7 @@ export function safeHttpUrl(rawUrl) {
   }
 }
 
-export function buildApiUrl(creds, action, params = {}) {
+export function buildApiUrl(creds, action = "", params = {}) {
   const url = new URL(fmtBase(creds.host, creds.port) + "/player_api.php")
   const search = new URLSearchParams({
     username: creds.user,
@@ -850,7 +850,9 @@ export async function resolveM3UScheme(url) {
 }
 
 /**
- * Hit `get_account_info` and classify the response.
+ * Request the default player_api.php account response (no action).
+ * get_account_info is not supported by every compatible provider; some return
+ * an empty array for it even though the credentials and catalogue are valid.
  *
  * `reason` is populated on every non-success path via `classifyError`, so the
  * caller can render actionable copy without parsing free-form messages. See
@@ -867,10 +869,7 @@ export async function testXtreamConnection({ serverUrl, username, password }) {
   const { classifyError } = await import("./provider-error.js")
   const startedAt = Date.now()
   try {
-    const url = buildApiUrl(
-      { host: serverUrl, port: "", user: username, pass: password },
-      "get_account_info"
-    )
+    const url = buildApiUrl({ host: serverUrl, port: "", user: username, pass: password })
     const { providerFetch } = await import("./provider-fetch.js")
     const response = await providerFetch(url, { logKind: "api" })
     if (!response.ok) {

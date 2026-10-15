@@ -32,4 +32,4 @@ Private signing material is outside the checkout at `%USERPROFILE%\.lanternfin\s
 
 Test clean installation, standalone playlist onboarding, live/VOD playback, D-pad navigation, Back/Home behavior, and no default receiver listener on an actual Android TV. Use lawful test media and test credentials. Keep this as an alpha while the remaining credential-storage, dependency, desktop-permission, and distribution issues in the [review](fork-review/README.md) are addressed.
 
-LG webOS and Samsung Tizen remain planned ports. These Android APKs do not install on those systems; they need the platform-specific packaging and player adapters described in the roadmap.
+Initial LG webOS and Samsung Tizen ports are now implemented separately on `ports/webos-tizen`; see [TV port status and installation](TV_PORTS.md). These Android APKs do not install on those systems. TV hardware verification and Samsung signing are still pending.

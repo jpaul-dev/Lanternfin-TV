@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lanternfin · TV Setup</title><link rel="icon" href="mark.svg"><link rel="stylesheet" href="app.css"><script type="module" src="app.js"></script></head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" aria-label="Lanternfin TV Setup home"><img src="mark.svg" alt=""><span>Lanternfin<small>TV SETUP COMPANION</small></span></a>
+      <div class="local-label"><span class="dot"></span>Running on your computer</div>
+      <nav aria-label="Setup steps" id="steps"></nav>
+      <div class="sidebar-note"><span class="tiny-label">A LITTLE LIGHT. A BIG SCREEN.</span><p>Your streams, on your TV.<br>We’ll take it one step at a time.</p></div>
+      <button id="quit" class="quiet">Close setup <span aria-hidden="true">↗</span></button>
+    </aside>
+    <main id="main">
+      <header class="topbar"><div id="breadcrumb">Let’s get you watching</div><span class="preview-badge">TV PREVIEW · 0.1</span></header>
+      <div id="offline" role="alert" hidden></div>
+      <div id="content" tabindex="-1"></div>
+      <section id="activity" class="activity" aria-label="Setup activity" hidden>
+        <div class="activity-top"><span id="activity-symbol" class="activity-symbol" aria-hidden="true"></span><div><p class="tiny-label">SETUP ACTIVITY</p><p id="activity-message" role="status" aria-live="polite"></p></div><button id="cancel" class="secondary">Cancel</button></div>
+        <p id="activity-help" class="muted" hidden></p>
+        <details><summary>Show technical details</summary><pre id="activity-log"></pre></details>
+      </section>
+      <footer><span>Built for Lanternfin. No casting device needed.</span><a id="help-link" target="_blank" rel="noopener noreferrer">Official TV setup guide ↗</a></footer>
+    </main>
+  </div>
+</body></html>
