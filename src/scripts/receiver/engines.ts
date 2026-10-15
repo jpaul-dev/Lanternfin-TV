@@ -69,6 +69,7 @@ export interface ReceiverLiveContext {
 
 export interface ReceiverPlayOptions {
   liveContext?: ReceiverLiveContext
+  episode?: Parameters<typeof launchAndroidNativeVod>[0]["episode"]
 }
 
 export interface ReceiverEngine {
@@ -764,6 +765,7 @@ export function createAndroidNativeReceiverEngine(callbacks: ReceiverEngineCallb
         : launchAndroidNativeVod({
             contentKey,
             url: descriptor.src,
+            episode: options?.episode,
             ua,
             referer,
             title: descriptor.title,

@@ -105,6 +105,7 @@ describe("fetchSeasonEnrichment season mapping", () => {
     expect(result?.episodes[0]).toEqual({
       episodeNumber: 1,
       name: "Flat 1",
+      metadataSeason: 1, metadataEpisode: 1,
       overview: "Plot 1",
       stillUrl: expect.stringContaining("/still1.jpg"),
     })
@@ -118,6 +119,7 @@ describe("fetchSeasonEnrichment season mapping", () => {
     expect(result?.episodes[0]).toEqual({
       episodeNumber: 1,
       name: "Flat 26",
+      metadataSeason: 1, metadataEpisode: 26,
       overview: "Plot 26",
       stillUrl: expect.stringContaining("/still26.jpg"),
     })

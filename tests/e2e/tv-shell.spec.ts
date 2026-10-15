@@ -223,6 +223,40 @@ async function seedTvState(page: Page, extra: () => void = () => {}) {
 }
 
 const TV_VIEWPORT = { width: 1920, height: 1080 }
+
+test("episode details follow remote focus and provider synopsis variants", async ({ page }) => {
+  await page.setViewportSize(TV_VIEWPORT)
+  await mockProvider(page)
+  await seedTvState(page, seedTvContent)
+  await page.goto("/tv")
+  await page.waitForSelector(RAIL_ITEMS)
+  await page.evaluate(() => {
+    const fixture = (window as any).__xtTvFixtures
+    fixture.seriesInfo.info.name = "The Last Observatory"
+    fixture.seriesInfo.info.plot = "An astronomer follows an unexplained signal to an abandoned mountain observatory."
+    fixture.seriesInfo.episodes["1"][0].title = "A Signal in the Dark"
+    fixture.seriesInfo.episodes["1"][0].info = { overview: "Mara returns to the mountain where her father vanished. A signal from the old telescope draws her into a mystery that reaches far beyond the valley.", duration_secs: 2520, air_date: "2025-04-12", rating: 8.4 }
+    fixture.seriesInfo.episodes["1"][1].title = "The Quiet Valley"
+    fixture.seriesInfo.episodes["1"][1].info = { description: "A familiar voice interrupts the transmission. Mara and Eli search the village archives for the source.", duration_secs: 2640, air_date: "2025-04-19" }
+  })
+  await seedCatalogCache(page)
+  await page.goto("/tv/series/detail?id=101")
+  const first = page.locator('[data-focus-key="ep:1:1"]')
+  await expect(first).toBeVisible()
+  await first.focus()
+  await expect(page.locator("#tv-episode-preview")).toContainText("Mara returns to the mountain")
+  await expect(page.locator("#tv-episode-preview")).toContainText("2025-04-12")
+  await page.keyboard.press("ArrowDown")
+  await expect(page.locator('[data-focus-key="ep:1:2"]')).toBeFocused()
+  await expect(page.locator("#tv-episode-preview")).toContainText("A familiar voice")
+  await page.keyboard.press("ArrowUp")
+  await expect(first).toBeFocused()
+  await page.screenshot({ path: "artifacts/android-tv-episode-details.png" })
+  await page.getByRole("button", { name: "Match show", exact: true }).click()
+  await expect(page.getByRole("dialog")).toContainText("Enable TMDB metadata")
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("button", { name: "Match show", exact: true })).toBeFocused()
+})
 const HOME_RAIL_TRACKS = "[data-tv-view-root] section > div:nth-child(2)"
 
 // Home rails + a 4-season series detail need cached catalogs and per-playlist prefs.

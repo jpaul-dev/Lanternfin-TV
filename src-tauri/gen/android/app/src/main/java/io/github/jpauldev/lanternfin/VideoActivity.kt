@@ -66,6 +66,7 @@ class VideoActivity : AppCompatActivity() {
     const val EXTRA_REFERER = "referer"
     const val EXTRA_TITLE = "title"
     const val EXTRA_POSTER = "posterUrl"
+    const val EXTRA_EPISODE = "episodeInfo"
     const val EXTRA_START_MS = "startMs"
     const val EXTRA_INITIAL_CHANNEL_ID = "initialChannelId"
     const val EXTRA_TV_OVERSCAN_PERCENT = "tvOverscanPercent"
@@ -107,6 +108,7 @@ class VideoActivity : AppCompatActivity() {
   private var volumeSeekBar: SeekBar? = null
 
   private var exoPlayer: ExoPlayer? = null
+  private var introController: EpisodeIntroController? = null
   private var mediaSession: MediaSession? = null
 
   private var mode: String = MODE_VOD
@@ -272,14 +274,19 @@ class VideoActivity : AppCompatActivity() {
       showDisplayModeChooser()
       return
     }
-    val labels = arrayOf(
+    val labels = mutableListOf(
       getString(R.string.xt_video_display_mode),
       getString(R.string.xt_video_playback_speed),
     )
+    if (introController?.available == true) labels.add(getString(R.string.intro_settings))
     AlertDialog.Builder(this)
       .setTitle(R.string.xt_video_settings_title)
-      .setItems(labels) { _, which ->
-        if (which == 0) showDisplayModeChooser() else showPlaybackSpeedChooser()
+      .setItems(labels.toTypedArray()) { _, which ->
+        when (which) {
+          0 -> showDisplayModeChooser()
+          1 -> showPlaybackSpeedChooser()
+          2 -> introController?.showSettings()
+        }
       }
       .show()
   }
@@ -331,6 +338,9 @@ class VideoActivity : AppCompatActivity() {
   }
 
   private fun initializeFromIntent(intent: Intent) {
+    introController?.dispose()
+    introController = null
+    findViewById<View>(R.id.skip_intro_button).visibility = View.GONE
     mode = intent.getStringExtra(EXTRA_MODE) ?: MODE_VOD
     contentKey = intent.getStringExtra(EXTRA_CONTENT_KEY) ?: ""
     defaultUa = intent.getStringExtra(EXTRA_UA) ?: ""
@@ -357,6 +367,11 @@ class VideoActivity : AppCompatActivity() {
 
     updateControllerForMode()
     initializePlayer()
+    if (mode == MODE_VOD && intent.hasExtra(EXTRA_EPISODE)) {
+      introController = EpisodeIntroController(this, intent.getStringExtra(EXTRA_EPISODE) ?: "",
+        findViewById(R.id.skip_intro_button), { exoPlayer }, { controllerVisible }, { playerView?.showController() })
+      introController?.resume()
+    }
   }
 
   // Live has no timeline (hide the time bar); VOD has no channel list (hide the flip buttons).
@@ -443,6 +458,7 @@ class VideoActivity : AppCompatActivity() {
 
   override fun onResume() {
     super.onResume()
+    introController?.resume()
     progressHandler.removeCallbacks(progressTick)
     progressHandler.postDelayed(progressTick, PROGRESS_INTERVAL_MS)
     // A transient background (overlay, CEC, assistant) would otherwise leave a cast paused for good.
@@ -454,6 +470,7 @@ class VideoActivity : AppCompatActivity() {
 
   override fun onPause() {
     super.onPause()
+    introController?.pause()
     progressHandler.removeCallbacks(progressTick)
     // Keep playing if we're transitioning into PiP. Android pauses the
     // Activity briefly during the PiP transition; we only really stop in
@@ -472,6 +489,7 @@ class VideoActivity : AppCompatActivity() {
   }
 
   override fun onDestroy() {
+    introController?.dispose()
     progressHandler.removeCallbacks(progressTick)
     NativePlayerControl.unregister(this)
     releasePlayer()
@@ -733,6 +751,13 @@ class VideoActivity : AppCompatActivity() {
     val metrics = resources.displayMetrics
     val horizontalPx = metrics.widthPixels * tvOverscanPercent / 100
     val verticalPx = metrics.heightPixels * tvOverscanPercent / 100
+    val skip = findViewById<View>(R.id.skip_intro_button)
+    (skip.layoutParams as? FrameLayout.LayoutParams)?.let { params ->
+      val margin = (32 * metrics.density).toInt()
+      params.rightMargin = horizontalPx + margin
+      params.bottomMargin = verticalPx + margin
+      skip.layoutParams = params
+    }
 
     playerView?.setPadding(0, 0, 0, 0)
     playerView?.findViewById<View>(androidx.media3.ui.R.id.exo_controller)
@@ -847,6 +872,7 @@ class VideoActivity : AppCompatActivity() {
   // Keys only flip channels or open overlays while the controller is hidden; while visible,
   // unhandled D-pad falls through to the framework focus navigation.
   override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+    if (introController?.handleKey(keyCode, event?.repeatCount ?: 0) == true) return true
     if (overlayVisible) {
       if (keyCode == KeyEvent.KEYCODE_BACK) {
         hideChannelOverlay()

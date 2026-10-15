@@ -18,6 +18,23 @@
         app:show_subtitle_button="true"
         app:controller_layout_id="@layout/player_controller_tv" />
 
+    <TextView
+        android:id="@+id/skip_intro_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|right"
+        android:layout_margin="32dp"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="14dp"
+        android:background="@drawable/bg_intro_button"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:text="@string/intro_skip"
+        android:clickable="true"
+        android:focusable="false"
+        android:visibility="gone" />
+
     <LinearLayout
         android:id="@+id/channel_list_overlay"
         android:layout_width="match_parent"

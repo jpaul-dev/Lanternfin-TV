@@ -81,6 +81,10 @@ export interface TvPlayVodInput {
 }
 
 export interface TvPlayEpisodeInput {
+  tmdbId?: number | null
+  imdbId?: string | null
+  metadataSeason?: number
+  metadataEpisode?: number
   playlistId: string
   seriesId: string | number
   season: number
@@ -752,7 +756,16 @@ export async function playEpisode(input: TvPlayEpisodeInput, events: TvPlaybackE
       }),
     }
 
-    return startSession(descriptor, { events, progressTarget })
+    return startSession(descriptor, {
+      events, progressTarget,
+      playOptions: { episode: {
+        key: JSON.stringify([input.playlistId, String(input.episodeId)]),
+        imdbId: input.imdbId,
+        tmdbId: input.tmdbId,
+        season: input.metadataSeason ?? input.season,
+        episode: input.metadataEpisode ?? input.episodeNum,
+      } },
+    })
   })
 }
 

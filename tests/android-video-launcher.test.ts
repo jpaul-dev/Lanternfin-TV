@@ -21,6 +21,19 @@ afterEach(() => {
 })
 
 describe("launchAndroidNativeVod", () => {
+  it("passes episode identity separately from stream credentials and falls back on older bridges", async () => {
+    const launchVod = vi.fn(() => true)
+    const launchEpisode = vi.fn(() => true)
+    window.AndroidVideo = { launchVod, launchEpisode }
+    const mod = await import("@/scripts/lib/android-video-launcher.js")
+    const episode = { key: "playlist-episode", tmdbId: 1396, season: 1, episode: 2 }
+    expect(mod.launchAndroidNativeVod({ contentKey: "session", url: "https://provider.test/user/password/1.mp4", episode })).toBe(true)
+    expect(launchEpisode).toHaveBeenCalledWith("session", "https://provider.test/user/password/1.mp4", "", "", "", "", 0, JSON.stringify(episode))
+    expect(launchVod).not.toHaveBeenCalled()
+    window.AndroidVideo = { launchVod }
+    expect(mod.launchAndroidNativeVod({ contentKey: "session", url: "https://provider.test/1.mp4", episode })).toBe(true)
+    expect(launchVod).toHaveBeenCalledOnce()
+  })
   it("returns false when the bridge is missing", async () => {
     const mod = await import("@/scripts/lib/android-video-launcher.js")
     expect(

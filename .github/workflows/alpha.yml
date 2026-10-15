@@ -81,6 +81,10 @@ jobs:
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/29.0.13846066
         run: pnpm tauri android build --ci --apk --target ${{ matrix.target }}
+      - name: Test Android intro timing and manifest parsing
+        if: matrix.target == 'armv7'
+        working-directory: src-tauri/gen/android
+        run: ./gradlew :app:testArmReleaseUnitTest
       - name: Verify APK identity and record checksums
         shell: bash
         run: |
