@@ -26,6 +26,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackGroup
 import androidx.media3.common.Tracks
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.util.UnstableApi
@@ -119,6 +120,7 @@ class VideoActivity : AppCompatActivity() {
   private var contentKey: String = ""
   private var companionPlaybackId: String = ""
   private var companionTracksRevision = 0
+  private var companionTrackGroups: List<TrackGroup> = emptyList()
   private var defaultUa: String = ""
   private var defaultReferer: String = ""
   private var initialTitle: String = ""
@@ -641,7 +643,12 @@ class VideoActivity : AppCompatActivity() {
 
       // Re-wire after the control view hides trackless buttons, so the chain never points through a GONE view.
       override fun onTracksChanged(tracks: Tracks) {
-        companionTracksRevision++
+        // Selection changes must not invalidate the other language selector's pending request.
+        val groups = tracks.groups.map { it.mediaTrackGroup }
+        if (groups != companionTrackGroups) {
+          companionTrackGroups = groups
+          companionTracksRevision++
+        }
         reportCompanion()
         playerView?.post { wireControllerFocusChain(mode == MODE_LIVE) }
       }
