@@ -102,6 +102,7 @@ object NativeCompanion {
         "stop" -> NativePlayerControl.finishPlayback()
         "seek" -> NativePlayerControl.seekToMs(CompanionPlayPolicy.millis(data.optDouble("seconds", 0.0)))
         "volume" -> NativePlayerControl.setVolume(data.optDouble("level", 1.0).toFloat(), data.optBoolean("muted"))
+        "track" -> NativePlayerControl.currentActivity()?.selectCompanionTrack(data)
       }
       NativePlayerControl.reportCompanion()
     }

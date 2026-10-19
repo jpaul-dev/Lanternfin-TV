@@ -27,7 +27,7 @@ pub extern "system" fn Java_io_github_jpauldev_lanternfin_NativeCompanion_native
     let Some(app) = APP.get() else { return };
     let Ok(raw) = env.get_string(&report) else { return };
     let raw: String = raw.into();
-    if raw.len() > 4096 { return; }
+    if raw.len() > 32768 { return; }
     if let Ok(payload) = serde_json::from_str(&raw) {
         let _ = crate::receiver::report_playback(&app.state::<crate::receiver::ReceiverState>(), payload);
     }

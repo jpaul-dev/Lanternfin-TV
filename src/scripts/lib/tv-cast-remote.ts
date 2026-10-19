@@ -13,6 +13,7 @@ import {
   castPause,
   castResume,
   castSeek,
+  castSelectTrack,
   castStop,
   castRetryLast,
   castSetVolume,
@@ -151,6 +152,19 @@ function buildSkeleton(dialog: HTMLDialogElement): void {
           <div data-role="metadata-genre-row" class="hidden text-xs"></div>
         </div>
 
+        <details data-role="tracks" class="hidden rounded-xl border border-line p-3">
+          <summary class="cursor-pointer text-sm font-medium min-h-8">Audio &amp; subtitles</summary>
+          <div class="mt-2 flex flex-col gap-3">
+            <label class="text-xs text-fg-3">Subtitles
+              <select data-role="subtitle-track" class="field-input mt-1 w-full" disabled aria-label="TV subtitles"></select>
+            </label>
+            <label class="text-xs text-fg-3">Audio language
+              <select data-role="audio-track" class="field-input mt-1 w-full" disabled aria-label="TV audio language"></select>
+            </label>
+            <p data-role="track-message" class="text-xs text-fg-3" role="status">Languages included in the current video.</p>
+          </div>
+        </details>
+
         <button type="button" data-role="picker-entry" class="hidden w-full min-h-12 items-center gap-3 rounded-lg border border-line px-3 text-start hover:bg-surface-2 focus-visible:bg-surface-2">
           <span class="shrink-0 text-fg-3" aria-hidden="true">${ICON_LIST_DETAILS}</span>
           <span data-role="picker-entry-label" class="flex-1 min-w-0 truncate text-sm"></span>
@@ -204,6 +218,10 @@ function buildSkeleton(dialog: HTMLDialogElement): void {
 }
 
 interface RemoteRefs {
+  tracks: HTMLElement
+  subtitleTrack: HTMLSelectElement
+  audioTrack: HTMLSelectElement
+  trackMessage: HTMLElement
   pageNow: HTMLElement
   pageChannels: HTMLElement
   wash: HTMLElement
@@ -260,6 +278,10 @@ interface RemoteRefs {
 function collectRefs(dialog: HTMLDialogElement): RemoteRefs {
   const query = <T extends HTMLElement>(role: string) => dialog.querySelector<T>(`[data-role="${role}"]`)!
   return {
+    tracks: query("tracks"),
+    subtitleTrack: query<HTMLSelectElement>("subtitle-track"),
+    audioTrack: query<HTMLSelectElement>("audio-track"),
+    trackMessage: query("track-message"),
     pageNow: query("page-now"),
     pageChannels: query("page-channels"),
     wash: query("wash"),
@@ -1012,7 +1034,48 @@ export function openCastRemote(): void {
       .catch((err) => log.warn("[xt:tv-cast-remote] set volume failed:", err))
   }, VOLUME_DEBOUNCE_MS)
 
+  let trackState: CastState | null = null
+  let trackBusy = false
+  function renderTracks(): void {
+    const state = trackState
+    refs.tracks.classList.toggle("hidden", !state?.companion)
+    for (const [kind, select] of [["text", refs.subtitleTrack], ["audio", refs.audioTrack]] as const) {
+      const tracks = state?.tracks?.filter(track => track.kind === kind) ?? []
+      const options = [["", tracks.length ? (kind === "text" ? "Subtitles off" : "Automatic") :
+        (kind === "text" ? "No subtitles in this video" : "No audio tracks available")], ...tracks.map(track => [track.id, track.label])]
+      const signature = JSON.stringify(options)
+      if (select.dataset.options !== signature) {
+        select.replaceChildren(...options.map(([value, label]) => new Option(label, value)))
+        select.dataset.options = signature
+      }
+      select.disabled = trackBusy || !tracks.length || !state?.playbackId || state.tracksRevision === undefined ||
+        ["idle", "loading", "error", "ended"].includes(state.state)
+      if (!trackBusy) select.value = kind === "audio" && state?.audioAutomatic ? "" : tracks.find(track => track.selected)?.id ?? ""
+    }
+  }
+  async function onTrackChange(event: Event): Promise<void> {
+    const select = event.target as HTMLSelectElement
+    const state = trackState
+    if (trackBusy || select.disabled || !state?.playbackId || state.tracksRevision === undefined) return
+    trackBusy = true
+    const id = select.value || null
+    renderTracks()
+    refs.trackMessage.textContent = "Updating on TV…"
+    try {
+      await castSelectTrack(device(), { playbackId: state.playbackId, tracksRevision: state.tracksRevision,
+        kind: select === refs.subtitleTrack ? "text" : "audio", id })
+      if (!detached) refs.trackMessage.textContent = "Selection sent. The TV’s current tracks appear here."
+    } catch {
+      if (!detached) refs.trackMessage.textContent = "The video or its tracks may have changed. Check the selection and try again."
+    } finally {
+      trackBusy = false
+      if (!detached) { renderTracks(); pokeCastStateFeed() }
+    }
+  }
+
   function onFeedState(state: CastState): void {
+    trackState = state
+    renderTracks()
     const idleTeardownAllowed = idleTeardownGuard.allowsTeardown({
       stateValue: state.state,
       sessionStartedAtMs: currentSession.startedAtMs ?? currentSession.startedAt,
@@ -1275,6 +1338,8 @@ export function openCastRemote(): void {
     channelPanel?.destroy()
     channelPanel = null
     feedUnsubscribe()
+    refs.subtitleTrack.removeEventListener("change", onTrackChange)
+    refs.audioTrack.removeEventListener("change", onTrackChange)
     refs.exactSeek.removeEventListener("submit", onExactSeek)
     dialog.removeEventListener("click", onClick)
     dialog.removeEventListener("keydown", onKeyDown)
@@ -1292,6 +1357,8 @@ export function openCastRemote(): void {
     detach()
   }
 
+  refs.subtitleTrack.addEventListener("change", onTrackChange)
+  refs.audioTrack.addEventListener("change", onTrackChange)
   refs.exactSeek.addEventListener("submit", onExactSeek)
   dialog.addEventListener("click", onClick)
   dialog.addEventListener("keydown", onKeyDown)

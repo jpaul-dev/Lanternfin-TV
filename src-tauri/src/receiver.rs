@@ -98,6 +98,14 @@ impl ReceiverEvents for AppHandle {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompanionTrack {
+    pub id: String,
+    pub kind: String,
+    pub label: String,
+    pub selected: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaybackReport {
     pub state: String,
@@ -123,6 +131,12 @@ pub struct PlaybackReport {
     pub logo: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playback_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracks: Option<Vec<CompanionTrack>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracks_revision: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_automatic: Option<bool>,
 }
 
 impl Default for PlaybackReport {
@@ -140,6 +154,9 @@ impl Default for PlaybackReport {
             seekable: None,
             logo: None,
             playback_id: None,
+            tracks: None,
+            tracks_revision: None,
+            audio_automatic: None,
         }
     }
 }
@@ -897,6 +914,11 @@ pub(crate) fn report_playback(state: &ReceiverState, payload: PlaybackReport) ->
             seekable: payload.seekable,
             logo: payload.logo.filter(|url| url.len() <= 2048 && is_http_url(url)),
             playback_id: payload.playback_id.map(|id| id.chars().take(64).collect()),
+            tracks: payload.tracks.map(|tracks| tracks.into_iter()
+                .filter(|track| matches!(track.kind.as_str(), "audio" | "text") && !track.id.is_empty() && track.id.len() <= 32)
+                .take(32).map(|mut track| { track.label = track.label.chars().take(120).collect(); track }).collect()),
+            tracks_revision: payload.tracks_revision,
+            audio_automatic: payload.audio_automatic,
         };
         let serialized = serde_json::to_string(&bounded).map_err(|error| format!("OTHER:{error}"))?;
         *playback = bounded;
@@ -1711,6 +1733,7 @@ fn build_router(ctx: Arc<ServerCtx>) -> axum::Router {
         .route("/resume", post(handle_resume))
         .route("/stop", post(handle_stop))
         .route("/seek", post(handle_seek))
+        .route("/track", post(handle_track))
         .route("/volume", post(handle_volume))
         .route("/state", get(handle_state))
         .route("/logs", get(handle_logs))
@@ -1971,6 +1994,9 @@ async fn handle_play(State(ctx): State<Arc<ServerCtx>>, headers: HeaderMap, raw_
             seekable: None,
             logo: body.logo.clone(),
             playback_id: None,
+            tracks: None,
+            tracks_revision: None,
+            audio_automatic: None,
         };
     }
     broadcast_playback(&ctx);
@@ -2108,6 +2134,41 @@ async fn handle_seek(State(ctx): State<Arc<ServerCtx>>, headers: HeaderMap, raw_
         return bad_request_response("invalidSeconds");
     }
     ctx.events.control(json!({"action": "seek", "seconds": seconds, "deviceName": device_name}));
+    (StatusCode::OK, Json(json!({"ok": true}))).into_response()
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct TrackRequest {
+    playback_id: String,
+    tracks_revision: u32,
+    kind: String,
+    id: Option<String>,
+}
+
+fn track_request_matches(playback: &PlaybackReport, request: &TrackRequest) -> bool {
+    playback.companion == Some(true)
+        && !matches!(playback.state.as_str(), "idle" | "loading" | "error" | "ended")
+        && playback.playback_id.as_deref() == Some(request.playback_id.as_str())
+        && playback.tracks_revision == Some(request.tracks_revision)
+        && matches!(request.kind.as_str(), "audio" | "text")
+        && playback.tracks.as_ref().is_some_and(|tracks| tracks.iter().any(|track|
+            track.kind == request.kind && request.id.as_ref().map_or(true, |id| &track.id == id)))
+}
+
+async fn handle_track(State(ctx): State<Arc<ServerCtx>>, headers: HeaderMap, raw_body: Bytes) -> Response {
+    let Some(device_name) = authenticate(&ctx, &headers) else { return unauthorized_response(); };
+    let Ok(body) = serde_json::from_slice::<TrackRequest>(&raw_body) else { return bad_request_response("badRequest"); };
+    if body.playback_id.len() > 64 || body.id.as_ref().is_some_and(|id| id.len() > 32)
+        || !matches!(body.kind.as_str(), "audio" | "text") { return bad_request_response("invalidTrack"); }
+    {
+        let playback = ctx.shared.playback.lock().unwrap_or_else(|poison| poison.into_inner());
+        if !track_request_matches(&playback, &body) {
+            return (StatusCode::CONFLICT, Json(json!({"error": "tracksChanged"}))).into_response();
+        }
+    }
+    ctx.events.control(json!({"action": "track", "playbackId": body.playback_id,
+        "tracksRevision": body.tracks_revision, "kind": body.kind, "id": body.id, "deviceName": device_name}));
     (StatusCode::OK, Json(json!({"ok": true}))).into_response()
 }
 
@@ -3289,6 +3350,26 @@ mod tests {
     }
 
     #[test]
+    fn track_selection_requires_current_playback_revision_and_matching_kind() {
+        let report = PlaybackReport { state: "playing".into(), companion: Some(true),
+            playback_id: Some("movie-1".into()), tracks_revision: Some(3),
+            tracks: Some(vec![CompanionTrack { id: "1:0".into(), kind: "text".into(), label: "English".into(), selected: true }]),
+            ..PlaybackReport::default() };
+        let mut request = TrackRequest { playback_id: "movie-1".into(), tracks_revision: 3, kind: "text".into(), id: Some("1:0".into()) };
+        assert!(track_request_matches(&report, &request));
+        request.id = None; // Subtitles off.
+        assert!(track_request_matches(&report, &request));
+        request.tracks_revision = 2;
+        assert!(!track_request_matches(&report, &request));
+        request.tracks_revision = 3;
+        request.kind = "audio".into();
+        assert!(!track_request_matches(&report, &request));
+        request.kind = "text".into();
+        request.playback_id = "movie-2".into();
+        assert!(!track_request_matches(&report, &request));
+    }
+
+    #[test]
     fn companion_report_bounds_numbers_and_keeps_optional_capabilities() {
         let state = ReceiverState::default();
         report_playback(&state, PlaybackReport {
@@ -3311,7 +3392,7 @@ mod tests {
         assert_eq!(page.headers()["cache-control"], "no-store");
         assert!(page.headers()["content-security-policy"].to_str().unwrap().contains("frame-ancestors 'none'"));
         assert!(page.text().await.unwrap().contains("/companion.js"));
-        for endpoint in ["pause", "resume", "seek", "volume", "stop"] {
+        for endpoint in ["pause", "resume", "seek", "volume", "stop", "track"] {
             let response = server.client.post(format!("{}/{endpoint}", server.base_url))
                 .json(&json!({"seconds": 100, "level": 0.5, "muted": false})).send().await.unwrap();
             assert_eq!(response.status(), StatusCode::UNAUTHORIZED);

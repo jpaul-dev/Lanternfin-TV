@@ -27,6 +27,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
@@ -117,6 +118,7 @@ class VideoActivity : AppCompatActivity() {
   private var mode: String = MODE_VOD
   private var contentKey: String = ""
   private var companionPlaybackId: String = ""
+  private var companionTracksRevision = 0
   private var defaultUa: String = ""
   private var defaultReferer: String = ""
   private var initialTitle: String = ""
@@ -639,6 +641,8 @@ class VideoActivity : AppCompatActivity() {
 
       // Re-wire after the control view hides trackless buttons, so the chain never points through a GONE view.
       override fun onTracksChanged(tracks: Tracks) {
+        companionTracksRevision++
+        reportCompanion()
         playerView?.post { wireControllerFocusChain(mode == MODE_LIVE) }
       }
 
@@ -888,6 +892,31 @@ class VideoActivity : AppCompatActivity() {
     reportCompanion()
   }
 
+  fun selectCompanionTrack(data: JSONObject) {
+    val player = exoPlayer ?: return
+    // Recheck on the player thread: an episode/channel may have changed since HTTP validation.
+    if (data.optString("playbackId") != companionPlaybackId ||
+      data.optInt("tracksRevision", -1) != companionTracksRevision) return
+    val type = when (data.optString("kind")) {
+      "text" -> C.TRACK_TYPE_TEXT
+      "audio" -> C.TRACK_TYPE_AUDIO
+      else -> return
+    }
+    val builder = player.trackSelectionParameters.buildUpon().clearOverridesOfType(type)
+    if (data.isNull("id")) {
+      builder.setTrackTypeDisabled(type, type == C.TRACK_TYPE_TEXT)
+    } else {
+      val parts = data.optString("id").split(':').map { it.toIntOrNull() }
+      if (parts.size != 2) return
+      val group = player.currentTracks.groups.getOrNull(parts[0] ?: return) ?: return
+      val index = parts[1] ?: return
+      if (group.type != type || index !in 0 until group.length || !group.isTrackSupported(index)) return
+      builder.setTrackTypeDisabled(type, false)
+        .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, index))
+    }
+    player.trackSelectionParameters = builder.build()
+  }
+
   fun reportCompanion() {
     if (!NativeCompanion.isEnabled()) return
     val player = exoPlayer ?: return
@@ -908,6 +937,25 @@ class VideoActivity : AppCompatActivity() {
       put("seekable", mode != MODE_LIVE && player.isCurrentMediaItemSeekable && player.duration > 0)
       put("companion", true)
       put("playbackId", companionPlaybackId)
+      put("tracksRevision", companionTracksRevision)
+      put("audioAutomatic", player.trackSelectionParameters.overrides.values.none { it.type == C.TRACK_TYPE_AUDIO })
+      put("tracks", JSONArray().apply {
+        player.currentTracks.groups.forEachIndexed { groupIndex, group ->
+          if (group.type == C.TRACK_TYPE_TEXT || group.type == C.TRACK_TYPE_AUDIO) {
+            for (index in 0 until group.length) {
+              if (length() >= 32 || !group.isTrackSupported(index)) continue
+              val format = group.getTrackFormat(index)
+              val language = format.language?.takeUnless { it == "und" || it.isBlank() }
+                ?.let { java.util.Locale.forLanguageTag(it).displayLanguage }
+              val label = listOfNotNull(format.label?.takeIf { it.isNotBlank() }, language)
+                .distinct().joinToString(" · ").ifBlank { "Track ${index + 1}" }
+              put(JSONObject().put("id", "$groupIndex:$index")
+                .put("kind", if (group.type == C.TRACK_TYPE_TEXT) "text" else "audio")
+                .put("label", label.take(120)).put("selected", group.isTrackSelected(index)))
+            }
+          }
+        }
+      })
       if (posterUrl.length <= 2048 && (posterUrl.startsWith("https://") || posterUrl.startsWith("http://"))) put("logo", posterUrl)
       put("volume", ReceiverVolumeState.volume)
       put("muted", ReceiverVolumeState.muted)

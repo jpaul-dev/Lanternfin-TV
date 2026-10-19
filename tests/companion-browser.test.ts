@@ -56,6 +56,24 @@ describe("local browser companion", () => {
     expect(el("remote").hidden).toBe(true)
     expect(request.mock.calls.some(([url]) => url === "/stop")).toBe(false)
   })
+  it("selects subtitles, switches audio, and turns subtitles off for the current video", async () => {
+    playback = { ...playback, companion: true, playbackId: "movie-1", tracksRevision: 7, audioAutomatic: true,
+      tracks: [{ id: "2:0", kind: "text", label: "English", selected: false },
+        { id: "3:0", kind: "audio", label: "Spanish", selected: false }] }
+    await pair()
+    for (const [field, kind, id] of [["subtitle-track", "text", "2:0"], ["audio-track", "audio", "3:0"], ["subtitle-track", "text", ""]]) {
+      el<HTMLSelectElement>(field).value = id
+      el(field).dispatchEvent(new Event("change"))
+      await flush()
+      const call = request.mock.calls.filter(([url]) => url === "/track").at(-1)!
+      expect(JSON.parse(call[1].body)).toEqual({ playbackId: "movie-1", tracksRevision: 7, kind, id: id || null })
+      expect(call[1].headers["X-XT-Key"]).toBe("test-paired-key")
+    }
+    playback = { ...playback, state: "idle", tracks: [] }
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(el<HTMLSelectElement>("subtitle-track").disabled).toBe(true)
+    expect(el<HTMLSelectElement>("audio-track").disabled).toBe(true)
+  })
   it("returns to pairing when the TV revokes authorization", async () => {
     await pair()
     request.mockResolvedValueOnce({ ok: false, status: 401 })

@@ -740,6 +740,19 @@ export async function castSetVolume(device: TvDevice, level: number, muted: bool
   await postDeviceAction(device, "/volume", { level: clampedLevel, muted }, 5000)
 }
 
+export interface CastTrack {
+  id: string
+  kind: "audio" | "text"
+  label: string
+  selected: boolean
+}
+
+export async function castSelectTrack(device: TvDevice, selection: {
+  playbackId: string; tracksRevision: number; kind: "audio" | "text"; id: string | null
+}): Promise<void> {
+  await postDeviceAction(device, "/track", selection, 4000)
+}
+
 export interface CastState {
   state: string
   positionSeconds: number
@@ -753,6 +766,9 @@ export interface CastState {
   seekable?: boolean
   logo?: string
   playbackId?: string
+  tracks?: CastTrack[]
+  tracksRevision?: number
+  audioAutomatic?: boolean
 }
 
 /** Shared payload validation for the poll (`/state`) and push (`/events` WebSocket) transports. */
@@ -771,6 +787,13 @@ export function parseCastStateValue(value: unknown): CastState | null {
   if (typeof data.seekable === "boolean") state.seekable = data.seekable
   if (typeof data.playbackId === "string" && data.playbackId.length <= 64) state.playbackId = data.playbackId
   if (typeof data.logo === "string" && data.logo.length <= 2048 && /^https?:\/\//i.test(data.logo)) state.logo = data.logo
+  if (typeof data.tracksRevision === "number" && Number.isSafeInteger(data.tracksRevision) && data.tracksRevision >= 0) state.tracksRevision = data.tracksRevision
+  if (typeof data.audioAutomatic === "boolean") state.audioAutomatic = data.audioAutomatic
+  if (Array.isArray(data.tracks)) state.tracks = data.tracks.filter((track): track is CastTrack =>
+    !!track && typeof track === "object" && (track.kind === "audio" || track.kind === "text") &&
+    typeof track.id === "string" && track.id.length > 0 && track.id.length <= 32 &&
+    typeof track.label === "string" && typeof track.selected === "boolean")
+    .slice(0, 32).map(track => ({ ...track, label: track.label.slice(0, 120) }))
   return state
 }
 
