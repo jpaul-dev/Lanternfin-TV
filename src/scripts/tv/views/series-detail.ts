@@ -48,7 +48,7 @@ import {
   getLanguageGroupingEnabled,
   isTmdbActive,
 } from "@/scripts/lib/app-settings.js"
-import { fmtImdbRating, ratingSortValue } from "@/scripts/lib/format.ts"
+import { fmtImdbRating, ratingSortValue, parseHmsToSeconds } from "@/scripts/lib/format.ts"
 import { parseNamePrefix, languageTagLabel, prefixQualityTokens } from "@/scripts/lib/language-tags.ts"
 import { playEpisode } from "@/scripts/tv/playback"
 import { createDetailChrome, type DetailAction } from "@/scripts/tv/ui/detail"
@@ -291,6 +291,7 @@ const view: TvView = {
           logo: series.logo,
           containerExt: entry.containerExt,
           resumeSeconds,
+          durationSeconds: parseHmsToSeconds(entry.durationText) || undefined,
           imdbId: resolvedImdbId,
           tmdbId: resolvedTmdbId ?? providerTmdbIdForTvdb,
           metadataSeason: entry.metadataSeason ?? entry.season,

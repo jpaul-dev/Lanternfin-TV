@@ -776,6 +776,7 @@ export function createAndroidNativeReceiverEngine(callbacks: ReceiverEngineCallb
             contentKey,
             url: descriptor.src,
             episode: options?.episode,
+            durationMs: (normalizeReportedDuration(descriptor.durationSeconds) ?? 0) * 1000,
             ua,
             referer,
             title: descriptor.title,

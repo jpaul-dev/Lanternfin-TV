@@ -105,6 +105,7 @@ export interface BundleInput {
   networkLog: unknown
   playlists: PlaylistSummary
   diagnosticResult: unknown | null
+  nativePlayback?: unknown
   logFiles: LogFileTail[]
   logInventory?: LogInventoryItem[]
   receiverLogs?: ReceiverLogResult[]
@@ -137,6 +138,7 @@ function buildReadme(input: BundleInput): string {
   if (input.diagnosticResult != null) {
     lines.push("- diagnostic-result.json: the most recent connection diagnostic run.")
   }
+  if (input.nativePlayback != null) lines.push("- native-playback.json: local Android player lifecycle, exit reasons and timing; no stream URLs or account details.")
   for (const logFile of input.logFiles) {
     lines.push(`- logs/${logFile.name}: ${describeLogTail(logFile)}, redacted.`)
   }
@@ -217,6 +219,7 @@ export function buildBundleManifest(input: BundleInput): { name: string; text: s
   files.push({ name: "snapshot.json", text: toRedactedJson(input.snapshot) })
   files.push({ name: "network-log.json", text: toRedactedJson(input.networkLog) })
   files.push({ name: "playlist-summary.json", text: toRedactedJson(input.playlists) })
+  if (input.nativePlayback != null) files.push({ name: "native-playback.json", text: toRedactedJson(input.nativePlayback) })
   if (input.diagnosticResult != null) {
     files.push({ name: "diagnostic-result.json", text: toRedactedJson(input.diagnosticResult) })
   }
@@ -566,6 +569,10 @@ export async function collectDiagnosticBundle(): Promise<CollectedBundle> {
     logFiles: logCollection.files,
     logInventory: logCollection.inventory,
     receiverLogs,
+    nativePlayback: await safeAsync(async () => {
+      const raw = typeof window !== "undefined" ? window.AndroidVideo?.playbackDiagnostics?.() : null
+      return raw ? JSON.parse(raw) : null
+    }, null),
   })
   const textEncoder = new TextEncoder()
   const bytes = createZip(

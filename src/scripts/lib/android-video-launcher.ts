@@ -60,6 +60,7 @@ export interface VodLaunchOptions {
   title?: string
   posterUrl?: string
   startMs?: number
+  durationMs?: number
   episode?: { key: string; imdbId?: string | null; tmdbId?: number | null; season: number; episode: number }
 }
 
@@ -100,6 +101,14 @@ export function launchAndroidNativeVod(opts: VodLaunchOptions): boolean {
   const bridge = window.AndroidVideo
   if (!bridge?.launchVod) return false
   try {
+    if (bridge.launchVodWithMetadata) {
+      const durationMs = Number.isFinite(opts.durationMs) && (opts.durationMs ?? 0) > 0 ? Math.floor(opts.durationMs!) : 0
+      return bridge.launchVodWithMetadata(
+        opts.contentKey, opts.url, opts.ua || "", opts.referer || "",
+        opts.title || "", opts.posterUrl || "", Math.max(0, Math.floor(opts.startMs || 0)),
+        JSON.stringify({ durationMs, episode: opts.episode }),
+      )
+    }
     if (opts.episode && bridge.launchEpisode) {
       return bridge.launchEpisode(
         opts.contentKey, opts.url, opts.ua || "", opts.referer || "",

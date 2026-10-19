@@ -21,6 +21,19 @@ afterEach(() => {
 })
 
 describe("launchAndroidNativeVod", () => {
+  it("passes catalog runtime and episode identity to the current native bridge", async () => {
+    const launchVod = vi.fn(() => true)
+    const launchVodWithMetadata = vi.fn<(...args: unknown[]) => boolean>(() => true)
+    window.AndroidVideo = { launchVod, launchVodWithMetadata }
+    const mod = await import("@/scripts/lib/android-video-launcher.js")
+    const episode = { key: "episode", season: 1, episode: 2 }
+    expect(mod.launchAndroidNativeVod({ contentKey: "session", url: "https://provider.test/movie.mp4", durationMs: 2_400_000, startMs: 65_000, episode })).toBe(true)
+    expect(launchVodWithMetadata).toHaveBeenCalledWith("session", "https://provider.test/movie.mp4", "", "", "", "", 65_000,
+      JSON.stringify({ durationMs: 2_400_000, episode }))
+    expect(launchVod).not.toHaveBeenCalled()
+    mod.launchAndroidNativeVod({ contentKey: "session", url: "https://provider.test/movie.mp4", durationMs: NaN })
+    expect(JSON.parse(String(launchVodWithMetadata.mock.calls.at(-1)![7]))).toEqual({ durationMs: 0 })
+  })
   it("passes episode identity separately from stream credentials and falls back on older bridges", async () => {
     const launchVod = vi.fn(() => true)
     const launchEpisode = vi.fn(() => true)

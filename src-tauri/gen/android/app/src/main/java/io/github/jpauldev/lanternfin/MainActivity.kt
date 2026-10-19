@@ -1236,6 +1236,44 @@ class AndroidVideoBridge(
   fun isSupported(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
 
   @JavascriptInterface
+  fun playbackDiagnostics(): String = PlaybackDiagnostics.read(activity)
+
+  @JavascriptInterface
+  fun showPlaybackDiagnostics() {
+    activity.runOnUiThread {
+      val data = JSONObject(PlaybackDiagnostics.read(activity))
+      val events = data.getJSONArray("events")
+      val lines = mutableListOf("${Build.MODEL} · Android ${Build.VERSION.SDK_INT} · playback diagnostics 1")
+      for (i in maxOf(0, events.length() - 16) until events.length()) {
+        val entry = events.getJSONObject(i)
+        val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.ROOT).format(java.util.Date(entry.getLong("at")))
+        lines.add("$time ${entry.getString("event")} ${IntroTiming.clock(entry.optLong("positionMs"))} ${entry.optString("code")}")
+      }
+      androidx.appcompat.app.AlertDialog.Builder(activity).setTitle(R.string.playback_diagnostics)
+        .setMessage(lines.joinToString("\n")).setPositiveButton(android.R.string.ok, null).show()
+    }
+  }
+
+  // V2 keeps older web/native combinations compatible while carrying the catalog
+  // runtime for premature EOF detection. Credentials remain in the URL argument.
+  @JavascriptInterface
+  fun launchVodWithMetadata(contentKey: String, url: String, ua: String, referer: String,
+                            title: String, posterUrl: String, startMs: Long, metadataJson: String): Boolean {
+    val metadata = try { JSONObject(metadataJson.take(4096)) } catch (_: Exception) { JSONObject() }
+    return tryLaunch(VideoActivity.MODE_VOD) { intent ->
+      intent.putExtra(VideoActivity.EXTRA_URL, url)
+      intent.putExtra(VideoActivity.EXTRA_START_MS, startMs)
+      intent.putExtra(VideoActivity.EXTRA_CONTENT_KEY, contentKey)
+      intent.putExtra(VideoActivity.EXTRA_UA, ua)
+      intent.putExtra(VideoActivity.EXTRA_REFERER, referer)
+      intent.putExtra(VideoActivity.EXTRA_TITLE, title)
+      intent.putExtra(VideoActivity.EXTRA_POSTER, posterUrl)
+      intent.putExtra(VideoActivity.EXTRA_DURATION_MS, metadata.optLong("durationMs", 0).coerceIn(0, 7 * 24 * 60 * 60 * 1000L))
+      metadata.optJSONObject("episode")?.let { intent.putExtra(VideoActivity.EXTRA_EPISODE, it.toString().take(2048)) }
+    }
+  }
+
+  @JavascriptInterface
   fun launchEpisode(
     contentKey: String, url: String, ua: String, referer: String,
     title: String, posterUrl: String, startMs: Long, episodeJson: String,
@@ -1304,7 +1342,10 @@ class AndroidVideoBridge(
         false
       } else {
         val script = dispatchScript(type, payload)
-        activity.runOnUiThread { webView.evaluateJavascript(script, null) }
+        activity.runOnUiThread {
+          if (hostedWebViewRef() === webView) webView.evaluateJavascript(script, null)
+          else EventQueue.append(activity, type, payload)
+        }
         true
       }
     }
@@ -1315,7 +1356,7 @@ class AndroidVideoBridge(
   fun receiverSessionEnd() {
     activity.receiverSessionActive = false
     EventQueue.pushListener = null
-    if (NativePlayerControl.isActive()) NativePlayerControl.finishPlayback()
+    if (NativePlayerControl.isActive()) NativePlayerControl.finishPlayback(sessionEnd = true)
     setKeepScreenOn(false)
   }
 
@@ -2021,6 +2062,7 @@ class MainActivity : TauriActivity() {
   var receiverPageForeground: Boolean = false
 
   private val rendererRecreating = AtomicBoolean(false)
+  private var rendererRecoveryDeferred = false
 
   companion object {
     private const val RENDER_GONE_REPEAT_WINDOW_MS = 60_000L
@@ -2225,6 +2267,7 @@ class MainActivity : TauriActivity() {
           val sinceLast = now - lastRenderGoneAt
           lastRenderGoneAt = now
           val didCrash = detail.didCrash()
+          PlaybackDiagnostics.record(this, if (didCrash) PlaybackDiagnostics.Event.RENDERER_CRASH else PlaybackDiagnostics.Event.RENDERER_RECLAIMED)
           val isRepeat = sinceLast in 1..RENDER_GONE_REPEAT_WINDOW_MS
           Log.w(
             "xtream-rs",
@@ -2235,12 +2278,21 @@ class MainActivity : TauriActivity() {
             didCrash -> R.string.render_gone_crash
             else -> R.string.render_gone_oom
           }
-          Toast.makeText(applicationContext, messageRes, Toast.LENGTH_LONG).show()
+          val nativePlaybackActive = NativePlayerControl.isActive()
+          if (!nativePlaybackActive) Toast.makeText(applicationContext, messageRes, Toast.LENGTH_LONG).show()
           hostedWebView = null
+          // A pending push must not evaluate JavaScript against this destroyed view.
+          EventQueue.pushListener = null
           fullscreenView = null
           fullscreenCallback = null
           (deadView.parent as? ViewGroup)?.removeView(deadView)
           deadView.destroy()
+          // Rebuilding Tauri's underlying Activity while VideoActivity is on top
+          // risks disrupting the player. The library can recover when the viewer returns.
+          if (nativePlaybackActive) {
+            rendererRecoveryDeferred = true
+            return@RenderGoneGuardingClient
+          }
           if (isRepeat) {
             return@RenderGoneGuardingClient
           }
@@ -2321,6 +2373,11 @@ class MainActivity : TauriActivity() {
 
   override fun onResume() {
     super.onResume()
+    if (rendererRecoveryDeferred && !isFinishing && !isDestroyed) {
+      rendererRecoveryDeferred = false
+      recreate()
+      return
+    }
     drainAndDispatchVideoEvents()
     receiverWakeBridge?.clearWakeNotification()
   }

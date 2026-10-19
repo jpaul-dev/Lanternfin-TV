@@ -81,6 +81,7 @@ export interface TvPlayVodInput {
 }
 
 export interface TvPlayEpisodeInput {
+  durationSeconds?: number
   tmdbId?: number | null
   imdbId?: string | null
   metadataSeason?: number
@@ -733,6 +734,7 @@ export async function playEpisode(input: TvPlayEpisodeInput, events: TvPlaybackE
       title: input.title,
       logo: input.logo ?? undefined,
       resumeSeconds: input.resumeSeconds,
+      durationSeconds: input.durationSeconds,
     })
 
     const progressExtras = {

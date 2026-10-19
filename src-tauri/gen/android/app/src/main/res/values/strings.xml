@@ -41,6 +41,12 @@
     <string name="playback_format_failed">The player could not continue this stream. The error code below can help identify a format, decoder or protection problem.</string>
     <string name="playback_retry">Retry</string>
     <string name="playback_return">Return to library</string>
+    <string name="playback_finished">Playback finished</string>
+    <string name="playback_finished_help">The stream reached its reported end. Replay it or return to your library.</string>
+    <string name="playback_stream_stopped">The stream stopped</string>
+    <string name="playback_end_unconfirmed">This stream has no reliable runtime, so the player cannot tell whether it finished or the connection ended early. Retry continues from your saved position.</string>
+    <string name="playback_replay">Replay</string>
+    <string name="playback_diagnostics">Playback diagnostics</string>
     <string name="intro_settings">Intro skipping</string>
     <string name="intro_behavior">Skipping preference</string>
     <string name="intro_off">Off</string>

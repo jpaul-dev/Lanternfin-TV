@@ -340,6 +340,15 @@ const view: TvView = {
         onActivate: () => void exportDiagnostics(),
       })
 
+      if (window.AndroidVideo?.showPlaybackDiagnostics) {
+        rows.push({
+          id: "playback-diagnostics",
+          label: "Playback diagnostics",
+          kind: "action",
+          onActivate: () => window.AndroidVideo?.showPlaybackDiagnostics?.(),
+        })
+      }
+
       rows.push({
         id: "clear-cache",
         icon: ICON_TRASH,

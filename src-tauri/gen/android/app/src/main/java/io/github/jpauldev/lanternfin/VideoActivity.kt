@@ -68,6 +68,7 @@ class VideoActivity : AppCompatActivity() {
     const val EXTRA_POSTER = "posterUrl"
     const val EXTRA_EPISODE = "episodeInfo"
     const val EXTRA_START_MS = "startMs"
+    const val EXTRA_DURATION_MS = "durationMs"
     const val EXTRA_INITIAL_CHANNEL_ID = "initialChannelId"
     const val EXTRA_TV_OVERSCAN_PERCENT = "tvOverscanPercent"
 
@@ -135,6 +136,9 @@ class VideoActivity : AppCompatActivity() {
   private var playbackErrorDialog: AlertDialog? = null
   private var playbackResumed = false
   private var knownDurationMs = 0L
+  private var catalogDurationMs = 0L
+  private var checkpointTicks = 0
+  private var finishReason = "ACTIVITY_FINISH"
   private var recoveryGeneration = 0
   // Records an onPause()-initiated stop so onResume() resumes without overriding a viewer pause.
   private var resumePlaybackOnReturn = false
@@ -146,6 +150,7 @@ class VideoActivity : AppCompatActivity() {
       if (player != null && player.isPlaying) {
         recoveryPolicy.observePlaying(player.currentPosition)
         emitProgress(player)
+        if (++checkpointTicks % 5 == 0) recordPlayback(PlaybackDiagnostics.Event.CHECKPOINT)
       }
       progressHandler.postDelayed(this, PROGRESS_INTERVAL_MS)
     }
@@ -214,7 +219,32 @@ class VideoActivity : AppCompatActivity() {
     }
 
     NativePlayerControl.register(this)
+    if (savedInstanceState != null) {
+      intent.putExtra(EXTRA_START_MS, savedInstanceState.getLong("playbackPositionMs", 0))
+    }
     initializeFromIntent(intent)
+    recordPlayback(PlaybackDiagnostics.Event.START)
+  }
+
+  private fun recordPlayback(event: PlaybackDiagnostics.Event, code: String = "", httpStatus: Int = 0) {
+    PlaybackDiagnostics.record(this, event, exoPlayer?.currentPosition ?: resumeMs,
+      maxOf(knownDurationMs, exoPlayer?.duration ?: 0), exoPlayer?.playbackState ?: 0, code, httpStatus, catalogDurationMs)
+  }
+
+  override fun onSaveInstanceState(outState: Bundle) {
+    outState.putLong("playbackPositionMs", (exoPlayer?.currentPosition ?: resumeMs).coerceAtLeast(0))
+    super.onSaveInstanceState(outState)
+  }
+
+  override fun finish() {
+    recordPlayback(PlaybackDiagnostics.Event.FINISH_REQUEST, finishReason)
+    super.finish()
+  }
+
+  fun finishFromControl(sessionEnd: Boolean) {
+    finishReason = if (sessionEnd) "SESSION_END" else "REMOTE_STOP"
+    recordPlayback(if (sessionEnd) PlaybackDiagnostics.Event.SESSION_END else PlaybackDiagnostics.Event.REMOTE_STOP)
+    finish()
   }
 
   private fun setupCustomControls() {
@@ -350,6 +380,8 @@ class VideoActivity : AppCompatActivity() {
   private fun initializeFromIntent(intent: Intent) {
     recoveryPolicy.reset()
     knownDurationMs = 0
+    catalogDurationMs = intent.getLongExtra(EXTRA_DURATION_MS, 0).coerceAtLeast(0)
+    finishReason = "ACTIVITY_FINISH"
     introController?.dispose()
     introController = null
     findViewById<View>(R.id.skip_intro_button).visibility = View.GONE
@@ -470,6 +502,7 @@ class VideoActivity : AppCompatActivity() {
 
   override fun onResume() {
     super.onResume()
+    recordPlayback(PlaybackDiagnostics.Event.RESUME)
     playbackResumed = true
     recoveryTask?.let { progressHandler.removeCallbacks(it); progressHandler.post(it) }
     introController?.resume()
@@ -483,6 +516,7 @@ class VideoActivity : AppCompatActivity() {
   }
 
   override fun onPause() {
+    recordPlayback(PlaybackDiagnostics.Event.PAUSE)
     super.onPause()
     playbackResumed = false
     if (!isInPictureInPictureMode) recoveryTask?.let { progressHandler.removeCallbacks(it) }
@@ -498,6 +532,7 @@ class VideoActivity : AppCompatActivity() {
   }
 
   override fun onStop() {
+    recordPlayback(PlaybackDiagnostics.Event.STOP)
     super.onStop()
     if (!releaseSuppressed && !isInPictureInPictureMode) {
       releasePlayer()
@@ -505,11 +540,15 @@ class VideoActivity : AppCompatActivity() {
   }
 
   override fun onDestroy() {
+    recordPlayback(if (isChangingConfigurations) PlaybackDiagnostics.Event.CONFIGURATION_RESTART else PlaybackDiagnostics.Event.DESTROY,
+      if (isFinishing) finishReason else "SYSTEM_RECREATION")
     introController?.dispose()
     progressHandler.removeCallbacks(progressTick)
     NativePlayerControl.unregister(this)
     releasePlayer()
-    if (!finishedEmitted) {
+    // Destruction for a configuration change is not a viewer exit. Its stale
+    // finished event used to tell JS to stop the newly created player as well.
+    if (!finishedEmitted && isFinishing) {
       EventQueue.append(
         this,
         "xt:android-native-finished",
@@ -580,6 +619,7 @@ class VideoActivity : AppCompatActivity() {
 
       override fun onPlaybackStateChanged(state: Int) {
         if (exoPlayer !== player) return
+        recordPlayback(PlaybackDiagnostics.Event.PLAYER_STATE)
         updateKeepScreenOn(player)
         if (state == Player.STATE_READY) {
           findViewById<View>(R.id.playback_recovery_status).visibility = View.GONE
@@ -588,22 +628,13 @@ class VideoActivity : AppCompatActivity() {
         if (state == Player.STATE_READY && mode == MODE_VOD) emitProgress(player)
         if (state == Player.STATE_ENDED && mode == MODE_VOD) {
           val duration = maxOf(knownDurationMs, player.duration)
-          if (PlaybackRecoveryPolicy.endedEarly(player.currentPosition, duration)) {
+          val result = PlaybackEndPolicy.classify(player.currentPosition, duration, catalogDurationMs)
+          if (result == PlaybackEndPolicy.Result.EARLY) {
+            recordPlayback(PlaybackDiagnostics.Event.END_EARLY)
             handlePlaybackFailure(player, "SOURCE_ENDED_EARLY", 0)
             return
           }
-          finishedEmitted = true
-          EventQueue.append(
-            this@VideoActivity,
-            "xt:android-native-finished",
-            JSONObject().apply {
-              put("contentKey", contentKey)
-              put("mode", mode)
-              put("completed", true)
-              put("finalPosMs", player.currentPosition)
-            }
-          )
-          finish()
+          showStreamEnd(player, result == PlaybackEndPolicy.Result.COMPLETE)
         }
       }
     })
@@ -708,6 +739,7 @@ class VideoActivity : AppCompatActivity() {
     val generation = recoveryGeneration
     val position = player.currentPosition.coerceAtLeast(0)
     val duration = maxOf(knownDurationMs, player.duration)
+    recordPlayback(PlaybackDiagnostics.Event.FAILURE, code, httpStatus)
     // Keep diagnostics useful without logging stream URLs, credentials or response bodies.
     Log.w(TAG, "playback interrupted: code=$code http=$httpStatus positionMs=$position durationMs=$duration")
     val delay = recoveryPolicy.nextDelayMs(code, httpStatus, mode == MODE_LIVE)
@@ -762,8 +794,38 @@ class VideoActivity : AppCompatActivity() {
           EventQueue.append(this, "xt:android-native-buffering", JSONObject().put("contentKey", contentKey).put("positionMs", position))
           retryPlayback(player, code, true)
         }
-        .setNegativeButton(R.string.playback_return) { _, _ -> finish() }
-        .setOnCancelListener { finish() }
+        .setNegativeButton(R.string.playback_return) { _, _ -> finishReason = "ERROR_RETURN"; finish() }
+        .setOnCancelListener { finishReason = "ERROR_BACK"; finish() }
+        .setOnDismissListener { playbackErrorDialog = null }
+        .show()
+    }
+  }
+
+  private fun showStreamEnd(player: ExoPlayer, confirmed: Boolean) {
+    recordPlayback(if (confirmed) PlaybackDiagnostics.Event.END_COMPLETE else PlaybackDiagnostics.Event.END_UNCONFIRMED)
+    val generation = recoveryGeneration
+    progressHandler.post {
+      if (generation != recoveryGeneration || exoPlayer !== player || isFinishing || isDestroyed || playbackErrorDialog != null) return@post
+      val position = player.currentPosition.coerceAtLeast(0)
+      val returnToLibrary = {
+        finishReason = if (confirmed) "COMPLETED_RETURN" else "UNCONFIRMED_RETURN"
+        finishedEmitted = true
+        EventQueue.append(this, "xt:android-native-finished", JSONObject()
+          .put("contentKey", contentKey).put("mode", mode)
+          .put("completed", confirmed).put("finalPosMs", position))
+        finish()
+      }
+      playbackErrorDialog = AlertDialog.Builder(this)
+        .setTitle(if (confirmed) R.string.playback_finished else R.string.playback_stream_stopped)
+        .setMessage(getString(if (confirmed) R.string.playback_finished_help else R.string.playback_end_unconfirmed) +
+          "\n\n${IntroTiming.clock(position)} · ${if (confirmed) "END_COMPLETE" else "END_UNCONFIRMED"}")
+        .setPositiveButton(if (confirmed) R.string.playback_replay else R.string.playback_retry) { _, _ ->
+          recoveryPolicy.reset()
+          if (confirmed) player.seekTo(0)
+          retryPlayback(player, "SOURCE_ENDED_EARLY", true)
+        }
+        .setNegativeButton(R.string.playback_return) { _, _ -> returnToLibrary() }
+        .setOnCancelListener { returnToLibrary() }
         .setOnDismissListener { playbackErrorDialog = null }
         .show()
     }
@@ -1016,7 +1078,10 @@ class VideoActivity : AppCompatActivity() {
         playerView?.showController()
         true
       }
-      else -> super.onKeyDown(keyCode, event)
+      else -> {
+        if (keyCode == KeyEvent.KEYCODE_BACK) finishReason = "VIEWER_BACK"
+        super.onKeyDown(keyCode, event)
+      }
     }
   }
 
@@ -1178,9 +1243,9 @@ object NativePlayerControl {
     activity.runOnUiThread { activity.applyVolume(level, muted) }
   }
 
-  fun finishPlayback() {
+  fun finishPlayback(sessionEnd: Boolean = false) {
     val activity = activeActivity ?: return
-    activity.runOnUiThread { activity.finish() }
+    activity.runOnUiThread { activity.finishFromControl(sessionEnd) }
   }
 }
 
