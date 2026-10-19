@@ -52,6 +52,7 @@ export async function openPhoneCompanion(): Promise<void> {
   const query = <T extends HTMLElement>(s: string) => dialog.querySelector<T>(s)!
   let busy = false
   let closed = false
+  let detachFocus: (() => void) | undefined
   let lastUrl = ""
   let deviceSignature = ""
   function render(next: ReceiverStatus) {
@@ -115,9 +116,9 @@ export async function openPhoneCompanion(): Promise<void> {
   const timer = setInterval(() => {
     if (companionEnabled()) void run(async () => render(await invoke<ReceiverStatus>("receiver_status")))
   }, 1000)
-  dialog.addEventListener("close", () => { closed = true; clearInterval(timer); dialog.remove() }, { once: true })
+  dialog.addEventListener("close", () => { closed = true; clearInterval(timer); detachFocus?.(); dialog.remove() }, { once: true })
   dialog.showModal()
-  attachDialogSpatialNav(dialog, { defaultElement: "#phone-companion [data-toggle]" })
+  detachFocus = attachDialogSpatialNav(dialog, { defaultElement: "#phone-companion [data-toggle]" })
   query("[data-toggle]").focus()
   await run(async () => render(await invoke<ReceiverStatus>("receiver_status")))
 }

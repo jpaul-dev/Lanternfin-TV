@@ -468,6 +468,17 @@ describe("native TV companion state", () => {
     expect(getCastSession()?.vodContext).toBeUndefined()
     expect(getCastSession()?.contentHref).toBeUndefined()
   })
+  it("separates distinct videos with the same title and never reuses their progress context", () => {
+    setCastSession({ ...session, companionPlaybackId: "first" })
+    syncCompanionSession({ companion: true, state: "playing", title: "Phone movie", playbackId: "second", positionSeconds: 60 })
+    expect(getCastSession()?.vodContext).toBeUndefined()
+    expect(getCastSession()?.companionPlaybackId).toBe("second")
+  })
+  it("brings over TV artwork without publishing a stream URL", () => {
+    setCastSession({ ...session, title: "", connectedOnly: true })
+    syncCompanionSession({ companion: true, state: "playing", title: "TV movie", logo: "https://example.test/cover.jpg", playbackId: "native-id", positionSeconds: 60 })
+    expect(getCastSession()).toMatchObject({ title: "TV movie", logo: "https://example.test/cover.jpg", connectedOnly: false })
+  })
   it("preserves phone metadata when the sent title is still playing", () => {
     setCastSession(session)
     syncCompanionSession({ companion: true, state: "playing", title: "Phone movie", positionSeconds: 60 })

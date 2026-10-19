@@ -159,7 +159,7 @@ function buildSkeleton(dialog: HTMLDialogElement): void {
 
       <div class="relative flex shrink-0 flex-col gap-3 border-t border-line bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] short-viewport:gap-2 short-viewport:pt-2">
         <div data-role="scrubber" class="flex flex-col gap-1.5">
-          <input data-role="seek-range" type="range" min="0" max="0" step="1" value="0" class="h-1.5 w-full cursor-pointer accent-accent" />
+          <input data-role="seek-range" disabled type="range" min="0" max="0" step="1" value="0" class="h-1.5 w-full cursor-pointer accent-accent" />
           <div class="flex items-center justify-between text-xs tabular-nums text-fg-3">
             <span data-role="position-time"></span>
             <span data-role="duration-time"></span>
@@ -168,8 +168,8 @@ function buildSkeleton(dialog: HTMLDialogElement): void {
 
         <form data-role="exact-seek" class="flex items-center gap-2">
           <label for="companion-time" class="text-xs text-fg-3 shrink-0">Go to time</label>
-          <input id="companion-time" data-role="exact-time" class="field-input min-w-0 w-full" placeholder="1:23:45" aria-label="Seconds, minutes:seconds, or hours:minutes:seconds" autocomplete="off" />
-          <button data-role="exact-go" type="submit" class="btn">Go</button>
+          <input id="companion-time" data-role="exact-time" disabled class="field-input min-w-0 w-full" placeholder="1:23:45" aria-label="Seconds, minutes:seconds, or hours:minutes:seconds" autocomplete="off" />
+          <button data-role="exact-go" disabled type="submit" class="btn">Go</button>
         </form>
         <p data-role="seek-message" class="hidden text-xs text-accent" role="status"></p>
 
@@ -357,7 +357,7 @@ function applySession(refs: RemoteRefs, session: CastSession): void {
 
   // Posters and series artwork are content worth showing; a channel logo is not, so live
   // keeps the thumbnail. Short viewports never get the poster - the controls need the room.
-  const wantsPoster = !!session.logo && !session.isLive && !!(session.vodContext || session.seriesContext)
+  const wantsPoster = !!session.logo && !session.isLive
   refs.poster.classList.toggle("hidden", !wantsPoster)
   refs.poster.classList.toggle("flex", wantsPoster)
   refs.artwork.classList.toggle("hidden", wantsPoster)
@@ -406,7 +406,8 @@ function applySession(refs: RemoteRefs, session: CastSession): void {
   refs.next.setAttribute("aria-label", `${nextLabel} (N)`)
   refs.next.title = `${nextLabel} (N)`
 
-  refs.footerOpen.classList.toggle("hidden", !session.contentHref)
+  refs.footerOpen.classList.remove("hidden")
+  refs.footerOpen.textContent = "Browse library · keep TV connected"
   if (session.contentHref) {
     refs.footerOpen.textContent = t("cast.pill.openContent", { title: session.title || t("common.untitled") })
   }
@@ -601,6 +602,7 @@ export function openCastRemote(): void {
   let lastKnownVolume = 1
   let lastKnownMuted = false
   let scrubbing = false
+  let detached = false
   let liveElapsedTicker: ReturnType<typeof setInterval> | null = null
   let stopArmed = false
   let stopArmTimeout: ReturnType<typeof setTimeout> | null = null
@@ -1003,6 +1005,7 @@ export function openCastRemote(): void {
   void syncPickerEntry()
 
   const debouncedSetVolume = debounce((level: number, muted: boolean) => {
+    if (detached) return
     castSetVolume(device(), level, muted)
       .then(() => pokeCastStateFeed())
       .catch((err) => log.warn("[xt:tv-cast-remote] set volume failed:", err))
@@ -1020,7 +1023,7 @@ export function openCastRemote(): void {
       if (idleTeardownAllowed) settleClose()
       return
     }
-    const canSeek = !currentSession.isLive && state.seekable !== false && (state.durationSeconds ?? 0) > 0
+    const canSeek = !["loading", "idle", "error", "ended"].includes(state.state) && !currentSession.isLive && state.seekable !== false && (state.durationSeconds ?? 0) > 0
     refs.seekRange.disabled = !canSeek
     refs.exactTime.disabled = !canSeek
     refs.exactGo.disabled = !canSeek
@@ -1179,7 +1182,7 @@ export function openCastRemote(): void {
       return
     }
     if (target.closest('[data-role="footer-open"]')) {
-      if (currentSession.contentHref) window.location.assign(currentSession.contentHref)
+      window.location.assign(currentSession.contentHref || "/")
       settleClose()
       return
     }
@@ -1264,6 +1267,7 @@ export function openCastRemote(): void {
   }
 
   function detach(): void {
+    detached = true
     stopLiveElapsedTicker()
     clearStopArmTimeout()
     channelPanel?.destroy()

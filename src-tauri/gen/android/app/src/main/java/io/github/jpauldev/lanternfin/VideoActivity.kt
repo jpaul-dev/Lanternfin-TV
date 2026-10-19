@@ -63,6 +63,7 @@ class VideoActivity : AppCompatActivity() {
     const val EXTRA_MODE = "mode"           // "vod" | "live"
     const val EXTRA_CONTENT_KEY = "contentKey"
     const val EXTRA_URL = "url"
+    const val EXTRA_MIME = "mime"
     const val EXTRA_UA = "ua"
     const val EXTRA_REFERER = "referer"
     const val EXTRA_TITLE = "title"
@@ -115,6 +116,7 @@ class VideoActivity : AppCompatActivity() {
 
   private var mode: String = MODE_VOD
   private var contentKey: String = ""
+  private var companionPlaybackId: String = ""
   private var defaultUa: String = ""
   private var defaultReferer: String = ""
   private var initialTitle: String = ""
@@ -381,6 +383,7 @@ class VideoActivity : AppCompatActivity() {
   }
 
   private fun initializeFromIntent(intent: Intent) {
+    companionPlaybackId = java.util.UUID.randomUUID().toString()
     recoveryPolicy.reset()
     knownDurationMs = 0
     catalogDurationMs = intent.getLongExtra(EXTRA_DURATION_MS, 0).coerceAtLeast(0)
@@ -539,6 +542,7 @@ class VideoActivity : AppCompatActivity() {
     super.onStop()
     if (!releaseSuppressed && !isInPictureInPictureMode) {
       releasePlayer()
+      NativeCompanion.idle()
     }
   }
 
@@ -728,7 +732,8 @@ class VideoActivity : AppCompatActivity() {
     builder.setMediaMetadata(metaBuilder.build())
     // Mime hint routes DefaultMediaSourceFactory to the right extractor.
     val lower = url.lowercase()
-    if (lower.contains(".m3u8")) builder.setMimeType(MimeTypes.APPLICATION_M3U8)
+    if (!intent.getStringExtra(EXTRA_MIME).isNullOrBlank()) builder.setMimeType(intent.getStringExtra(EXTRA_MIME))
+    else if (lower.contains(".m3u8")) builder.setMimeType(MimeTypes.APPLICATION_M3U8)
     else if (lower.contains(".mpd")) builder.setMimeType(MimeTypes.APPLICATION_MPD)
     return builder.build()
   }
@@ -902,6 +907,8 @@ class VideoActivity : AppCompatActivity() {
       put("isLive", mode == MODE_LIVE)
       put("seekable", mode != MODE_LIVE && player.isCurrentMediaItemSeekable && player.duration > 0)
       put("companion", true)
+      put("playbackId", companionPlaybackId)
+      if (posterUrl.length <= 2048 && (posterUrl.startsWith("https://") || posterUrl.startsWith("http://"))) put("logo", posterUrl)
       put("volume", ReceiverVolumeState.volume)
       put("muted", ReceiverVolumeState.muted)
       // Error messages may contain provider URLs. Publish only the stable code.

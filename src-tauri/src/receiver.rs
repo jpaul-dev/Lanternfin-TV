@@ -119,6 +119,10 @@ pub struct PlaybackReport {
     pub is_live: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seekable: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub logo: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playback_id: Option<String>,
 }
 
 impl Default for PlaybackReport {
@@ -134,6 +138,8 @@ impl Default for PlaybackReport {
             companion: None,
             is_live: None,
             seekable: None,
+            logo: None,
+            playback_id: None,
         }
     }
 }
@@ -889,6 +895,8 @@ pub(crate) fn report_playback(state: &ReceiverState, payload: PlaybackReport) ->
             companion: payload.companion,
             is_live: payload.is_live,
             seekable: payload.seekable,
+            logo: payload.logo.filter(|url| url.len() <= 2048 && is_http_url(url)),
+            playback_id: payload.playback_id.map(|id| id.chars().take(64).collect()),
         };
         let serialized = serde_json::to_string(&bounded).map_err(|error| format!("OTHER:{error}"))?;
         *playback = bounded;
@@ -1941,6 +1949,11 @@ async fn handle_play(State(ctx): State<Arc<ServerCtx>>, headers: HeaderMap, raw_
         }
     }
 
+    let descriptor = serde_json::to_value(&body).unwrap_or_else(|_| json!({}));
+    #[cfg(target_os = "android")]
+    if crate::android_companion::dispatch("rejectsPlay", &descriptor) {
+        return bad_request_response("nativeCompanionUnsupportedSource");
+    }
     {
         let mut playback = ctx.shared.playback.lock().unwrap_or_else(|poison| poison.into_inner());
         let previous_volume = playback.volume;
@@ -1956,11 +1969,12 @@ async fn handle_play(State(ctx): State<Arc<ServerCtx>>, headers: HeaderMap, raw_
             companion: playback.companion,
             is_live: Some(body.is_live),
             seekable: None,
+            logo: body.logo.clone(),
+            playback_id: None,
         };
     }
     broadcast_playback(&ctx);
 
-    let descriptor = serde_json::to_value(&body).unwrap_or_else(|_| json!({}));
     ctx.events.play(json!({"descriptor": descriptor, "deviceName": device_name}));
 
     (StatusCode::OK, Json(json!({"ok": true}))).into_response()

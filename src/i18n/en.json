@@ -1712,6 +1712,7 @@
   "settings.playOnTv.needsPairing": "Needs pairing again",
   "settings.playOnTv.removeConfirm": "Remove {name} from this device? The TV will keep trusting this device until you remove it there.",
   "cast.menu.playOnTv": "Play on TV",
+  "cast.menu.connectToTv": "Connect to TV",
   "cast.picker.title": "Play on TV",
   "cast.picker.addTitle": "Add a TV",
   "cast.picker.searching": "Looking for TVs on your network…",

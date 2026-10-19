@@ -37,15 +37,20 @@ object NativeCompanion {
   fun idle() = report(JSONObject().put("state", "idle").put("positionSeconds", 0)
     .put("companion", true).put("seekable", false))
 
+  @JvmStatic fun rejectsPlay(json: String): Boolean {
+    if (!enabled) return false
+    return try { !CompanionPlayPolicy.supported(JSONObject(json)) } catch (_: Exception) { true }
+  }
+
   @JvmStatic fun play(json: String): Boolean {
     if (!enabled) return false
     val descriptor = try { JSONObject(json).getJSONObject("descriptor") } catch (_: Exception) { return false }
     main.post {
       if (!enabled) return@post
       // Never discard DRM settings and accidentally attempt an unprotected stream.
-      if (!descriptor.isNull("drm")) {
+      if (!CompanionPlayPolicy.supported(descriptor)) {
         report(JSONObject().put("state", "error").put("positionSeconds", 0).put("companion", true)
-          .put("error", "This protected source cannot be sent to the native TV player. Open it in the TV library instead."))
+          .put("error", "This protected or catch-up source needs the TV library player."))
         return@post
       }
       val activity = NativePlayerControl.currentActivity() ?: library.get()?.takeUnless { it.isDestroyed || it.isFinishing }
@@ -62,12 +67,13 @@ object NativeCompanion {
         putExtra(VideoActivity.EXTRA_MODE, if (live) VideoActivity.MODE_LIVE else VideoActivity.MODE_VOD)
         putExtra(VideoActivity.EXTRA_CONTENT_KEY, "companion:" + UUID.randomUUID())
         putExtra(VideoActivity.EXTRA_URL, descriptor.optString("src"))
+        putExtra(VideoActivity.EXTRA_MIME, CompanionPlayPolicy.adaptiveMime(descriptor.optString("src"), descriptor.optString("mime")))
         putExtra(VideoActivity.EXTRA_TITLE, title)
         putExtra(VideoActivity.EXTRA_POSTER, descriptor.optString("logo"))
         putExtra(VideoActivity.EXTRA_UA, headers?.optString("userAgent") ?: "")
         putExtra(VideoActivity.EXTRA_REFERER, headers?.optString("referer") ?: "")
-        putExtra(VideoActivity.EXTRA_START_MS, boundedMillis(descriptor.optDouble("resumeSeconds", 0.0)))
-        putExtra(VideoActivity.EXTRA_DURATION_MS, boundedMillis(descriptor.optDouble("durationSeconds", 0.0)))
+        putExtra(VideoActivity.EXTRA_START_MS, CompanionPlayPolicy.millis(descriptor.optDouble("resumeSeconds", 0.0)))
+        putExtra(VideoActivity.EXTRA_DURATION_MS, CompanionPlayPolicy.millis(descriptor.optDouble("durationSeconds", 0.0)))
         putExtra(VideoActivity.EXTRA_TV_OVERSCAN_PERCENT, TvOverscanState.percent)
       }
       if (live) {
@@ -85,9 +91,6 @@ object NativeCompanion {
     return true
   }
 
-  private fun boundedMillis(seconds: Double): Long =
-    if (seconds.isFinite()) (seconds.coerceIn(0.0, 604800.0) * 1000).toLong() else 0L
-
   @JvmStatic fun control(json: String): Boolean {
     if (!enabled) return false
     val data = try { JSONObject(json) } catch (_: Exception) { return false }
@@ -97,7 +100,7 @@ object NativeCompanion {
         "pause" -> NativePlayerControl.setPlayWhenReady(false)
         "resume" -> NativePlayerControl.setPlayWhenReady(true)
         "stop" -> NativePlayerControl.finishPlayback()
-        "seek" -> NativePlayerControl.seekToMs(boundedMillis(data.optDouble("seconds", 0.0)))
+        "seek" -> NativePlayerControl.seekToMs(CompanionPlayPolicy.millis(data.optDouble("seconds", 0.0)))
         "volume" -> NativePlayerControl.setVolume(data.optDouble("level", 1.0).toFloat(), data.optBoolean("muted"))
       }
       NativePlayerControl.reportCompanion()
