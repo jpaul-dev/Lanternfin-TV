@@ -242,6 +242,7 @@ class VideoActivity : AppCompatActivity() {
   }
 
   fun finishFromControl(sessionEnd: Boolean) {
+    if (isFinishing || isDestroyed) return
     finishReason = if (sessionEnd) "SESSION_END" else "REMOTE_STOP"
     recordPlayback(if (sessionEnd) PlaybackDiagnostics.Event.SESSION_END else PlaybackDiagnostics.Event.REMOTE_STOP)
     finish()
@@ -634,7 +635,12 @@ class VideoActivity : AppCompatActivity() {
             handlePlaybackFailure(player, "SOURCE_ENDED_EARLY", 0)
             return
           }
-          showStreamEnd(player, result == PlaybackEndPolicy.Result.COMPLETE)
+          if (result == PlaybackEndPolicy.Result.UNCONFIRMED) {
+            recordPlayback(PlaybackDiagnostics.Event.END_UNCONFIRMED)
+            handlePlaybackFailure(player, "SOURCE_END_UNCONFIRMED", 0)
+            return
+          }
+          showStreamEnd(player)
         }
       }
     })
@@ -783,11 +789,12 @@ class VideoActivity : AppCompatActivity() {
       val message = when {
         httpStatus in 400..499 && httpStatus != 408 -> R.string.playback_provider_refused
         code == "SOURCE_ENDED_EARLY" -> R.string.playback_ended_early
+        code == "SOURCE_END_UNCONFIRMED" -> R.string.playback_end_unconfirmed
         PlaybackRecoveryPolicy.retryable(code, httpStatus, mode == MODE_LIVE) -> R.string.playback_connection_failed
         else -> R.string.playback_format_failed
       }
       playbackErrorDialog = AlertDialog.Builder(this)
-        .setTitle(R.string.playback_interrupted)
+        .setTitle(if (code == "SOURCE_END_UNCONFIRMED") R.string.playback_stream_stopped else R.string.playback_interrupted)
         .setMessage(getString(message) + "\n\n" + detail)
         .setPositiveButton(R.string.playback_retry) { _, _ ->
           recoveryPolicy.reset()
@@ -801,27 +808,26 @@ class VideoActivity : AppCompatActivity() {
     }
   }
 
-  private fun showStreamEnd(player: ExoPlayer, confirmed: Boolean) {
-    recordPlayback(if (confirmed) PlaybackDiagnostics.Event.END_COMPLETE else PlaybackDiagnostics.Event.END_UNCONFIRMED)
+  private fun showStreamEnd(player: ExoPlayer) {
+    recordPlayback(PlaybackDiagnostics.Event.END_COMPLETE)
     val generation = recoveryGeneration
     progressHandler.post {
       if (generation != recoveryGeneration || exoPlayer !== player || isFinishing || isDestroyed || playbackErrorDialog != null) return@post
       val position = player.currentPosition.coerceAtLeast(0)
       val returnToLibrary = {
-        finishReason = if (confirmed) "COMPLETED_RETURN" else "UNCONFIRMED_RETURN"
+        finishReason = "COMPLETED_RETURN"
         finishedEmitted = true
         EventQueue.append(this, "xt:android-native-finished", JSONObject()
           .put("contentKey", contentKey).put("mode", mode)
-          .put("completed", confirmed).put("finalPosMs", position))
+          .put("completed", true).put("finalPosMs", position))
         finish()
       }
       playbackErrorDialog = AlertDialog.Builder(this)
-        .setTitle(if (confirmed) R.string.playback_finished else R.string.playback_stream_stopped)
-        .setMessage(getString(if (confirmed) R.string.playback_finished_help else R.string.playback_end_unconfirmed) +
-          "\n\n${IntroTiming.clock(position)} · ${if (confirmed) "END_COMPLETE" else "END_UNCONFIRMED"}")
-        .setPositiveButton(if (confirmed) R.string.playback_replay else R.string.playback_retry) { _, _ ->
+        .setTitle(R.string.playback_finished)
+        .setMessage(getString(R.string.playback_finished_help) + "\n\n${IntroTiming.clock(position)} · END_COMPLETE")
+        .setPositiveButton(R.string.playback_replay) { _, _ ->
           recoveryPolicy.reset()
-          if (confirmed) player.seekTo(0)
+          player.seekTo(0)
           retryPlayback(player, "SOURCE_ENDED_EARLY", true)
         }
         .setNegativeButton(R.string.playback_return) { _, _ -> returnToLibrary() }
@@ -835,7 +841,7 @@ class VideoActivity : AppCompatActivity() {
     if (exoPlayer !== player) return
     // prepare() retains the current source, position and request headers after an error.
     // A premature clean EOF needs stop() first to reopen the same source.
-    if (code == "SOURCE_ENDED_EARLY") player.stop()
+    if (code == "SOURCE_ENDED_EARLY" || code == "SOURCE_END_UNCONFIRMED") player.stop()
     if (code == "ERROR_CODE_BEHIND_LIVE_WINDOW" && mode == MODE_LIVE) player.seekToDefaultPosition()
     player.prepare()
     player.playWhenReady = wantsPlayback

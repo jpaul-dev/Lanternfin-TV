@@ -36,6 +36,7 @@ class PlaybackRecoveryPolicy {
         "ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT",
         "ERROR_CODE_IO_UNSPECIFIED",
         "SOURCE_ENDED_EARLY",
+        "SOURCE_END_UNCONFIRMED",
       ) || (live && code == "ERROR_CODE_BEHIND_LIVE_WINDOW")
     }
 

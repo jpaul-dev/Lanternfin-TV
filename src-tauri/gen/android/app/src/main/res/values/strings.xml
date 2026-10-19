@@ -33,7 +33,7 @@
     <string name="receiver_wake_notification_title">Casting to this TV</string>
     <string name="receiver_wake_notification_text">Tap to open and start playback</string>
     <string name="intro_skip">Skip intro · OK</string>
-    <string name="playback_reconnecting">Connection interrupted. Reconnecting… (%1$d/%2$d)</string>
+    <string name="playback_reconnecting">Playback interrupted. Trying to resume… (%1$d/%2$d)</string>
     <string name="playback_interrupted">Playback interrupted</string>
     <string name="playback_connection_failed">The stream connection could not recover. Retry continues from your current position.</string>
     <string name="playback_provider_refused">The provider refused this request. Check your account or connection limit before retrying.</string>

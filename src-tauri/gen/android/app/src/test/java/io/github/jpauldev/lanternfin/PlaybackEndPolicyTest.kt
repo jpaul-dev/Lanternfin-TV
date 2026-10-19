@@ -13,6 +13,11 @@ class PlaybackEndPolicyTest {
   @Test fun unknownRuntimeCannotSilentlyMarkAnEpisodeWatched() {
     assertEquals(PlaybackEndPolicy.Result.UNCONFIRMED, PlaybackEndPolicy.classify(60_000, -9223372036854775807, 0))
     assertEquals(PlaybackEndPolicy.Result.UNCONFIRMED, PlaybackEndPolicy.classify(2_400_000, 0, 2_400_000))
+    val recovery = PlaybackRecoveryPolicy()
+    assertEquals(1000L, recovery.nextDelayMs("SOURCE_END_UNCONFIRMED", 0, false))
+    assertEquals(2000L, recovery.nextDelayMs("SOURCE_END_UNCONFIRMED", 0, false))
+    assertEquals(4000L, recovery.nextDelayMs("SOURCE_END_UNCONFIRMED", 0, false))
+    assertEquals(null, recovery.nextDelayMs("SOURCE_END_UNCONFIRMED", 0, false))
   }
 
   @Test fun realEndAndSmallDifferencesBetweenCutsRemainValid() {
