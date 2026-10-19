@@ -120,5 +120,5 @@ export async function openPhoneCompanion(): Promise<void> {
   dialog.showModal()
   detachFocus = attachDialogSpatialNav(dialog, { defaultElement: "#phone-companion [data-toggle]" })
   query("[data-toggle]").focus()
-  await run(async () => render(await invoke<ReceiverStatus>("receiver_status")))
+  await run(async () => render(companionEnabled() ? await startPhoneCompanion() : await invoke<ReceiverStatus>("receiver_status")))
 }
