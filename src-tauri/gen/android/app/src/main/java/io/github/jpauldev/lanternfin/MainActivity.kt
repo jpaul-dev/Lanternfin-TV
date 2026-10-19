@@ -1239,6 +1239,9 @@ class AndroidVideoBridge(
   fun playbackDiagnostics(): String = PlaybackDiagnostics.read(activity)
 
   @JavascriptInterface
+  fun companionSetEnabled(enabled: Boolean) { NativeCompanion.setEnabled(enabled) }
+
+  @JavascriptInterface
   fun showPlaybackDiagnostics() {
     activity.runOnUiThread {
       val data = JSONObject(PlaybackDiagnostics.read(activity))
@@ -2101,6 +2104,7 @@ class MainActivity : TauriActivity() {
     installSplashScreen()
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
+    NativeCompanion.attach(this)
     Log.i("LanternfinPlayback", "Library created restored=${savedInstanceState != null}")
 
     // Nothing in Tauri 2.11 calls PluginManager.onActivityCreate() automatically,

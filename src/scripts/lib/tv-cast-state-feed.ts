@@ -2,6 +2,7 @@
 import {
   appendStreamedReceiverLog,
   getCastSession,
+  syncCompanionSession,
   sessionAsDevice,
   deviceHostOrder,
   fetchCastState,
@@ -179,6 +180,7 @@ function documentHidden(): boolean {
 }
 
 function emit(state: CastState): void {
+  syncCompanionSession(state)
   for (const subscriber of subscribers.values()) subscriber.listener(state)
 }
 

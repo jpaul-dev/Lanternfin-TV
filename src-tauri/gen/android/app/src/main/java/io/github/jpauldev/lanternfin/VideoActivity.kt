@@ -148,6 +148,7 @@ class VideoActivity : AppCompatActivity() {
   private val progressTick = object : Runnable {
     override fun run() {
       val player = exoPlayer
+      reportCompanion()
       if (player != null && player.isPlaying) {
         recoveryPolicy.observePlaying(player.currentPosition)
         emitProgress(player)
@@ -548,6 +549,7 @@ class VideoActivity : AppCompatActivity() {
     progressHandler.removeCallbacks(progressTick)
     NativePlayerControl.unregister(this)
     releasePlayer()
+    if (isFinishing && !NativePlayerControl.isActive()) NativeCompanion.idle()
     // Destruction for a configuration change is not a viewer exit. Its stale
     // finished event used to tell JS to stop the newly created player as well.
     if (!finishedEmitted && isFinishing) {
@@ -607,6 +609,10 @@ class VideoActivity : AppCompatActivity() {
       .build()
 
     player.addListener(object : Player.Listener {
+      override fun onEvents(player: Player, events: Player.Events) {
+        reportCompanion()
+      }
+
       override fun onPlayerError(error: PlaybackException) {
         if (exoPlayer !== player) return
         val httpStatus = httpStatusOf(error)
@@ -870,8 +876,37 @@ class VideoActivity : AppCompatActivity() {
   }
 
   fun applySeekToMs(positionMs: Long) {
-    if (mode != MODE_VOD) return
-    exoPlayer?.seekTo(positionMs)
+    val player = exoPlayer ?: return
+    if (mode != MODE_VOD || !player.isCurrentMediaItemSeekable) return
+    val max = player.duration.takeIf { it > 0 } ?: return
+    player.seekTo(positionMs.coerceIn(0, max))
+    reportCompanion()
+  }
+
+  fun reportCompanion() {
+    if (!NativeCompanion.isEnabled()) return
+    val player = exoPlayer ?: return
+    val state = when {
+      player.playerError != null -> "error"
+      player.playbackState == Player.STATE_ENDED -> "ended"
+      player.playbackState == Player.STATE_BUFFERING -> "buffering"
+      player.playbackState == Player.STATE_IDLE -> "loading"
+      !player.playWhenReady -> "paused"
+      else -> "playing"
+    }
+    NativeCompanion.report(JSONObject().apply {
+      put("state", state)
+      put("positionSeconds", player.currentPosition.coerceAtLeast(0) / 1000.0)
+      if (player.duration > 0) put("durationSeconds", player.duration / 1000.0)
+      put("title", if (mode == MODE_LIVE) channels.getOrNull(currentChannelIndex)?.name ?: initialTitle else initialTitle)
+      put("isLive", mode == MODE_LIVE)
+      put("seekable", mode != MODE_LIVE && player.isCurrentMediaItemSeekable && player.duration > 0)
+      put("companion", true)
+      put("volume", ReceiverVolumeState.volume)
+      put("muted", ReceiverVolumeState.muted)
+      // Error messages may contain provider URLs. Publish only the stable code.
+      player.playerError?.let { put("error", it.errorCodeName) }
+    })
   }
 
   fun applyVolume(level: Float, muted: Boolean) {
@@ -1247,6 +1282,13 @@ object NativePlayerControl {
   }
 
   fun isActive(): Boolean = activeActivity != null
+
+  fun currentActivity(): VideoActivity? = activeActivity?.takeUnless { it.isFinishing || it.isDestroyed }
+
+  fun reportCompanion() {
+    val activity = currentActivity()
+    if (activity == null) NativeCompanion.idle() else activity.runOnUiThread { activity.reportCompanion() }
+  }
 
   fun setPlayWhenReady(playing: Boolean) {
     val activity = activeActivity ?: return

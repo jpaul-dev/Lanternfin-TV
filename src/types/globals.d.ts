@@ -11,6 +11,7 @@ interface AndroidPipBridge {
 }
 
 interface AndroidVideoBridge {
+  companionSetEnabled?: (enabled: boolean) => void
   launchVodWithMetadata?: (contentKey: string, url: string, ua: string, referer: string, title: string, posterUrl: string, startMs: number, metadataJson: string) => boolean
   playbackDiagnostics?: () => string
   showPlaybackDiagnostics?: () => void

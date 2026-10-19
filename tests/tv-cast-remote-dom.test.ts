@@ -18,15 +18,18 @@ const session = {
   liveContext: { playlistId: "p1", channelIds: ["1", "2"], index: 0 },
 }
 
+const clearSessionMock = vi.fn()
+const castSeekMock = vi.fn(async () => true)
 const castStopMock = vi.fn(async () => true)
 const castRetryLastMock = vi.fn(async () => true)
 let feedListener: ((state: any) => void) | null = null
 
 vi.mock("@/scripts/lib/tv-cast.js", () => ({
   getCastSession: () => session,
+  clearCastSession: () => clearSessionMock(),
   castPause: vi.fn(async () => true),
   castResume: vi.fn(async () => true),
-  castSeek: vi.fn(async () => true),
+  castSeek: (...args: unknown[]) => castSeekMock(...(args as [])),
   castStop: (...args: unknown[]) => castStopMock(...(args as [])),
   castRetryLast: (...args: unknown[]) => castRetryLastMock(...(args as [])),
   castSetVolume: vi.fn(async () => true),
@@ -226,5 +229,28 @@ describe("cast remote dialog", () => {
   it("adapts the footer actions for short viewports", () => {
     const footer = role("footer-stop").parentElement!
     expect(footer.className).toContain("short-viewport:flex-row")
+  })
+})
+
+
+describe("phone companion tools", () => {
+  it("submits an exact time through the same seek transport as the scrubber", () => {
+    session.isLive = false
+    document.dispatchEvent(new CustomEvent("xt:cast-session"))
+    pushState({ state: "playing", positionSeconds: 30, durationSeconds: 7200, seekable: true, companion: true })
+    role<HTMLInputElement>("exact-time").value = "1:23:45"
+    role("exact-seek").dispatchEvent(new Event("submit", { cancelable: true }))
+    expect(castSeekMock).toHaveBeenLastCalledWith(session, 5025)
+    session.isLive = true
+  })
+  it("disconnects without stopping the TV", () => {
+    role<HTMLButtonElement>("footer-disconnect").click()
+    expect(clearSessionMock).toHaveBeenCalledOnce()
+    expect(castStopMock).not.toHaveBeenCalled()
+  })
+  it("keeps the remote open while an enabled companion is idle", () => {
+    pushState({ state: "idle", companion: true })
+    expect(document.querySelector<HTMLDialogElement>("#tv-cast-remote")?.open).toBe(true)
+    expect(role("state").textContent).toContain("ready")
   })
 })

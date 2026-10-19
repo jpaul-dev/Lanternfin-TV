@@ -742,20 +742,41 @@ export interface CastState {
   error?: string
   volume?: number
   muted?: boolean
+  companion?: boolean
+  isLive?: boolean
+  seekable?: boolean
 }
 
 /** Shared payload validation for the poll (`/state`) and push (`/events` WebSocket) transports. */
 export function parseCastStateValue(value: unknown): CastState | null {
   if (!value || typeof value !== "object") return null
   const data = value as Record<string, unknown>
-  if (typeof data.state !== "string" || typeof data.positionSeconds !== "number") return null
+  if (typeof data.state !== "string" || typeof data.positionSeconds !== "number" || !Number.isFinite(data.positionSeconds) || data.positionSeconds < 0) return null
   const state: CastState = { state: data.state, positionSeconds: data.positionSeconds }
-  if (typeof data.durationSeconds === "number") state.durationSeconds = data.durationSeconds
+  if (typeof data.durationSeconds === "number" && Number.isFinite(data.durationSeconds) && data.durationSeconds > 0) state.durationSeconds = data.durationSeconds
   if (typeof data.title === "string") state.title = data.title
   if (typeof data.error === "string" && data.error) state.error = data.error
   if (typeof data.volume === "number" && data.volume >= 0 && data.volume <= 1) state.volume = data.volume
   if (typeof data.muted === "boolean") state.muted = data.muted
+  if (typeof data.companion === "boolean") state.companion = data.companion
+  if (typeof data.isLive === "boolean") state.isLive = data.isLive
+  if (typeof data.seekable === "boolean") state.seekable = data.seekable
   return state
+}
+
+/** Adopt playback started with the TV remote without attaching the phone’s old metadata. */
+export function syncCompanionSession(state: CastState): void {
+  if (!state.companion || isCastPlaySettling()) return
+  const session = getCastSession()
+  if (!session) return
+  const idle = state.state === "idle"
+  const title = idle ? "" : state.title ?? session.title
+  const isLive = state.isLive ?? session.isLive
+  if (session.title === title && session.isLive === isLive && !!session.connectedOnly === idle) return
+  const changedContent = session.title !== title
+  updateCastSession({ title, isLive, connectedOnly: idle, ...(changedContent ? {
+    contentHref: undefined, logo: undefined, vodContext: undefined, seriesContext: undefined, liveContext: undefined,
+  } : {}) })
 }
 
 async function fetchStateFromHost(host: string, device: TvDevice): Promise<CastState> {
@@ -1261,6 +1282,8 @@ export async function castConnect(device: TvDevice): Promise<boolean> {
       hosts: storedDevice.hosts,
       pinnedHostIndex: storedDevice.pinnedHostIndex,
     })
+    const playback = await fetchCastState(storedDevice)
+    if (getCastSession()?.deviceId === storedDevice.id && playback) syncCompanionSession(playback)
     touchTvDevice(storedDevice.id)
     toast({ title: t("cast.toast.connected", { device: device.name }), duration: 2600 })
     void pushAmbientManifest(storedDevice)

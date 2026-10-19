@@ -7,6 +7,7 @@ import { getEntries, getActiveEntry, isTauri } from "@/scripts/lib/creds.js"
 import { renderPlaylistRow, getPlaylistListEmptyCopy } from "@/scripts/lib/playlist-rows.js"
 import { attachDialogSpatialNav } from "@/scripts/lib/dialog-spatial-nav"
 import { confirmDialog } from "@/scripts/lib/confirm-dialog"
+import { openPhoneCompanion, companionAvailable, companionEnabled } from "@/scripts/lib/phone-companion"
 import { openMetadataSettings } from "@/scripts/tv/ui/metadata-settings"
 import {
   createSettingsList,
@@ -171,6 +172,11 @@ const view: TvView = {
       state.playlistId = activeEntry?._id || ""
 
       const rows: SettingsRow[] = []
+      if (companionAvailable()) rows.push({
+        id: "phone-companion", icon: ICON_DEVICE_TV, label: "Phone companion",
+        value: companionEnabled() ? "Ready to connect" : "Pair a phone · control this TV",
+        kind: "action", onActivate: () => void openPhoneCompanion(),
+      })
 
       rows.push({
         id: "playlists",
@@ -825,6 +831,7 @@ const view: TvView = {
     }
 
     function buildShell(): void {
+      document.querySelector<HTMLDialogElement>("#phone-companion")?.close()
       root.replaceChildren()
 
       const heading = document.createElement("h1")

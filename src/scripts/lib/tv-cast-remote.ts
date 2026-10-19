@@ -9,6 +9,7 @@ import { toast } from "@/scripts/lib/toast.js"
 import { log } from "@/scripts/lib/log.js"
 import {
   getCastSession,
+  clearCastSession,
   castPause,
   castResume,
   castSeek,
@@ -43,6 +44,8 @@ import {
   ICON_VOLUME,
   ICON_VOLUME_OFF,
 } from "@/scripts/lib/icons.js"
+
+import { parseCompanionTime, boundedCompanionSeek } from "./companion-time"
 
 const DIALOG_ID = "tv-cast-remote"
 const SEEK_STEP_LARGE_SECONDS = 30
@@ -163,6 +166,13 @@ function buildSkeleton(dialog: HTMLDialogElement): void {
           </div>
         </div>
 
+        <form data-role="exact-seek" class="flex items-center gap-2">
+          <label for="companion-time" class="text-xs text-fg-3 shrink-0">Go to time</label>
+          <input id="companion-time" data-role="exact-time" class="field-input min-w-0 w-full" placeholder="1:23:45" aria-label="Seconds, minutes:seconds, or hours:minutes:seconds" autocomplete="off" />
+          <button data-role="exact-go" type="submit" class="btn">Go</button>
+        </form>
+        <p data-role="seek-message" class="hidden text-xs text-accent" role="status"></p>
+
         <div data-role="live-elapsed" class="hidden items-center gap-1.5 text-xs text-fg-3">
           <span data-role="live-elapsed-label"></span>
           <span data-role="live-elapsed-value" class="tabular-nums"></span>
@@ -183,6 +193,7 @@ function buildSkeleton(dialog: HTMLDialogElement): void {
 
         <div class="flex flex-col gap-2 short-viewport:flex-row">
           <button type="button" data-role="footer-open" class="btn hidden short-viewport:flex-1"></button>
+          <button type="button" data-role="footer-disconnect" class="btn short-viewport:flex-1" title="Disconnect the phone. Keep the TV playing.">Use this phone · disconnect</button>
           <button type="button" data-role="footer-stop" class="btn-danger short-viewport:flex-1"></button>
         </div>
       </div>
@@ -213,6 +224,10 @@ interface RemoteRefs {
   metadataSkeleton: HTMLElement
   scrubber: HTMLElement
   seekRange: HTMLInputElement
+  exactSeek: HTMLFormElement
+  exactTime: HTMLInputElement
+  exactGo: HTMLButtonElement
+  seekMessage: HTMLElement
   positionTime: HTMLElement
   durationTime: HTMLElement
   liveElapsed: HTMLElement
@@ -265,6 +280,10 @@ function collectRefs(dialog: HTMLDialogElement): RemoteRefs {
     metadataSkeleton: query("metadata-skeleton"),
     scrubber: query("scrubber"),
     seekRange: query<HTMLInputElement>("seek-range"),
+    exactSeek: query<HTMLFormElement>("exact-seek"),
+    exactTime: query<HTMLInputElement>("exact-time"),
+    exactGo: query<HTMLButtonElement>("exact-go"),
+    seekMessage: query("seek-message"),
     positionTime: query("position-time"),
     durationTime: query("duration-time"),
     liveElapsed: query("live-elapsed"),
@@ -365,6 +384,7 @@ function applySession(refs: RemoteRefs, session: CastSession): void {
   }
 
   const connectedOnly = isConnectedOnlyRemoteSession(session)
+  refs.exactSeek.classList.toggle("hidden", session.isLive || connectedOnly)
   refs.scrubber.classList.toggle("hidden", session.isLive || connectedOnly)
   refs.back30.classList.toggle("hidden", session.isLive || connectedOnly)
   refs.forward30.classList.toggle("hidden", session.isLive || connectedOnly)
@@ -996,9 +1016,16 @@ export function openCastRemote(): void {
       playPending: isCastPlaySettling(),
     })
     if (state.state === "idle") {
+      if (state.companion) { refs.stateEl.textContent = "Connected · ready to play"; setBusy(false); return }
       if (idleTeardownAllowed) settleClose()
       return
     }
+    const canSeek = !currentSession.isLive && state.seekable !== false && (state.durationSeconds ?? 0) > 0
+    refs.seekRange.disabled = !canSeek
+    refs.exactTime.disabled = !canSeek
+    refs.exactGo.disabled = !canSeek
+    refs.back30.disabled = !canSeek
+    refs.forward30.disabled = !canSeek
     if (state.volume !== undefined) lastKnownVolume = state.volume
     if (state.muted !== undefined) lastKnownMuted = state.muted
     applyState(refs, state)
@@ -1028,14 +1055,29 @@ export function openCastRemote(): void {
   })
 
   function seekTo(seconds: number): void {
-    const clamped = Math.max(0, seconds)
+    const clamped = boundedCompanionSeek(seconds, Number(refs.seekRange.max), !currentSession.isLive && !refs.seekRange.disabled)
+    if (clamped === null) return
     lastKnownPositionSeconds = clamped
     suppressPositionUntil = Date.now() + SEEK_SUPPRESS_MS
     refs.seekRange.value = String(clamped)
     refs.positionTime.textContent = formatClock(clamped)
     castSeek(device(), clamped)
       .then(() => pokeCastStateFeed())
-      .catch((err) => log.warn("[xt:tv-cast-remote] seek failed:", err))
+      .catch(() => { refs.seekMessage.textContent = "The TV did not receive that seek. Try again."; refs.seekMessage.classList.remove("hidden"); pokeCastStateFeed() })
+  }
+
+  function onExactSeek(event: Event): void {
+    event.preventDefault()
+    const seconds = parseCompanionTime(refs.exactTime.value)
+    const duration = Number(refs.seekRange.max)
+    if (seconds === null || seconds > duration || refs.seekRange.disabled) {
+      refs.seekMessage.textContent = "Enter a time within this video: seconds, m:ss, or h:mm:ss."
+      refs.seekMessage.classList.remove("hidden")
+      return
+    }
+    refs.seekMessage.textContent = `Jumping to ${formatClock(seconds)}`
+    refs.seekMessage.classList.remove("hidden")
+    seekTo(seconds)
   }
 
   function togglePlayPause(): void {
@@ -1131,6 +1173,11 @@ export function openCastRemote(): void {
       toggleMute()
       return
     }
+    if (target.closest('[data-role="footer-disconnect"]')) {
+      clearCastSession()
+      settleClose()
+      return
+    }
     if (target.closest('[data-role="footer-open"]')) {
       if (currentSession.contentHref) window.location.assign(currentSession.contentHref)
       settleClose()
@@ -1222,6 +1269,7 @@ export function openCastRemote(): void {
     channelPanel?.destroy()
     channelPanel = null
     feedUnsubscribe()
+    refs.exactSeek.removeEventListener("submit", onExactSeek)
     dialog.removeEventListener("click", onClick)
     dialog.removeEventListener("keydown", onKeyDown)
     refs.seekRange.removeEventListener("pointerdown", onSeekPointerDown)
@@ -1238,6 +1286,7 @@ export function openCastRemote(): void {
     detach()
   }
 
+  refs.exactSeek.addEventListener("submit", onExactSeek)
   dialog.addEventListener("click", onClick)
   dialog.addEventListener("keydown", onKeyDown)
   refs.seekRange.addEventListener("pointerdown", onSeekPointerDown)

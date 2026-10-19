@@ -1073,6 +1073,8 @@ const appMode = import.meta.env.PUBLIC_APP_MODE || ""
             import("@/scripts/lib/app-settings.js"),
             import("@/scripts/lib/receiver-discovery.js"),
           ])
+        const { restorePhoneCompanion } = await import("@/scripts/lib/phone-companion")
+        await restorePhoneCompanion()
         if (getReceiverModeEnabled()) {
           invoke<{ name: string; port?: number; id?: string }>("receiver_start", {
             name: getEffectiveReceiverDeviceName() || undefined,

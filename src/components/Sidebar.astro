@@ -729,14 +729,19 @@ const settingsActive = path === "/settings" || path.startsWith("/settings/")
     async function connectToTv() {
       const { getCastSession, updateCastSession, castConnect } = await loadTvCast()
       const session = getCastSession()
-      if (session?.dismissed) {
-        updateCastSession({ dismissed: false })
+      if (session) {
+        if (session.dismissed) updateCastSession({ dismissed: false })
+        const { openCastRemote } = await import("@/scripts/lib/tv-cast-remote")
+        openCastRemote()
         return
       }
       const { openTvDevicePicker } = await import("@/scripts/lib/tv-device-dialog.js")
       const device = await openTvDevicePicker({})
       if (!device) return
-      void castConnect(device)
+      if (await castConnect(device)) {
+        const { openCastRemote } = await import("@/scripts/lib/tv-cast-remote")
+        openCastRemote()
+      }
     }
 
     sidebarCastBtn?.addEventListener("click", () => {
