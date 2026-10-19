@@ -2063,6 +2063,16 @@ class MainActivity : TauriActivity() {
 
   private val rendererRecreating = AtomicBoolean(false)
   private var rendererRecoveryDeferred = false
+  private var retainingRuntimeDuringDestroy = false
+
+  // Tao 0.35 / Wry 0.55 only retain their window and WebView creation callbacks
+  // when this flag is true. Android also destroys stopped activities for low
+  // memory without finishing their task (observed on Sony BRAVIA during VOD).
+  // Treat that teardown like recreation *only while invoking super.onDestroy*.
+  // Otherwise Tao exits the whole process, including the separate VideoActivity.
+  // Wry can rebuild the library using the saved activity id when Back returns.
+  override fun isChangingConfigurations(): Boolean =
+    retainingRuntimeDuringDestroy || super.isChangingConfigurations()
 
   companion object {
     private const val RENDER_GONE_REPEAT_WINDOW_MS = 60_000L
@@ -2091,6 +2101,7 @@ class MainActivity : TauriActivity() {
     installSplashScreen()
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
+    Log.i("LanternfinPlayback", "Library created restored=${savedInstanceState != null}")
 
     // Nothing in Tauri 2.11 calls PluginManager.onActivityCreate() automatically,
     // so SAF pickers (tauri-plugin-android-fs, tauri-plugin-dialog) otherwise
@@ -2390,8 +2401,11 @@ class MainActivity : TauriActivity() {
 
   // Tear down the throwaway sniffer WebView instead of leaving the remote page running until its timeout.
   override fun onDestroy() {
+    val retainRuntime = !isFinishing
+    Log.i("LanternfinPlayback", "Library destroyed finishing=$isFinishing changing=${super.isChangingConfigurations()} nativePlayer=${NativePlayerControl.isActive()} retainRuntime=$retainRuntime")
+    if (retainRuntime) PlaybackDiagnostics.record(this, PlaybackDiagnostics.Event.LIBRARY_RECREATING)
     // Closes over this activity's WebView, so a recreate() would leave it swallowing every receiver event.
-    if (receiverSessionActive) EventQueue.pushListener = null
+    EventQueue.pushListener = null
     snifferBridge?.activityDestroyed()
     nsdBridge?.activityDestroyed()
     castMediaBridge?.activityDestroyed()
@@ -2406,7 +2420,20 @@ class MainActivity : TauriActivity() {
         Log.w("ReceiverKeepAlive", "stop on destroy failed", error)
       }
     }
-    super.onDestroy()
+    retainingRuntimeDuringDestroy = retainRuntime
+    try {
+      super.onDestroy()
+    } finally {
+      retainingRuntimeDuringDestroy = false
+      // Retain Rust's callbacks, not the old renderer's memory. The next library
+      // instance gets a new WebView; native playback keeps its own SurfaceView.
+      val oldWebView = hostedWebView
+      hostedWebView = null
+      if (oldWebView != null) {
+        (oldWebView.parent as? ViewGroup)?.removeView(oldWebView)
+        oldWebView.destroy()
+      }
+    }
   }
 
   private fun drainAndDispatchVideoEvents() {

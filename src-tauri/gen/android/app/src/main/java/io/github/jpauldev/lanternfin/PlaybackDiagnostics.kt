@@ -11,7 +11,7 @@ object PlaybackDiagnostics {
   enum class Event {
     START, RESUME, PAUSE, STOP, DESTROY, CHECKPOINT, PLAYER_STATE, FAILURE,
     END_EARLY, END_UNCONFIRMED, END_COMPLETE, FINISH_REQUEST, REMOTE_STOP,
-    SESSION_END, RENDERER_CRASH, RENDERER_RECLAIMED, CONFIGURATION_RESTART
+    SESSION_END, RENDERER_CRASH, RENDERER_RECLAIMED, CONFIGURATION_RESTART, LIBRARY_RECREATING
   }
   private const val PREFS = "lanternfin_playback_diagnostics"
   private const val KEY = "events"
@@ -49,7 +49,7 @@ object PlaybackDiagnostics {
       } catch (_: Exception) { /* Older firmware may not expose process history. */ }
     }
     return JSONObject().put("version", BuildConfig.VERSION_NAME).put("versionCode", BuildConfig.VERSION_CODE)
-      .put("diagnosticsRevision", 1).put("model", Build.MODEL).put("androidApi", Build.VERSION.SDK_INT)
+      .put("diagnosticsRevision", 2).put("model", Build.MODEL).put("androidApi", Build.VERSION.SDK_INT)
       .put("events", events).put("processExits", exits).toString()
   }
 }

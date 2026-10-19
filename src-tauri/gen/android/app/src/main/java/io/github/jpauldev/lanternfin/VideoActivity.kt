@@ -31,6 +31,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.session.MediaSession
@@ -580,7 +581,20 @@ class VideoActivity : AppCompatActivity() {
 
   private fun initializePlayer() {
     val view = playerView ?: return
+    // The Sony's 192 MiB Java heap reached 153 MiB with Media3's default video
+    // allocation. Bound encoded samples on small heaps, leaving room for the
+    // library and platform objects. This is a loading target, not a total RAM cap.
+    val heapMb = Runtime.getRuntime().maxMemory() / (1024 * 1024)
+    val loadControl = DefaultLoadControl.Builder().apply {
+      if (heapMb <= 192) {
+        setTargetBufferBytes(32 * 1024 * 1024)
+        setPrioritizeTimeOverSizeThresholds(false)
+        setBufferDurationsMs(10_000, 30_000, 1_000, 2_000)
+      }
+    }.build()
+    Log.i("LanternfinPlayback", "Player heapMiB=$heapMb bufferProfile=${if (heapMb <= 192) "BOUNDED_32_MIB" else "DEFAULT"}")
     val player = ExoPlayer.Builder(this)
+      .setLoadControl(loadControl)
       .setMediaSourceFactory(buildMediaSourceFactory(defaultUa, defaultReferer))
       .build()
     exoPlayer = player
