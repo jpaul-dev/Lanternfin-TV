@@ -709,6 +709,7 @@ export async function playVod(input: TvPlayVodInput, events: TvPlaybackEvents = 
           setProgress(input.playlistId, "vod", input.movieId, positionSeconds, durationSeconds || 0, {
             name: input.title,
             logo: input.logo ?? null,
+            extension: input.containerExt || "mp4",
           })
           if (state === "ended") markCompleted(input.playlistId, "vod", input.movieId, { duration: durationSeconds || 0 })
         },
@@ -738,6 +739,7 @@ export async function playEpisode(input: TvPlayEpisodeInput, events: TvPlaybackE
     })
 
     const progressExtras = {
+      extension: input.containerExt || "mp4",
       seriesId: input.seriesId,
       season: input.season,
       episodeNum: input.episodeNum,

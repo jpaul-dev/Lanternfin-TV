@@ -635,7 +635,10 @@ function renderGrid(afterRender?: () => void) {
     afterRender?.()
   }
   if (useVT) {
-    ;(document as any).startViewTransition(run)
+    const transition = (document as any).startViewTransition(run)
+    // Another render/navigation may skip the animation after applying the update.
+    void transition.ready.catch(() => {})
+    void transition.finished.catch(() => {})
   } else {
     run()
   }

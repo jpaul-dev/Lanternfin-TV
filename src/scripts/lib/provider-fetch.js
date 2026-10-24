@@ -1,3 +1,4 @@
+import { homeHosted, homeProviderFetch } from "./home-client"
 import { log, redactUrl } from "@/scripts/lib/log.js"
 import {
   getUserAgent,
@@ -79,7 +80,9 @@ function asAbortError(error, signal) {
 
 async function nativeFetch(url, init, u, abortSignal) {
   try {
-    const r = await fetch(url, init)
+    const homeHeaders = new Headers(init.headers || {})
+    if (homeHosted() && !homeHeaders.has("User-Agent")) homeHeaders.set("User-Agent", getUserAgent() || DEFAULT_BROWSER_UA)
+    const r = await (homeHosted() ? homeProviderFetch(url, { ...init, headers: homeHeaders }) : fetch(url, init))
     log.log(`[xt:net] native ok ${r.status}`, u)
     return r
   } catch (e) {

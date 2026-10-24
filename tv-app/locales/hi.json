@@ -116,5 +116,7 @@
   "Your current library stays available if loading fails or is cancelled.": "लोडिंग विफल होने या रद्द होने पर भी आपकी मौजूदा लाइब्रेरी उपलब्ध रहेगी।",
   "Applying library…": "लाइब्रेरी लागू की जा रही है…",
   "Refresh failed. Your current library is unchanged.": "रिफ़्रेश नहीं हो सका। आपकी मौजूदा लाइब्रेरी में कोई बदलाव नहीं हुआ है।",
-  "Refresh cancelled. Your current library is unchanged.": "रिफ़्रेश रद्द कर दिया गया। आपकी मौजूदा लाइब्रेरी में कोई बदलाव नहीं हुआ है।"
+  "Refresh cancelled. Your current library is unchanged.": "रिफ़्रेश रद्द कर दिया गया। आपकी मौजूदा लाइब्रेरी में कोई बदलाव नहीं हुआ है।",
+  "Lanternfin Home": "Lanternfin Home",
+  "Shared accounts and watch progress": "साझा खाते और देखने की प्रगति"
 }

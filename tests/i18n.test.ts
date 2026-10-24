@@ -129,3 +129,21 @@ describe("initI18n background refresh", () => {
     expect(localStorage.getItem("xt_locale_messages_v3")).toBe(null)
   })
 })
+
+
+describe("locale initialization reentry", () => {
+  it("shares the initialization promise with synchronous locale-event listeners", async () => {
+    vi.resetModules()
+    const { initI18n, LOCALE_EVENT } = await import("@/scripts/lib/i18n")
+    let count = 0
+    let nested: Promise<void> | undefined
+    const listener = () => { count++; nested = initI18n() }
+    document.addEventListener(LOCALE_EVENT, listener)
+    try {
+      const first = initI18n()
+      await first
+      expect(nested).toBe(first)
+      expect(count).toBe(1)
+    } finally { document.removeEventListener(LOCALE_EVENT, listener) }
+  })
+})

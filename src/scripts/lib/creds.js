@@ -39,6 +39,8 @@
 import { log } from "@/scripts/lib/log.js"
 import { ACCENT_PRESETS } from "@/scripts/lib/app-settings.js"
 import { Store } from "@tauri-apps/plugin-store"
+import { homeReady } from "./home-client"
+import { mergeHomeSources, publishHomeSources } from "./home-library"
 
 export const isTauri =
   typeof window !== "undefined" &&
@@ -279,7 +281,12 @@ async function readRaw() {
   return null
 }
 
-async function writeRaw(data) {
+async function writeRaw(data, shared = false) {
+  if (!shared) {
+    let previous = null
+    try { previous = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null") } catch {}
+    publishHomeSources(previous, data)
+  }
   const store = await getStore()
   const json = JSON.stringify(data)
   if (store) {
@@ -368,8 +375,13 @@ let migrationPromise = null
 async function ensureMigrated() {
   if (migrationPromise) return migrationPromise
   migrationPromise = (async () => {
-    const existing = await readRaw()
-    if (existing && Array.isArray(existing.entries)) return existing
+    await homeReady()
+    const raw = await readRaw()
+    const existing = mergeHomeSources(raw)
+    if (existing.entries.length || raw) {
+      await writeRaw(existing, true)
+      return existing
+    }
     const legacy = await readLegacy()
     const entry = legacyToEntry(legacy)
     const seed = entry
@@ -962,3 +974,13 @@ export async function testM3UUrl(url) {
     }
   }
 }
+
+// Refresh shared accounts without navigating away from active playback.
+if (typeof document !== "undefined") document.addEventListener("lf:home-changed", async () => {
+  if (!migrationPromise) return
+  const current = await migrationPromise
+  const next = mergeHomeSources(current)
+  if (JSON.stringify(current) === JSON.stringify(next)) return
+  await writeRaw(next, true)
+  dispatch(EVT_ENTRIES_UPDATED)
+})

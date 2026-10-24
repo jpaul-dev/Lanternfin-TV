@@ -1,3 +1,6 @@
+import { homeEnabled, homeHasRow, homeRows, homeRow } from "../src/scripts/lib/home-client"
+import { sourceKey } from "../shared/home-protocol.mjs"
+import { homeSource, shareTVProgress } from "./home-source"
 import type { Channel, Source } from './catalog'
 import { channelReference, readProviderReference, referenceChannel, type ProviderReference } from './provider-reference'
 import { cloneSourceHome, readSourceHome, type SourceHome } from './source-home'
@@ -50,7 +53,7 @@ export class TVLibrary {
     try {
       const raw = storage?.getItem(this.key)
       this.savedRaw = raw ?? null
-      if (!raw || raw.length > 2 * 1024 * 1024) return
+      if (!raw || raw.length > 2 * 1024 * 1024) { this.syncHomeProgress(); return }
       const data = JSON.parse(raw)
       this.home = readSourceHome(data.homeLayout, source)
       this.browsing = readBrowseOptions(data.browseOptions) || {}
@@ -74,6 +77,7 @@ export class TVLibrary {
         if (this.favorites.has(id) || this.watchlist.has(id) || this.recent.has(id)) this.references.set(id, reference)
       }
     } catch { /* A broken or unavailable store still permits session use. */ }
+    this.syncHomeProgress()
   }
   isFavorite(channel: Channel) { return this.favorites.has(channelId(channel)) }
   get homeLayout() { return this.home && cloneSourceHome(this.home) }
@@ -122,6 +126,45 @@ export class TVLibrary {
     try { this.save() } catch { this.restoreSnapshot(before); throw new Error('TV storage could not save the watchlist change. Your previous list was kept.') }
     return this.watchlist.has(id)
   }
+  private shareHomeProgress(channel: Channel, value: Recent | null) {
+    if (!channel.providerId || !channel.mediaKind) return
+    const reference = channelReference(this.source, channel)
+    if (!reference) return
+    shareTVProgress(this.source, channel.providerId, channel.mediaKind, value === null ? null : {
+      position: value.position, duration: value.duration, completed: this.watched.has(channelId(channel)),
+      name: channel.name, logo: channel.logo, episodeTitle: channel.name, seriesId: channel.seriesId,
+      seriesName: channel.seriesName, extension: reference.extension,
+    })
+  }
+  syncHomeProgress() {
+    if (!homeEnabled() || this.source.kind !== 'xtream') return
+    try {
+      this.checkStoredRevision()
+      const key = sourceKey(homeSource(this.source)), before = JSON.stringify(this.snapshot())
+      for (const reference of this.references.values()) {
+        if (!['movie', 'episode'].includes(reference.mediaKind)) continue
+        const channel = referenceChannel(this.source, reference), recent = this.recent.get(channelId(channel))
+        if (recent && !homeHasRow(`progress/${key}/${reference.mediaKind === 'movie' ? 'vod' : 'episode'}/${reference.providerId}`)) this.shareHomeProgress(channel, recent)
+      }
+      for (const remote of homeRows()) {
+        if (!remote.key.startsWith(`progress/${key}/`)) continue
+        const row = homeRow(remote.key)!, [, , kind, providerId] = row.key.split('/')
+        const existing = [...this.references.values()].find(r => r.providerId === providerId && r.mediaKind === (kind === 'vod' ? 'movie' : 'episode'))
+        const reference = readProviderReference({ ...existing, providerId, mediaKind: kind === 'vod' ? 'movie' : 'episode', extension: row.value?.extension || existing?.extension || 'mp4', name: row.value?.name || row.value?.episodeTitle || existing?.name || 'Shared title', group: existing?.group || 'Continue watching', seriesId: String(row.value?.seriesId || existing?.seriesId || ''), seriesName: row.value?.seriesName || existing?.seriesName })
+        if (!reference) continue
+        const channel = referenceChannel(this.source, reference), id = channelId(channel)
+        if (row.value === null) { this.recent.delete(id); this.watched.delete(id); continue }
+        this.references.set(id, reference)
+        this.recent.set(id, { id, at: row.changed, position: row.value.position, duration: row.value.duration, completed: row.value.completed })
+        if (row.value.completed) this.addWatched(id); else this.watched.delete(id)
+      }
+      while (this.recent.size > MAX_RECENT) {
+        const oldest = [...this.recent.values()].sort((a,b) => a.at - b.at)[0]
+        this.recent.delete(oldest.id)
+      }
+      if (JSON.stringify(this.snapshot()) !== before) this.save()
+    } catch { /* Offline or unavailable storage never blocks local playback. */ }
+  }
   lastPlayed(channel: Channel) { return this.recent.get(channelId(channel)) }
   isWatched(channel: Channel) { return this.watched.has(channelId(channel)) }
   markWatched(channel: Channel, completed: boolean) {
@@ -130,6 +173,8 @@ export class TVLibrary {
       if (completed) this.addWatched(id)
       else { this.watched.delete(id); const recent = this.recent.get(id); if (recent) delete recent.completed }
     })
+    const id = channelId(channel)
+    this.shareHomeProgress(channel, this.recent.get(id) || { id, at: Date.now(), position: 0, duration: 0 })
   }
   private addWatched(id: string) { this.watched.delete(id); this.watched.add(id); while (this.watched.size > 10000) this.watched.delete(this.watched.keys().next().value!) }
   toggleFavorite(channel: Channel): boolean {
@@ -156,9 +201,14 @@ export class TVLibrary {
     // Playback should retain a session resume point even when persistent storage is full.
     // Keep the last successful stored revision so a retry cannot overwrite newer data.
     try { this.save() } catch { throw new Error('Viewing progress is kept for this session, but TV storage could not save it.') }
+    this.shareHomeProgress(channel, this.recent.get(id)!)
   }
-  clearHistory() { this.change(() => this.recent.clear()) }
-  removeRecent(channel: Channel) { this.change(() => { this.recent.delete(channelId(channel)) }) }
+  clearHistory() {
+    const channels = [...this.references.values()].map(r => referenceChannel(this.source, r)).filter(c => this.recent.has(channelId(c)))
+    this.change(() => this.recent.clear())
+    for (const channel of channels) this.shareHomeProgress(channel, null)
+  }
+  removeRecent(channel: Channel) { this.change(() => { this.recent.delete(channelId(channel)) }); this.shareHomeProgress(channel, null) }
   season(channel: Channel) { return this.seasons.get(channelId(channel)) }
   setSeason(channel: Channel, season: string) { this.change(() => { this.seasons.delete(channelId(channel)); this.seasons.set(channelId(channel), season.slice(0, 100)); while (this.seasons.size > 1000) this.seasons.delete(this.seasons.keys().next().value!) }) }
   setStorage(storage: Storage | null) {

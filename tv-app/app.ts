@@ -1,3 +1,5 @@
+import { openHomeSettings } from "../src/scripts/lib/home-ui"
+import { syncTVHomeSources } from "./home-sync"
 import './compatibility'
 import './app.css'
 import { openPhonePairing } from '../src/shared/pairing/tv-dialog'
@@ -1901,3 +1903,10 @@ sourceKind(); show('setup')
 try { const restored = sessionStorage.getItem('lanternfin.restored'); sessionStorage.removeItem('lanternfin.restored'); if (restored && /^\d{1,2}$/.test(restored)) notice(`Restored ${Number(restored)} sources. Open a source to continue.`) } catch {}
 document.documentElement.setAttribute('data-app-ready', 'true')
 window.dispatchEvent(new Event('lanternfin-ready'))
+
+$('settings-home-sync').onclick = openHomeSettings
+async function refreshSharedHome() {
+  try { await syncTVHomeSources(); renderProfiles(); library?.syncHomeProgress() } catch { /* Existing sources remain available offline. */ }
+}
+void refreshSharedHome()
+document.addEventListener('lf:home-changed', () => void refreshSharedHome())

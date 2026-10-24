@@ -1377,6 +1377,7 @@ async function openDisplayModeDialog() {
 
 function progressExtrasFor(ep) {
   return {
+    extension: ep.container_extension || "mp4",
     seriesId: series?.id ?? null,
     season: ep.season ?? currentSeason ?? null,
     episodeNum: ep.episode_num ?? null,

@@ -1,3 +1,4 @@
+import { homeMediaUrl } from "./home-client"
 // Unified mount surface for the playback backends; the external MPV/VLC ones are desktop only.
 
 import { log, redactUrl } from "@/scripts/lib/log.js"
@@ -1996,6 +1997,7 @@ async function mountVideoJs(
 
   const wrapped: VjsLikeHandle = {
     src({ src, type, drm, isLive, durationSeconds, timelineOffsetSeconds, subtitles, audio }) {
+      src = homeMediaUrl(src, { "user-agent": getUserAgent() || DEFAULT_BROWSER_UA })
       pendingSrc = src
       pendingIsLive = isLive ?? true
       pendingDurationSeconds = durationSeconds
@@ -2451,6 +2453,7 @@ async function mountArtPlayer(videoEl: HTMLVideoElement, options: MountOptions =
 
   const handle: VjsLikeHandle = {
     src({ src, type, drm, isLive, durationSeconds, timelineOffsetSeconds, subtitles, audio, preferNativeHls }) {
+      src = homeMediaUrl(src, { "user-agent": getUserAgent() || DEFAULT_BROWSER_UA })
       pendingSrc = src
       pendingPreferNativeHls = !!preferNativeHls
       pendingDrm = drm ?? null
@@ -2838,6 +2841,7 @@ async function mountShaka(videoEl: HTMLVideoElement, options: MountOptions = {})
 
   const handle: VjsLikeHandle = {
     src({ src, type, drm, isLive, durationSeconds, timelineOffsetSeconds, subtitles }) {
+      src = homeMediaUrl(src, { "user-agent": getUserAgent() || DEFAULT_BROWSER_UA })
       pendingSrc = src
       pendingDrm = drm ?? null
       pendingIsLive = isLive ?? true

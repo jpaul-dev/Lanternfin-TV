@@ -252,7 +252,9 @@ export interface NativeVodProgressOptions {
 export function launchAndroidNativeVodWithProgress(
   opts: NativeVodProgressOptions,
 ): boolean {
-  const { playlistId, contentKey, kind, id, progressExtras } = opts
+  const { playlistId, contentKey, kind, id } = opts
+  const extension = opts.url.split(/[?#]/)[0].match(/\.([a-zA-Z0-9]{1,8})$/)?.[1]
+  const progressExtras = { ...opts.progressExtras, ...(extension ? { extension } : {}) }
   const unsubscribe = subscribeAndroidNativeEvents((event) => {
     if (event.payload?.contentKey !== contentKey) return
     if (event.type === "xt:android-native-progress") {

@@ -294,7 +294,8 @@ export function initI18n(): Promise<void> {
       seededMessages = cached.messages
     }
     const code = detectLocale()
-    _initPromise = setLocale(code === "en" ? "en" : code).then(() => {
+    // Cache the promise before setLocale emits an event whose listeners can call initI18n again.
+    _initPromise = Promise.resolve().then(() => setLocale(code === "en" ? "en" : code)).then(() => {
       // Fire-and-forget: refresh the persisted snapshot from the bundled JSON
       // so keys added by an app update reach users who already have a cached
       // translation blob (setLocale skips the loader once cache.has(code)).

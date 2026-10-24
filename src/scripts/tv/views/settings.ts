@@ -1,3 +1,4 @@
+import { openHomeSettings } from "@/scripts/lib/home-ui"
 // TV Settings: a single scrollable row list covering playlists, display, playback, receiver and support.
 import type { TvView, TvViewContext } from "@/scripts/tv/router"
 import { navigate } from "astro:transitions/client"
@@ -171,7 +172,7 @@ const view: TvView = {
       if (state.destroyed || !list) return
       state.playlistId = activeEntry?._id || ""
 
-      const rows: SettingsRow[] = []
+      const rows: SettingsRow[] = [{ id: "lanternfin-home", label: "Lanternfin Home", value: "Shared accounts and watch progress", kind: "action", onActivate: openHomeSettings }]
       if (companionAvailable()) rows.push({
         id: "phone-companion", icon: ICON_DEVICE_TV, label: "Phone companion",
         value: companionEnabled() ? "Ready to connect" : "Pair a phone · control this TV",

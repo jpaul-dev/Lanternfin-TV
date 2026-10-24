@@ -157,6 +157,11 @@ const navStructure: NavSection[] = [
     </div>
 
     <div class="settings-stack flex-1 min-w-0">
+      <section class="rounded-2xl border border-line bg-surface p-5 mb-4">
+        <h2 class="text-xl font-semibold">Lanternfin Home</h2>
+        <p class="mt-2 text-fg-3">One library across your home. Share accounts and continue watching on your other screens.</p>
+        <button id="open-lanternfin-home" class="btn-primary mt-4">Manage home connection</button>
+      </section>
 
     <div class="lg:sticky lg:top-0 lg:z-10 -mt-2 pt-2 pb-3">
       <div class="relative">
@@ -5826,3 +5831,8 @@ const navStructure: NavSection[] = [
     import "@/scripts/settings/play-on-tv-card.ts"
   </script>
 </Layout>
+
+<script>
+  import { openHomeSettings } from "@/scripts/lib/home-ui"
+  document.getElementById("open-lanternfin-home")?.addEventListener("click", openHomeSettings)
+</script>
