@@ -175,6 +175,7 @@ export interface CastSession {
   startedAtMs?: number
   dismissed?: boolean
   connectedOnly?: boolean
+  companionPlaybackId?: string
   hosts?: string[]
   pinnedHostIndex?: number
   contentHref?: string
@@ -269,6 +270,7 @@ export function buildLiveCastContext(
 }
 
 export class CastAuthError extends Error {}
+export class CastUnsupportedSourceError extends Error {}
 
 /** Wraps a raw IPv6 host in brackets so it can sit in a URL authority; passthrough otherwise. */
 export function formatHostForUrl(host: string): string {
@@ -557,6 +559,10 @@ async function postDeviceAction(
       throw new CastAuthError("unauthorized")
     }
     if (!response.ok) {
+      if (response.status === 400) {
+        const error = await response.json().catch(() => null) as { error?: string } | null
+        if (error?.error === "nativeCompanionUnsupportedSource") throw new CastUnsupportedSourceError()
+      }
       throw new Error(`cast request failed: ${response.status}`)
     }
   })
@@ -734,6 +740,19 @@ export async function castSetVolume(device: TvDevice, level: number, muted: bool
   await postDeviceAction(device, "/volume", { level: clampedLevel, muted }, 5000)
 }
 
+export interface CastTrack {
+  id: string
+  kind: "audio" | "text"
+  label: string
+  selected: boolean
+}
+
+export async function castSelectTrack(device: TvDevice, selection: {
+  playbackId: string; tracksRevision: number; kind: "audio" | "text"; id: string | null
+}): Promise<void> {
+  await postDeviceAction(device, "/track", selection, 4000)
+}
+
 export interface CastState {
   state: string
   positionSeconds: number
@@ -742,20 +761,57 @@ export interface CastState {
   error?: string
   volume?: number
   muted?: boolean
+  companion?: boolean
+  isLive?: boolean
+  seekable?: boolean
+  logo?: string
+  playbackId?: string
+  tracks?: CastTrack[]
+  tracksRevision?: number
+  audioAutomatic?: boolean
 }
 
 /** Shared payload validation for the poll (`/state`) and push (`/events` WebSocket) transports. */
 export function parseCastStateValue(value: unknown): CastState | null {
   if (!value || typeof value !== "object") return null
   const data = value as Record<string, unknown>
-  if (typeof data.state !== "string" || typeof data.positionSeconds !== "number") return null
+  if (typeof data.state !== "string" || typeof data.positionSeconds !== "number" || !Number.isFinite(data.positionSeconds) || data.positionSeconds < 0) return null
   const state: CastState = { state: data.state, positionSeconds: data.positionSeconds }
-  if (typeof data.durationSeconds === "number") state.durationSeconds = data.durationSeconds
+  if (typeof data.durationSeconds === "number" && Number.isFinite(data.durationSeconds) && data.durationSeconds > 0) state.durationSeconds = data.durationSeconds
   if (typeof data.title === "string") state.title = data.title
   if (typeof data.error === "string" && data.error) state.error = data.error
   if (typeof data.volume === "number" && data.volume >= 0 && data.volume <= 1) state.volume = data.volume
   if (typeof data.muted === "boolean") state.muted = data.muted
+  if (typeof data.companion === "boolean") state.companion = data.companion
+  if (typeof data.isLive === "boolean") state.isLive = data.isLive
+  if (typeof data.seekable === "boolean") state.seekable = data.seekable
+  if (typeof data.playbackId === "string" && data.playbackId.length <= 64) state.playbackId = data.playbackId
+  if (typeof data.logo === "string" && data.logo.length <= 2048 && /^https?:\/\//i.test(data.logo)) state.logo = data.logo
+  if (typeof data.tracksRevision === "number" && Number.isSafeInteger(data.tracksRevision) && data.tracksRevision >= 0) state.tracksRevision = data.tracksRevision
+  if (typeof data.audioAutomatic === "boolean") state.audioAutomatic = data.audioAutomatic
+  if (Array.isArray(data.tracks)) state.tracks = data.tracks.filter((track): track is CastTrack =>
+    !!track && typeof track === "object" && (track.kind === "audio" || track.kind === "text") &&
+    typeof track.id === "string" && track.id.length > 0 && track.id.length <= 32 &&
+    typeof track.label === "string" && typeof track.selected === "boolean")
+    .slice(0, 32).map(track => ({ ...track, label: track.label.slice(0, 120) }))
   return state
+}
+
+/** Adopt playback started with the TV remote without attaching the phone’s old metadata. */
+export function syncCompanionSession(state: CastState): void {
+  if (!state.companion || isCastPlaySettling()) return
+  const session = getCastSession()
+  if (!session) return
+  const idle = state.state === "idle"
+  const title = idle ? "" : state.title ?? session.title
+  const isLive = state.isLive ?? session.isLive
+  const changedContent = session.title !== title || (!!session.companionPlaybackId && !!state.playbackId && session.companionPlaybackId !== state.playbackId)
+  const logo = idle ? undefined : state.logo ?? (changedContent ? undefined : session.logo)
+  if (!changedContent && session.isLive === isLive && !!session.connectedOnly === idle && session.logo === logo && session.companionPlaybackId === state.playbackId) return
+  if (changedContent) lastPlayRequest = null
+  updateCastSession({ title, isLive, logo, companionPlaybackId: state.playbackId, connectedOnly: idle, ...(changedContent ? {
+    contentHref: undefined, vodContext: undefined, seriesContext: undefined, liveContext: undefined,
+  } : {}) })
 }
 
 async function fetchStateFromHost(host: string, device: TvDevice): Promise<CastState> {
@@ -1201,6 +1257,11 @@ async function castToDevice(
   } catch (err) {
     // Don't restore over a session a concurrent retry already established.
     const shouldRestoreLocal = !getCastSession()
+    if (err instanceof CastUnsupportedSourceError) {
+      toast({ title: "This protected or catch-up source needs the TV library player.", variant: "warn" })
+      if (shouldRestoreLocal) options.restoreLocal?.()
+      return false
+    }
     if (err instanceof CastAuthError) {
       toast({
         title: t("cast.toast.authFailed", { device: device.name }),
@@ -1261,6 +1322,8 @@ export async function castConnect(device: TvDevice): Promise<boolean> {
       hosts: storedDevice.hosts,
       pinnedHostIndex: storedDevice.pinnedHostIndex,
     })
+    const playback = await fetchCastState(storedDevice)
+    if (getCastSession()?.deviceId === storedDevice.id && playback) syncCompanionSession(playback)
     touchTvDevice(storedDevice.id)
     toast({ title: t("cast.toast.connected", { device: device.name }), duration: 2600 })
     void pushAmbientManifest(storedDevice)

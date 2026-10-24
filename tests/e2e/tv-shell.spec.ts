@@ -223,6 +223,112 @@ async function seedTvState(page: Page, extra: () => void = () => {}) {
 }
 
 const TV_VIEWPORT = { width: 1920, height: 1080 }
+
+test("TV metadata settings reject bad keys, enable valid keys and can turn enrichment off", async ({ page }) => {
+  await page.setViewportSize(TV_VIEWPORT)
+  await mockProvider(page)
+  await seedTvState(page)
+  await page.route("https://api.themoviedb.org/**", route => {
+    const valid = new URL(route.request().url()).searchParams.get("api_key") === "fixture-valid-key"
+    return route.fulfill({ status: valid ? 200 : 401, json: valid ? { images: {} } : { status_message: "Invalid key" } })
+  })
+  await page.goto("/tv/settings")
+  const row = page.locator('[data-focus-key="set:metadata"]')
+  await row.click()
+  const dialog = page.locator("#lanternfin-metadata-settings")
+  await dialog.getByLabel("API key", { exact: true }).fill("fixture-rejected-key")
+  await dialog.getByRole("button", { name: "Test and enable" }).click()
+  await expect(dialog.getByRole("status")).toHaveText("TMDB rejected this key")
+  expect(await page.evaluate(() => localStorage.getItem("xt_tmdb_key"))).toBeNull()
+  await dialog.getByLabel("API key", { exact: true }).fill("fixture-valid-key")
+  await dialog.getByRole("button", { name: "Test and enable" }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(row).toContainText("On")
+  await expect(row).toBeFocused()
+  await page.reload()
+  await expect(row).toContainText("On")
+  await row.click()
+  await expect(dialog.getByLabel("API key", { exact: true })).toHaveAttribute("type", "password")
+  await dialog.getByRole("button", { name: "Turn off enrichment" }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(row).toContainText("Off")
+})
+
+test("TMDB fills episode gaps and a corrected show match survives reopening", async ({ page }) => {
+  await page.setViewportSize(TV_VIEWPORT)
+  await mockProvider(page)
+  await seedTvState(page, seedTvContent)
+  await page.context().addInitScript(() => {
+    localStorage.setItem("xt_tmdb_key", "fixture-key")
+    localStorage.setItem("xt_tmdb_enabled", "")
+    localStorage.setItem("xt_tmdb_enabled_v2", "1")
+  })
+  await page.route("https://api.themoviedb.org/**", route => {
+    const path = new URL(route.request().url()).pathname
+    const corrected = path.includes("/987")
+    if (path.endsWith("/search/tv")) return route.fulfill({ json: { results: [{ id: 987, name: "Correct Observatory", first_air_date: "2025-01-01" }] } })
+    if (path.includes("/season/")) return route.fulfill({ json: { episodes: [{ episode_number: 1, name: corrected ? "Correct episode" : "Matched episode", overview: corrected ? "Corrected episode synopsis." : "Fetched episode synopsis.", runtime: 42, air_date: "2025-04-12" }] } })
+    return route.fulfill({ json: { id: corrected ? 987 : 1396, name: corrected ? "Correct Observatory" : "Show 1", overview: "Series overview.", external_ids: { imdb_id: "tt0903747" } } })
+  })
+  await page.goto("/tv")
+  await page.waitForSelector(RAIL_ITEMS)
+  await page.evaluate(() => {
+    const fixture = (window as any).__xtTvFixtures
+    fixture.seriesInfo.info.tmdb = 1396
+    fixture.seriesInfo.episodes["1"][0].title = "Episode 1"
+    fixture.seriesInfo.episodes["1"][0].info = {}
+  })
+  await seedCatalogCache(page)
+  await page.goto("/tv/series/detail?id=101")
+  await expect(page.locator('[data-focus-key="ep:1:1"]')).toContainText("Fetched episode synopsis.")
+  await page.getByRole("button", { name: "Match show", exact: true }).click()
+  await page.getByRole("textbox", { name: "Search shows" }).fill("Correct Observatory")
+  await page.getByRole("button", { name: "Search shows", exact: true }).click()
+  await page.getByRole("button", { name: "Correct Observatory 2025" }).click()
+  await expect(page.locator('[data-focus-key="ep:1:1"]')).toContainText("Corrected episode synopsis.")
+  await page.reload()
+  await expect(page.locator('[data-focus-key="ep:1:1"]')).toContainText("Corrected episode synopsis.")
+})
+
+test("episode details follow remote focus and provider synopsis variants", async ({ page }) => {
+  await page.setViewportSize(TV_VIEWPORT)
+  await mockProvider(page)
+  await seedTvState(page, seedTvContent)
+  await page.goto("/tv")
+  await page.waitForSelector(RAIL_ITEMS)
+  await page.evaluate(() => {
+    const fixture = (window as any).__xtTvFixtures
+    fixture.seriesInfo.info.name = "The Last Observatory"
+    fixture.seriesInfo.info.plot = "An astronomer follows an unexplained signal to an abandoned mountain observatory."
+    fixture.seriesInfo.episodes["1"][0].title = "A Signal in the Dark"
+    fixture.seriesInfo.episodes["1"][0].info = { overview: "Mara returns to the mountain where her father vanished. A signal from the old telescope draws her into a mystery that reaches far beyond the valley.", duration_secs: 2520, air_date: "2025-04-12", rating: 8.4 }
+    fixture.seriesInfo.episodes["1"][1].title = "The Quiet Valley"
+    fixture.seriesInfo.episodes["1"][1].info = { description: "A familiar voice interrupts the transmission. Mara and Eli search the village archives for the source.", duration_secs: 2640, air_date: "2025-04-19" }
+  })
+  await seedCatalogCache(page)
+  await page.goto("/tv/series/detail?id=101")
+  const first = page.locator('[data-focus-key="ep:1:1"]')
+  await expect(first).toBeVisible()
+  await expect(page.locator('[data-focus-key="action:play"]')).toBeFocused()
+  await first.focus()
+  await expect(page.locator("#tv-episode-preview")).toContainText("Mara returns to the mountain")
+  await expect(page.locator("#tv-episode-preview")).toContainText("2025-04-12")
+  await page.keyboard.press("ArrowDown")
+  await expect(page.locator('[data-focus-key="ep:1:2"]')).toBeFocused()
+  await expect(page.locator("#tv-episode-preview")).toContainText("A familiar voice")
+  await page.keyboard.press("ArrowUp")
+  await expect(first).toBeFocused()
+  await page.screenshot({ path: "artifacts/android-tv-episode-details.png" })
+  await page.getByRole("button", { name: "Match show", exact: true }).click()
+  await expect(page.getByRole("dialog")).toContainText("Choose Metadata enrichment")
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("button", { name: "Match show", exact: true })).toBeFocused()
+  await page.keyboard.press("Enter")
+  await page.getByRole("button", { name: "Metadata enrichment", exact: true }).click()
+  await expect(page.locator("#lanternfin-metadata-settings")).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+})
 const HOME_RAIL_TRACKS = "[data-tv-view-root] section > div:nth-child(2)"
 
 // Home rails + a 4-season series detail need cached catalogs and per-playlist prefs.

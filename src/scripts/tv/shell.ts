@@ -396,6 +396,9 @@ function mountFocusMemory(): void {
 }
 
 export function bootTvShell(): void {
+  // TvLayout has its own bootstrap; the classic Layout script never runs here.
+  void import("@/scripts/lib/phone-companion").then(({ restorePhoneCompanion }) => restorePhoneCompanion())
+    .catch(() => console.warn("[companion] Could not restart the local phone companion"))
   void initI18n()
   mountBackHandler()
   mountTvInputGuard()

@@ -1,4 +1,15 @@
 {
+  "tv.episodes.match": "Match show",
+  "tv.episodes.search": "Search shows",
+  "tv.episodes.searching": "Searching…",
+  "tv.episodes.choose": "Choose the correct show. This updates episode details and intro matching on this TV.",
+  "tv.episodes.noMatches": "No matches. Try the original show title.",
+  "tv.episodes.resetMatch": "Use automatic matching",
+  "tv.episodes.keyRequired": "Choose Metadata enrichment below, or in Settings, to add your TMDB API key and fill missing episode details.",
+  "tv.episodes.enableMetadata": "Test and enable",
+  "tv.episodes.disableMetadata": "Turn off enrichment",
+  "tv.episodes.saveFailed": "The match could not be saved. Check available storage.",
+  "tv.episodes.lookupFailed": "Could not reach TMDB. Try again shortly.",
   "_meta": {
     "name": "English",
     "nativeName": "English",
@@ -1701,6 +1712,7 @@
   "settings.playOnTv.needsPairing": "Needs pairing again",
   "settings.playOnTv.removeConfirm": "Remove {name} from this device? The TV will keep trusting this device until you remove it there.",
   "cast.menu.playOnTv": "Play on TV",
+  "cast.menu.connectToTv": "Connect to TV",
   "cast.picker.title": "Play on TV",
   "cast.picker.addTitle": "Add a TV",
   "cast.picker.searching": "Looking for TVs on your network…",

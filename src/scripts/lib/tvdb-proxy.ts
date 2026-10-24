@@ -107,6 +107,7 @@ export function mergeTitleEnrichment(
         : fallback.genres
   return {
     ...primary,
+    imdbId: primary.imdbId || fallback.imdbId || null,
     posterUrl: primary.posterUrl || fallback.posterUrl,
     backdropUrl: primary.backdropUrl || fallback.backdropUrl,
     logoUrl: primary.logoUrl || fallback.logoUrl,

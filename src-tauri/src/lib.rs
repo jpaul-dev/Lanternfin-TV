@@ -24,6 +24,9 @@ mod matroska;
 
 mod receiver;
 
+#[cfg(target_os = "android")]
+mod android_companion;
+
 mod receiver_store;
 
 mod safe_fetch;
@@ -314,6 +317,8 @@ pub fn run() {
 
     let app = builder
         .setup(|app| {
+            #[cfg(target_os = "android")]
+            android_companion::register(app.handle());
             install_panic_hook();
             log_session_banner(app);
             #[cfg(target_os = "android")]

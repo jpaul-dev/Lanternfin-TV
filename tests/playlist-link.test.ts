@@ -50,14 +50,14 @@ describe("parsePlaylistLink", () => {
     })
   })
 
-  it("adds http:// to scheme-less input", () => {
+  it("adds https:// to scheme-less input", () => {
     expect(parsePlaylistLink("example.com/playlist.m3u8")).toEqual({
       type: "m3u",
-      url: "http://example.com/playlist.m3u8",
+      url: "https://example.com/playlist.m3u8",
     })
     expect(parsePlaylistLink("demo.example:8080/get.php?username=u1&password=p1")).toEqual({
       type: "xtream",
-      serverUrl: "http://demo.example:8080",
+      serverUrl: "https://demo.example:8080",
       username: "u1",
       password: "p1",
     })

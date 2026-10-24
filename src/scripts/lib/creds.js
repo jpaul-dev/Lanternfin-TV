@@ -39,6 +39,8 @@
 import { log } from "@/scripts/lib/log.js"
 import { ACCENT_PRESETS } from "@/scripts/lib/app-settings.js"
 import { Store } from "@tauri-apps/plugin-store"
+import { homeReady } from "./home-client"
+import { mergeHomeSources, publishHomeSources } from "./home-library"
 
 export const isTauri =
   typeof window !== "undefined" &&
@@ -279,7 +281,12 @@ async function readRaw() {
   return null
 }
 
-async function writeRaw(data) {
+async function writeRaw(data, shared = false) {
+  if (!shared) {
+    let previous = null
+    try { previous = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null") } catch {}
+    publishHomeSources(previous, data)
+  }
   const store = await getStore()
   const json = JSON.stringify(data)
   if (store) {
@@ -368,8 +375,13 @@ let migrationPromise = null
 async function ensureMigrated() {
   if (migrationPromise) return migrationPromise
   migrationPromise = (async () => {
-    const existing = await readRaw()
-    if (existing && Array.isArray(existing.entries)) return existing
+    await homeReady()
+    const raw = await readRaw()
+    const existing = mergeHomeSources(raw)
+    if (existing.entries.length || raw) {
+      await writeRaw(existing, true)
+      return existing
+    }
     const legacy = await readLegacy()
     const entry = legacyToEntry(legacy)
     const seed = entry
@@ -646,7 +658,7 @@ export function safeHttpUrl(rawUrl) {
   }
 }
 
-export function buildApiUrl(creds, action, params = {}) {
+export function buildApiUrl(creds, action = "", params = {}) {
   const url = new URL(fmtBase(creds.host, creds.port) + "/player_api.php")
   const search = new URLSearchParams({
     username: creds.user,
@@ -850,7 +862,9 @@ export async function resolveM3UScheme(url) {
 }
 
 /**
- * Hit `get_account_info` and classify the response.
+ * Request the default player_api.php account response (no action).
+ * get_account_info is not supported by every compatible provider; some return
+ * an empty array for it even though the credentials and catalogue are valid.
  *
  * `reason` is populated on every non-success path via `classifyError`, so the
  * caller can render actionable copy without parsing free-form messages. See
@@ -867,10 +881,7 @@ export async function testXtreamConnection({ serverUrl, username, password }) {
   const { classifyError } = await import("./provider-error.js")
   const startedAt = Date.now()
   try {
-    const url = buildApiUrl(
-      { host: serverUrl, port: "", user: username, pass: password },
-      "get_account_info"
-    )
+    const url = buildApiUrl({ host: serverUrl, port: "", user: username, pass: password })
     const { providerFetch } = await import("./provider-fetch.js")
     const response = await providerFetch(url, { logKind: "api" })
     if (!response.ok) {
@@ -963,3 +974,13 @@ export async function testM3UUrl(url) {
     }
   }
 }
+
+// Refresh shared accounts without navigating away from active playback.
+if (typeof document !== "undefined") document.addEventListener("lf:home-changed", async () => {
+  if (!migrationPromise) return
+  const current = await migrationPromise
+  const next = mergeHomeSources(current)
+  if (JSON.stringify(current) === JSON.stringify(next)) return
+  await writeRaw(next, true)
+  dispatch(EVT_ENTRIES_UPDATED)
+})

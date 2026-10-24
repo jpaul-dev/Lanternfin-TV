@@ -719,6 +719,7 @@ function onFeedState(state: CastState): void {
     playPending: isCastPlaySettling(),
   })
   if (state.state === "idle") {
+    if (state.companion) { renderStatus(pillEl, session, "ok"); return }
     if (autoAdvanceInFlight) {
       idleDeferredDuringAdvance = true
       return

@@ -1,0 +1,28 @@
+name: Lanternfin Home
+on:
+  push:
+    branches: [main, ports/webos-tizen]
+    paths: ['home-server/**', 'shared/**', 'src/**', 'start.*', 'stop.*', 'package.json', 'pnpm-lock.yaml', '.github/workflows/home.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  home:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm home:test
+      - run: pnpm home:build
+      - run: node home-server/cli-smoke.mjs
+      - if: runner.os != 'Windows'
+        run: bash -n start.sh stop.sh

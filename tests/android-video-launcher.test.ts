@@ -21,6 +21,32 @@ afterEach(() => {
 })
 
 describe("launchAndroidNativeVod", () => {
+  it("passes catalog runtime and episode identity to the current native bridge", async () => {
+    const launchVod = vi.fn(() => true)
+    const launchVodWithMetadata = vi.fn<(...args: unknown[]) => boolean>(() => true)
+    window.AndroidVideo = { launchVod, launchVodWithMetadata }
+    const mod = await import("@/scripts/lib/android-video-launcher.js")
+    const episode = { key: "episode", season: 1, episode: 2 }
+    expect(mod.launchAndroidNativeVod({ contentKey: "session", url: "https://provider.test/movie.mp4", durationMs: 2_400_000, startMs: 65_000, episode })).toBe(true)
+    expect(launchVodWithMetadata).toHaveBeenCalledWith("session", "https://provider.test/movie.mp4", "", "", "", "", 65_000,
+      JSON.stringify({ durationMs: 2_400_000, episode }))
+    expect(launchVod).not.toHaveBeenCalled()
+    mod.launchAndroidNativeVod({ contentKey: "session", url: "https://provider.test/movie.mp4", durationMs: NaN })
+    expect(JSON.parse(String(launchVodWithMetadata.mock.calls.at(-1)![7]))).toEqual({ durationMs: 0 })
+  })
+  it("passes episode identity separately from stream credentials and falls back on older bridges", async () => {
+    const launchVod = vi.fn(() => true)
+    const launchEpisode = vi.fn(() => true)
+    window.AndroidVideo = { launchVod, launchEpisode }
+    const mod = await import("@/scripts/lib/android-video-launcher.js")
+    const episode = { key: "playlist-episode", tmdbId: 1396, season: 1, episode: 2 }
+    expect(mod.launchAndroidNativeVod({ contentKey: "session", url: "https://provider.test/user/password/1.mp4", episode })).toBe(true)
+    expect(launchEpisode).toHaveBeenCalledWith("session", "https://provider.test/user/password/1.mp4", "", "", "", "", 0, JSON.stringify(episode))
+    expect(launchVod).not.toHaveBeenCalled()
+    window.AndroidVideo = { launchVod }
+    expect(mod.launchAndroidNativeVod({ contentKey: "session", url: "https://provider.test/1.mp4", episode })).toBe(true)
+    expect(launchVod).toHaveBeenCalledOnce()
+  })
   it("returns false when the bridge is missing", async () => {
     const mod = await import("@/scripts/lib/android-video-launcher.js")
     expect(

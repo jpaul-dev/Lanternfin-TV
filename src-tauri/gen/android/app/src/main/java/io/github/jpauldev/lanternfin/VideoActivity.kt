@@ -26,11 +26,14 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackGroup
 import androidx.media3.common.Tracks
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.session.MediaSession
@@ -62,11 +65,14 @@ class VideoActivity : AppCompatActivity() {
     const val EXTRA_MODE = "mode"           // "vod" | "live"
     const val EXTRA_CONTENT_KEY = "contentKey"
     const val EXTRA_URL = "url"
+    const val EXTRA_MIME = "mime"
     const val EXTRA_UA = "ua"
     const val EXTRA_REFERER = "referer"
     const val EXTRA_TITLE = "title"
     const val EXTRA_POSTER = "posterUrl"
+    const val EXTRA_EPISODE = "episodeInfo"
     const val EXTRA_START_MS = "startMs"
+    const val EXTRA_DURATION_MS = "durationMs"
     const val EXTRA_INITIAL_CHANNEL_ID = "initialChannelId"
     const val EXTRA_TV_OVERSCAN_PERCENT = "tvOverscanPercent"
 
@@ -107,10 +113,14 @@ class VideoActivity : AppCompatActivity() {
   private var volumeSeekBar: SeekBar? = null
 
   private var exoPlayer: ExoPlayer? = null
+  private var introController: EpisodeIntroController? = null
   private var mediaSession: MediaSession? = null
 
   private var mode: String = MODE_VOD
   private var contentKey: String = ""
+  private var companionPlaybackId: String = ""
+  private var companionTracksRevision = 0
+  private var companionTrackGroups: List<TrackGroup> = emptyList()
   private var defaultUa: String = ""
   private var defaultReferer: String = ""
   private var initialTitle: String = ""
@@ -128,6 +138,15 @@ class VideoActivity : AppCompatActivity() {
   private var volumeAdjustActive = false
   private var releaseSuppressed = false
   private var finishedEmitted = false
+  private val recoveryPolicy = PlaybackRecoveryPolicy()
+  private var recoveryTask: Runnable? = null
+  private var playbackErrorDialog: AlertDialog? = null
+  private var playbackResumed = false
+  private var knownDurationMs = 0L
+  private var catalogDurationMs = 0L
+  private var checkpointTicks = 0
+  private var finishReason = "ACTIVITY_FINISH"
+  private var recoveryGeneration = 0
   // Records an onPause()-initiated stop so onResume() resumes without overriding a viewer pause.
   private var resumePlaybackOnReturn = false
 
@@ -135,7 +154,12 @@ class VideoActivity : AppCompatActivity() {
   private val progressTick = object : Runnable {
     override fun run() {
       val player = exoPlayer
-      if (player != null && player.isPlaying) emitProgress(player)
+      reportCompanion()
+      if (player != null && player.isPlaying) {
+        recoveryPolicy.observePlaying(player.currentPosition)
+        emitProgress(player)
+        if (++checkpointTicks % 5 == 0) recordPlayback(PlaybackDiagnostics.Event.CHECKPOINT)
+      }
       progressHandler.postDelayed(this, PROGRESS_INTERVAL_MS)
     }
   }
@@ -143,6 +167,7 @@ class VideoActivity : AppCompatActivity() {
   // durationMs is omitted while unknown: C.TIME_UNSET must not reach JS as a zero-length media.
   private fun emitProgress(player: Player) {
     val durationMs = player.duration
+    if (durationMs > 0) knownDurationMs = maxOf(knownDurationMs, durationMs)
     EventQueue.append(
       this,
       "xt:android-native-progress",
@@ -202,7 +227,33 @@ class VideoActivity : AppCompatActivity() {
     }
 
     NativePlayerControl.register(this)
+    if (savedInstanceState != null) {
+      intent.putExtra(EXTRA_START_MS, savedInstanceState.getLong("playbackPositionMs", 0))
+    }
     initializeFromIntent(intent)
+    recordPlayback(PlaybackDiagnostics.Event.START)
+  }
+
+  private fun recordPlayback(event: PlaybackDiagnostics.Event, code: String = "", httpStatus: Int = 0) {
+    PlaybackDiagnostics.record(this, event, exoPlayer?.currentPosition ?: resumeMs,
+      maxOf(knownDurationMs, exoPlayer?.duration ?: 0), exoPlayer?.playbackState ?: 0, code, httpStatus, catalogDurationMs)
+  }
+
+  override fun onSaveInstanceState(outState: Bundle) {
+    outState.putLong("playbackPositionMs", (exoPlayer?.currentPosition ?: resumeMs).coerceAtLeast(0))
+    super.onSaveInstanceState(outState)
+  }
+
+  override fun finish() {
+    recordPlayback(PlaybackDiagnostics.Event.FINISH_REQUEST, finishReason)
+    super.finish()
+  }
+
+  fun finishFromControl(sessionEnd: Boolean) {
+    if (isFinishing || isDestroyed) return
+    finishReason = if (sessionEnd) "SESSION_END" else "REMOTE_STOP"
+    recordPlayback(if (sessionEnd) PlaybackDiagnostics.Event.SESSION_END else PlaybackDiagnostics.Event.REMOTE_STOP)
+    finish()
   }
 
   private fun setupCustomControls() {
@@ -272,14 +323,19 @@ class VideoActivity : AppCompatActivity() {
       showDisplayModeChooser()
       return
     }
-    val labels = arrayOf(
+    val labels = mutableListOf(
       getString(R.string.xt_video_display_mode),
       getString(R.string.xt_video_playback_speed),
     )
+    if (introController?.available == true) labels.add(getString(R.string.intro_settings))
     AlertDialog.Builder(this)
       .setTitle(R.string.xt_video_settings_title)
-      .setItems(labels) { _, which ->
-        if (which == 0) showDisplayModeChooser() else showPlaybackSpeedChooser()
+      .setItems(labels.toTypedArray()) { _, which ->
+        when (which) {
+          0 -> showDisplayModeChooser()
+          1 -> showPlaybackSpeedChooser()
+          2 -> introController?.showSettings()
+        }
       }
       .show()
   }
@@ -331,6 +387,14 @@ class VideoActivity : AppCompatActivity() {
   }
 
   private fun initializeFromIntent(intent: Intent) {
+    companionPlaybackId = java.util.UUID.randomUUID().toString()
+    recoveryPolicy.reset()
+    knownDurationMs = 0
+    catalogDurationMs = intent.getLongExtra(EXTRA_DURATION_MS, 0).coerceAtLeast(0)
+    finishReason = "ACTIVITY_FINISH"
+    introController?.dispose()
+    introController = null
+    findViewById<View>(R.id.skip_intro_button).visibility = View.GONE
     mode = intent.getStringExtra(EXTRA_MODE) ?: MODE_VOD
     contentKey = intent.getStringExtra(EXTRA_CONTENT_KEY) ?: ""
     defaultUa = intent.getStringExtra(EXTRA_UA) ?: ""
@@ -357,6 +421,11 @@ class VideoActivity : AppCompatActivity() {
 
     updateControllerForMode()
     initializePlayer()
+    if (mode == MODE_VOD && intent.hasExtra(EXTRA_EPISODE)) {
+      introController = EpisodeIntroController(this, intent.getStringExtra(EXTRA_EPISODE) ?: "",
+        findViewById(R.id.skip_intro_button), { exoPlayer }, { controllerVisible }, { playerView?.showController() })
+      introController?.resume()
+    }
   }
 
   // Live has no timeline (hide the time bar); VOD has no channel list (hide the flip buttons).
@@ -443,6 +512,10 @@ class VideoActivity : AppCompatActivity() {
 
   override fun onResume() {
     super.onResume()
+    recordPlayback(PlaybackDiagnostics.Event.RESUME)
+    playbackResumed = true
+    recoveryTask?.let { progressHandler.removeCallbacks(it); progressHandler.post(it) }
+    introController?.resume()
     progressHandler.removeCallbacks(progressTick)
     progressHandler.postDelayed(progressTick, PROGRESS_INTERVAL_MS)
     // A transient background (overlay, CEC, assistant) would otherwise leave a cast paused for good.
@@ -453,7 +526,11 @@ class VideoActivity : AppCompatActivity() {
   }
 
   override fun onPause() {
+    recordPlayback(PlaybackDiagnostics.Event.PAUSE)
     super.onPause()
+    playbackResumed = false
+    if (!isInPictureInPictureMode) recoveryTask?.let { progressHandler.removeCallbacks(it) }
+    introController?.pause()
     progressHandler.removeCallbacks(progressTick)
     // Keep playing if we're transitioning into PiP. Android pauses the
     // Activity briefly during the PiP transition; we only really stop in
@@ -465,17 +542,25 @@ class VideoActivity : AppCompatActivity() {
   }
 
   override fun onStop() {
+    recordPlayback(PlaybackDiagnostics.Event.STOP)
     super.onStop()
     if (!releaseSuppressed && !isInPictureInPictureMode) {
       releasePlayer()
+      NativeCompanion.idle()
     }
   }
 
   override fun onDestroy() {
+    recordPlayback(if (isChangingConfigurations) PlaybackDiagnostics.Event.CONFIGURATION_RESTART else PlaybackDiagnostics.Event.DESTROY,
+      if (isFinishing) finishReason else "SYSTEM_RECREATION")
+    introController?.dispose()
     progressHandler.removeCallbacks(progressTick)
     NativePlayerControl.unregister(this)
     releasePlayer()
-    if (!finishedEmitted) {
+    if (isFinishing && !NativePlayerControl.isActive()) NativeCompanion.idle()
+    // Destruction for a configuration change is not a viewer exit. Its stale
+    // finished event used to tell JS to stop the newly created player as well.
+    if (!finishedEmitted && isFinishing) {
       EventQueue.append(
         this,
         "xt:android-native-finished",
@@ -506,7 +591,20 @@ class VideoActivity : AppCompatActivity() {
 
   private fun initializePlayer() {
     val view = playerView ?: return
+    // The Sony's 192 MiB Java heap reached 153 MiB with Media3's default video
+    // allocation. Bound encoded samples on small heaps, leaving room for the
+    // library and platform objects. This is a loading target, not a total RAM cap.
+    val heapMb = Runtime.getRuntime().maxMemory() / (1024 * 1024)
+    val loadControl = DefaultLoadControl.Builder().apply {
+      if (heapMb <= 192) {
+        setTargetBufferBytes(32 * 1024 * 1024)
+        setPrioritizeTimeOverSizeThresholds(false)
+        setBufferDurationsMs(10_000, 30_000, 1_000, 2_000)
+      }
+    }.build()
+    Log.i("LanternfinPlayback", "Player heapMiB=$heapMb bufferProfile=${if (heapMb <= 192) "BOUNDED_32_MIB" else "DEFAULT"}")
     val player = ExoPlayer.Builder(this)
+      .setLoadControl(loadControl)
       .setMediaSourceFactory(buildMediaSourceFactory(defaultUa, defaultReferer))
       .build()
     exoPlayer = player
@@ -519,19 +617,14 @@ class VideoActivity : AppCompatActivity() {
       .build()
 
     player.addListener(object : Player.Listener {
+      override fun onEvents(player: Player, events: Player.Events) {
+        reportCompanion()
+      }
+
       override fun onPlayerError(error: PlaybackException) {
+        if (exoPlayer !== player) return
         val httpStatus = httpStatusOf(error)
-        Log.e(TAG, "playback error: ${error.errorCodeName} http=$httpStatus", error)
-        EventQueue.append(
-          this@VideoActivity,
-          "xt:android-native-error",
-          JSONObject().apply {
-            put("contentKey", contentKey)
-            put("code", error.errorCodeName)
-            put("message", error.message ?: "")
-            if (httpStatus > 0) put("httpStatus", httpStatus)
-          }
-        )
+        handlePlaybackFailure(player, error.errorCodeName, httpStatus)
       }
 
       override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -550,26 +643,39 @@ class VideoActivity : AppCompatActivity() {
 
       // Re-wire after the control view hides trackless buttons, so the chain never points through a GONE view.
       override fun onTracksChanged(tracks: Tracks) {
+        // Selection changes must not invalidate the other language selector's pending request.
+        val groups = tracks.groups.map { it.mediaTrackGroup }
+        if (groups != companionTrackGroups) {
+          companionTrackGroups = groups
+          companionTracksRevision++
+        }
+        reportCompanion()
         playerView?.post { wireControllerFocusChain(mode == MODE_LIVE) }
       }
 
       override fun onPlaybackStateChanged(state: Int) {
+        if (exoPlayer !== player) return
+        recordPlayback(PlaybackDiagnostics.Event.PLAYER_STATE)
         updateKeepScreenOn(player)
+        if (state == Player.STATE_READY) {
+          findViewById<View>(R.id.playback_recovery_status).visibility = View.GONE
+        }
         // STATE_READY knows the timeline; ticks only fire while playing, so report it right away.
         if (state == Player.STATE_READY && mode == MODE_VOD) emitProgress(player)
         if (state == Player.STATE_ENDED && mode == MODE_VOD) {
-          finishedEmitted = true
-          EventQueue.append(
-            this@VideoActivity,
-            "xt:android-native-finished",
-            JSONObject().apply {
-              put("contentKey", contentKey)
-              put("mode", mode)
-              put("completed", true)
-              put("finalPosMs", player.currentPosition)
-            }
-          )
-          finish()
+          val duration = maxOf(knownDurationMs, player.duration)
+          val result = PlaybackEndPolicy.classify(player.currentPosition, duration, catalogDurationMs)
+          if (result == PlaybackEndPolicy.Result.EARLY) {
+            recordPlayback(PlaybackDiagnostics.Event.END_EARLY)
+            handlePlaybackFailure(player, "SOURCE_ENDED_EARLY", 0)
+            return
+          }
+          if (result == PlaybackEndPolicy.Result.UNCONFIRMED) {
+            recordPlayback(PlaybackDiagnostics.Event.END_UNCONFIRMED)
+            handlePlaybackFailure(player, "SOURCE_END_UNCONFIRMED", 0)
+            return
+          }
+          showStreamEnd(player)
         }
       }
     })
@@ -637,7 +743,8 @@ class VideoActivity : AppCompatActivity() {
     builder.setMediaMetadata(metaBuilder.build())
     // Mime hint routes DefaultMediaSourceFactory to the right extractor.
     val lower = url.lowercase()
-    if (lower.contains(".m3u8")) builder.setMimeType(MimeTypes.APPLICATION_M3U8)
+    if (!intent.getStringExtra(EXTRA_MIME).isNullOrBlank()) builder.setMimeType(intent.getStringExtra(EXTRA_MIME))
+    else if (lower.contains(".m3u8")) builder.setMimeType(MimeTypes.APPLICATION_M3U8)
     else if (lower.contains(".mpd")) builder.setMimeType(MimeTypes.APPLICATION_MPD)
     return builder.build()
   }
@@ -651,11 +758,129 @@ class VideoActivity : AppCompatActivity() {
   }
 
   private fun releasePlayer() {
+    cancelPlaybackRecovery()
+    exoPlayer?.let { if (mode == MODE_VOD) resumeMs = it.currentPosition.coerceAtLeast(0) }
     mediaSession?.release()
     mediaSession = null
     exoPlayer?.release()
     exoPlayer = null
     playerView?.player = null
+  }
+
+  private fun cancelPlaybackRecovery() {
+    recoveryGeneration++
+    recoveryTask?.let { progressHandler.removeCallbacks(it) }
+    recoveryTask = null
+    playbackErrorDialog?.dismiss()
+    playbackErrorDialog = null
+    findViewById<View>(R.id.playback_recovery_status).visibility = View.GONE
+  }
+
+  private fun handlePlaybackFailure(player: ExoPlayer, code: String, httpStatus: Int) {
+    if (exoPlayer !== player || isFinishing || isDestroyed || recoveryTask != null) return
+    val generation = recoveryGeneration
+    val position = player.currentPosition.coerceAtLeast(0)
+    val duration = maxOf(knownDurationMs, player.duration)
+    recordPlayback(PlaybackDiagnostics.Event.FAILURE, code, httpStatus)
+    // Keep diagnostics useful without logging stream URLs, credentials or response bodies.
+    Log.w(TAG, "playback interrupted: code=$code http=$httpStatus positionMs=$position durationMs=$duration")
+    val delay = recoveryPolicy.nextDelayMs(code, httpStatus, mode == MODE_LIVE)
+    if (delay != null) {
+      val status = findViewById<TextView>(R.id.playback_recovery_status)
+      status.text = getString(R.string.playback_reconnecting, recoveryPolicy.attempts, 3)
+      status.visibility = View.VISIBLE
+      EventQueue.append(this, "xt:android-native-buffering", JSONObject().apply {
+        put("contentKey", contentKey)
+        put("positionMs", position)
+        put("code", code)
+        put("attempt", recoveryPolicy.attempts)
+        if (httpStatus > 0) put("httpStatus", httpStatus)
+      })
+      val task = Runnable {
+        if (!playbackResumed && !isInPictureInPictureMode) return@Runnable
+        recoveryTask = null
+        if (generation != recoveryGeneration || exoPlayer !== player || isFinishing || isDestroyed) return@Runnable
+        // Respect a pause pressed during the reconnect delay.
+        retryPlayback(player, code, player.playWhenReady)
+      }
+      recoveryTask = task
+      if (playbackResumed || isInPictureInPictureMode) progressHandler.postDelayed(task, delay)
+      return
+    }
+
+    val detail = "$code${if (httpStatus > 0) " · HTTP $httpStatus" else ""} · ${IntroTiming.clock(position)}"
+    EventQueue.append(this, "xt:android-native-error", JSONObject().apply {
+      put("contentKey", contentKey)
+      put("code", code)
+      put("message", detail)
+      put("positionMs", position)
+      put("playerRetained", true)
+      if (httpStatus > 0) put("httpStatus", httpStatus)
+    })
+    findViewById<View>(R.id.playback_recovery_status).visibility = View.GONE
+    playerView?.showController()
+    // Post outside the listener: Media3 transitions to IDLE after onPlayerError returns.
+    progressHandler.post {
+      if (generation != recoveryGeneration || exoPlayer !== player || isFinishing || isDestroyed || playbackErrorDialog != null) return@post
+      val message = when {
+        httpStatus in 400..499 && httpStatus != 408 -> R.string.playback_provider_refused
+        code == "SOURCE_ENDED_EARLY" -> R.string.playback_ended_early
+        code == "SOURCE_END_UNCONFIRMED" -> R.string.playback_end_unconfirmed
+        PlaybackRecoveryPolicy.retryable(code, httpStatus, mode == MODE_LIVE) -> R.string.playback_connection_failed
+        else -> R.string.playback_format_failed
+      }
+      playbackErrorDialog = AlertDialog.Builder(this)
+        .setTitle(if (code == "SOURCE_END_UNCONFIRMED") R.string.playback_stream_stopped else R.string.playback_interrupted)
+        .setMessage(getString(message) + "\n\n" + detail)
+        .setPositiveButton(R.string.playback_retry) { _, _ ->
+          recoveryPolicy.reset()
+          EventQueue.append(this, "xt:android-native-buffering", JSONObject().put("contentKey", contentKey).put("positionMs", position))
+          retryPlayback(player, code, true)
+        }
+        .setNegativeButton(R.string.playback_return) { _, _ -> finishReason = "ERROR_RETURN"; finish() }
+        .setOnCancelListener { finishReason = "ERROR_BACK"; finish() }
+        .setOnDismissListener { playbackErrorDialog = null }
+        .show()
+    }
+  }
+
+  private fun showStreamEnd(player: ExoPlayer) {
+    recordPlayback(PlaybackDiagnostics.Event.END_COMPLETE)
+    val generation = recoveryGeneration
+    progressHandler.post {
+      if (generation != recoveryGeneration || exoPlayer !== player || isFinishing || isDestroyed || playbackErrorDialog != null) return@post
+      val position = player.currentPosition.coerceAtLeast(0)
+      val returnToLibrary = {
+        finishReason = "COMPLETED_RETURN"
+        finishedEmitted = true
+        EventQueue.append(this, "xt:android-native-finished", JSONObject()
+          .put("contentKey", contentKey).put("mode", mode)
+          .put("completed", true).put("finalPosMs", position))
+        finish()
+      }
+      playbackErrorDialog = AlertDialog.Builder(this)
+        .setTitle(R.string.playback_finished)
+        .setMessage(getString(R.string.playback_finished_help) + "\n\n${IntroTiming.clock(position)} · END_COMPLETE")
+        .setPositiveButton(R.string.playback_replay) { _, _ ->
+          recoveryPolicy.reset()
+          player.seekTo(0)
+          retryPlayback(player, "SOURCE_ENDED_EARLY", true)
+        }
+        .setNegativeButton(R.string.playback_return) { _, _ -> returnToLibrary() }
+        .setOnCancelListener { returnToLibrary() }
+        .setOnDismissListener { playbackErrorDialog = null }
+        .show()
+    }
+  }
+
+  private fun retryPlayback(player: ExoPlayer, code: String, wantsPlayback: Boolean) {
+    if (exoPlayer !== player) return
+    // prepare() retains the current source, position and request headers after an error.
+    // A premature clean EOF needs stop() first to reopen the same source.
+    if (code == "SOURCE_ENDED_EARLY" || code == "SOURCE_END_UNCONFIRMED") player.stop()
+    if (code == "ERROR_CODE_BEHIND_LIVE_WINDOW" && mode == MODE_LIVE) player.seekToDefaultPosition()
+    player.prepare()
+    player.playWhenReady = wantsPlayback
   }
 
   // ---------------------------------------------------------------------
@@ -667,8 +892,83 @@ class VideoActivity : AppCompatActivity() {
   }
 
   fun applySeekToMs(positionMs: Long) {
-    if (mode != MODE_VOD) return
-    exoPlayer?.seekTo(positionMs)
+    val player = exoPlayer ?: return
+    if (mode != MODE_VOD || !player.isCurrentMediaItemSeekable) return
+    val max = player.duration.takeIf { it > 0 } ?: return
+    player.seekTo(positionMs.coerceIn(0, max))
+    reportCompanion()
+  }
+
+  fun selectCompanionTrack(data: JSONObject) {
+    val player = exoPlayer ?: return
+    // Recheck on the player thread: an episode/channel may have changed since HTTP validation.
+    if (data.optString("playbackId") != companionPlaybackId ||
+      data.optInt("tracksRevision", -1) != companionTracksRevision) return
+    val type = when (data.optString("kind")) {
+      "text" -> C.TRACK_TYPE_TEXT
+      "audio" -> C.TRACK_TYPE_AUDIO
+      else -> return
+    }
+    val builder = player.trackSelectionParameters.buildUpon().clearOverridesOfType(type)
+    if (data.isNull("id")) {
+      builder.setTrackTypeDisabled(type, type == C.TRACK_TYPE_TEXT)
+    } else {
+      val parts = data.optString("id").split(':').map { it.toIntOrNull() }
+      if (parts.size != 2) return
+      val group = player.currentTracks.groups.getOrNull(parts[0] ?: return) ?: return
+      val index = parts[1] ?: return
+      if (group.type != type || index !in 0 until group.length || !group.isTrackSupported(index)) return
+      builder.setTrackTypeDisabled(type, false)
+        .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, index))
+    }
+    player.trackSelectionParameters = builder.build()
+  }
+
+  fun reportCompanion() {
+    if (!NativeCompanion.isEnabled()) return
+    val player = exoPlayer ?: return
+    val state = when {
+      player.playerError != null -> "error"
+      player.playbackState == Player.STATE_ENDED -> "ended"
+      player.playbackState == Player.STATE_BUFFERING -> "buffering"
+      player.playbackState == Player.STATE_IDLE -> "loading"
+      !player.playWhenReady -> "paused"
+      else -> "playing"
+    }
+    NativeCompanion.report(JSONObject().apply {
+      put("state", state)
+      put("positionSeconds", player.currentPosition.coerceAtLeast(0) / 1000.0)
+      if (player.duration > 0) put("durationSeconds", player.duration / 1000.0)
+      put("title", if (mode == MODE_LIVE) channels.getOrNull(currentChannelIndex)?.name ?: initialTitle else initialTitle)
+      put("isLive", mode == MODE_LIVE)
+      put("seekable", mode != MODE_LIVE && player.isCurrentMediaItemSeekable && player.duration > 0)
+      put("companion", true)
+      put("playbackId", companionPlaybackId)
+      put("tracksRevision", companionTracksRevision)
+      put("audioAutomatic", player.trackSelectionParameters.overrides.values.none { it.type == C.TRACK_TYPE_AUDIO })
+      put("tracks", JSONArray().apply {
+        player.currentTracks.groups.forEachIndexed { groupIndex, group ->
+          if (group.type == C.TRACK_TYPE_TEXT || group.type == C.TRACK_TYPE_AUDIO) {
+            for (index in 0 until group.length) {
+              if (length() >= 32 || !group.isTrackSupported(index)) continue
+              val format = group.getTrackFormat(index)
+              val language = format.language?.takeUnless { it == "und" || it.isBlank() }
+                ?.let { java.util.Locale.forLanguageTag(it).displayLanguage }
+              val label = listOfNotNull(format.label?.takeIf { it.isNotBlank() }, language)
+                .distinct().joinToString(" · ").ifBlank { "Track ${index + 1}" }
+              put(JSONObject().put("id", "$groupIndex:$index")
+                .put("kind", if (group.type == C.TRACK_TYPE_TEXT) "text" else "audio")
+                .put("label", label.take(120)).put("selected", group.isTrackSelected(index)))
+            }
+          }
+        }
+      })
+      if (posterUrl.length <= 2048 && (posterUrl.startsWith("https://") || posterUrl.startsWith("http://"))) put("logo", posterUrl)
+      put("volume", ReceiverVolumeState.volume)
+      put("muted", ReceiverVolumeState.muted)
+      // Error messages may contain provider URLs. Publish only the stable code.
+      player.playerError?.let { put("error", it.errorCodeName) }
+    })
   }
 
   fun applyVolume(level: Float, muted: Boolean) {
@@ -733,6 +1033,13 @@ class VideoActivity : AppCompatActivity() {
     val metrics = resources.displayMetrics
     val horizontalPx = metrics.widthPixels * tvOverscanPercent / 100
     val verticalPx = metrics.heightPixels * tvOverscanPercent / 100
+    val skip = findViewById<View>(R.id.skip_intro_button)
+    (skip.layoutParams as? FrameLayout.LayoutParams)?.let { params ->
+      val margin = (32 * metrics.density).toInt()
+      params.rightMargin = horizontalPx + margin
+      params.bottomMargin = verticalPx + margin
+      skip.layoutParams = params
+    }
 
     playerView?.setPadding(0, 0, 0, 0)
     playerView?.findViewById<View>(androidx.media3.ui.R.id.exo_controller)
@@ -801,6 +1108,9 @@ class VideoActivity : AppCompatActivity() {
 
   private fun loadChannel(channel: ChannelLite, fireEvent: Boolean): Boolean {
     val player = exoPlayer ?: return false
+    cancelPlaybackRecovery()
+    recoveryPolicy.reset()
+    knownDurationMs = 0
     val ua = channel.ua.ifBlank { defaultUa }
     val ref = channel.referer.ifBlank { defaultReferer }
     try {
@@ -847,6 +1157,7 @@ class VideoActivity : AppCompatActivity() {
   // Keys only flip channels or open overlays while the controller is hidden; while visible,
   // unhandled D-pad falls through to the framework focus navigation.
   override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+    if (introController?.handleKey(keyCode, event?.repeatCount ?: 0) == true) return true
     if (overlayVisible) {
       if (keyCode == KeyEvent.KEYCODE_BACK) {
         hideChannelOverlay()
@@ -884,7 +1195,10 @@ class VideoActivity : AppCompatActivity() {
         playerView?.showController()
         true
       }
-      else -> super.onKeyDown(keyCode, event)
+      else -> {
+        if (keyCode == KeyEvent.KEYCODE_BACK) finishReason = "VIEWER_BACK"
+        super.onKeyDown(keyCode, event)
+      }
     }
   }
 
@@ -1031,6 +1345,13 @@ object NativePlayerControl {
 
   fun isActive(): Boolean = activeActivity != null
 
+  fun currentActivity(): VideoActivity? = activeActivity?.takeUnless { it.isFinishing || it.isDestroyed }
+
+  fun reportCompanion() {
+    val activity = currentActivity()
+    if (activity == null) NativeCompanion.idle() else activity.runOnUiThread { activity.reportCompanion() }
+  }
+
   fun setPlayWhenReady(playing: Boolean) {
     val activity = activeActivity ?: return
     activity.runOnUiThread { activity.applyPlayWhenReady(playing) }
@@ -1046,9 +1367,9 @@ object NativePlayerControl {
     activity.runOnUiThread { activity.applyVolume(level, muted) }
   }
 
-  fun finishPlayback() {
+  fun finishPlayback(sessionEnd: Boolean = false) {
     val activity = activeActivity ?: return
-    activity.runOnUiThread { activity.finish() }
+    activity.runOnUiThread { activity.finishFromControl(sessionEnd) }
   }
 }
 

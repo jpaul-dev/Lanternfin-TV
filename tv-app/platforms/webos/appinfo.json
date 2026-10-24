@@ -1,0 +1,15 @@
+{
+  "id": "io.github.jpauldev.lanternfin",
+  "version": "0.1.0",
+  "vendor": "Lanternfin contributors",
+  "type": "web",
+  "main": "index.html",
+  "title": "Lanternfin TV",
+  "icon": "icon.png",
+  "largeIcon": "large-icon.png",
+  "iconColor": "#102934",
+  "disableBackHistoryAPI": true,
+  "screenSaverProperties": { "preferredType": 2 },
+  "requiredACG": [],
+  "resolution": "1920x1080"
+}

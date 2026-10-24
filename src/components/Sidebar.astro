@@ -212,9 +212,9 @@ const settingsActive = path === "/settings" || path.startsWith("/settings/")
     <button
       type="button"
       id="sidebar-cast-btn"
-      aria-label="Play on TV"
-      title="Play on TV"
-      data-i18n-attr="aria-label:cast.menu.playOnTv;title:cast.menu.playOnTv"
+      aria-label="Connect to TV"
+      title="Connect to TV"
+      data-i18n-attr="aria-label:cast.menu.connectToTv;title:cast.menu.connectToTv"
       class:list={[
         "hidden relative flex items-center gap-3 rounded-xl px-2.5 py-2.5 min-h-11",
         "justify-center rail-expanded:justify-start",
@@ -229,8 +229,8 @@ const settingsActive = path === "/settings" || path.startsWith("/settings/")
           aria-hidden="true"
           class="hidden absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent ring-2 ring-bg"></span>
       </span>
-      <span data-i18n="cast.menu.playOnTv" class="rail-reveal hidden rail-expanded:inline truncate text-sm font-medium">
-        Play on TV
+      <span data-i18n="cast.menu.connectToTv" class="rail-reveal hidden rail-expanded:inline truncate text-sm font-medium">
+        Connect to TV
       </span>
     </button>
     <a
@@ -307,8 +307,8 @@ const settingsActive = path === "/settings" || path.startsWith("/settings/")
         <button
           type="button"
           id="mobile-cast-btn"
-          aria-label="Play on TV"
-          data-i18n-attr="aria-label:cast.menu.playOnTv"
+          aria-label="Connect to TV"
+          data-i18n-attr="aria-label:cast.menu.connectToTv"
           class="hidden group w-full flex items-center gap-3 rounded-xl px-2.5 py-2 min-h-12
                  transition-[color,background-color,transform] duration-150 outline-none
                  hover:bg-surface-2 focus-visible:bg-surface-2 active:scale-[0.99]
@@ -320,7 +320,7 @@ const settingsActive = path === "/settings" || path.startsWith("/settings/")
               aria-hidden="true"
               class="hidden absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent ring-2 ring-bg"></span>
           </span>
-          <span data-i18n="cast.menu.playOnTv" class="truncate text-sm font-medium">Play on TV</span>
+          <span data-i18n="cast.menu.connectToTv" class="truncate text-sm font-medium">Connect to TV</span>
         </button>
       </li>
       {moreItems.map(({ href, key, label, Icon, match, id }) => {
@@ -729,14 +729,19 @@ const settingsActive = path === "/settings" || path.startsWith("/settings/")
     async function connectToTv() {
       const { getCastSession, updateCastSession, castConnect } = await loadTvCast()
       const session = getCastSession()
-      if (session?.dismissed) {
-        updateCastSession({ dismissed: false })
+      if (session) {
+        if (session.dismissed) updateCastSession({ dismissed: false })
+        const { openCastRemote } = await import("@/scripts/lib/tv-cast-remote")
+        openCastRemote()
         return
       }
       const { openTvDevicePicker } = await import("@/scripts/lib/tv-device-dialog.js")
       const device = await openTvDevicePicker({})
       if (!device) return
-      void castConnect(device)
+      if (await castConnect(device)) {
+        const { openCastRemote } = await import("@/scripts/lib/tv-cast-remote")
+        openCastRemote()
+      }
     }
 
     sidebarCastBtn?.addEventListener("click", () => {

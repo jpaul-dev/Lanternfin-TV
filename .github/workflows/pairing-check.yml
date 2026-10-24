@@ -1,0 +1,22 @@
+name: Phone pairing checks
+on:
+  pull_request:
+    paths: ['pairing-service/**', 'src/shared/pairing/**', 'src/config/pairing.json', 'scripts/build-phone-pairing.mjs', 'tests/pairing-*.test.ts', 'package.json', 'pnpm-lock.yaml', '.github/workflows/pairing-check.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pairing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm --dir pairing-service --ignore-workspace install --frozen-lockfile --ignore-scripts
+      - run: pnpm pairing:build
+      - run: pnpm --dir pairing-service --ignore-workspace check
+      - run: pnpm exec vitest run tests/pairing-protocol.test.ts tests/pairing-relay.test.ts tests/pairing-dialog.test.ts tests/xtream-login.test.ts

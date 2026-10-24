@@ -27,6 +27,7 @@ export type AndroidNativeEventType =
   | "xt:android-native-error"
   | "xt:android-native-play-state"
   | "xt:android-native-volume"
+  | "xt:android-native-buffering"
 
 export interface AndroidNativeEvent {
   type: AndroidNativeEventType
@@ -46,6 +47,8 @@ export interface AndroidNativeEvent {
     playing?: boolean
     volume?: number
     muted?: boolean
+    playerRetained?: boolean
+    attempt?: number
   }
 }
 
@@ -57,6 +60,8 @@ export interface VodLaunchOptions {
   title?: string
   posterUrl?: string
   startMs?: number
+  durationMs?: number
+  episode?: { key: string; imdbId?: string | null; tmdbId?: number | null; season: number; episode: number }
 }
 
 export interface LiveLaunchOptions {
@@ -96,6 +101,21 @@ export function launchAndroidNativeVod(opts: VodLaunchOptions): boolean {
   const bridge = window.AndroidVideo
   if (!bridge?.launchVod) return false
   try {
+    if (bridge.launchVodWithMetadata) {
+      const durationMs = Number.isFinite(opts.durationMs) && (opts.durationMs ?? 0) > 0 ? Math.floor(opts.durationMs!) : 0
+      return bridge.launchVodWithMetadata(
+        opts.contentKey, opts.url, opts.ua || "", opts.referer || "",
+        opts.title || "", opts.posterUrl || "", Math.max(0, Math.floor(opts.startMs || 0)),
+        JSON.stringify({ durationMs, episode: opts.episode }),
+      )
+    }
+    if (opts.episode && bridge.launchEpisode) {
+      return bridge.launchEpisode(
+        opts.contentKey, opts.url, opts.ua || "", opts.referer || "",
+        opts.title || "", opts.posterUrl || "", Math.max(0, Math.floor(opts.startMs || 0)),
+        JSON.stringify(opts.episode),
+      )
+    }
     return bridge.launchVod(
       opts.contentKey,
       opts.url,
@@ -167,6 +187,7 @@ function installListeners(): void {
     "xt:android-native-error",
     "xt:android-native-play-state",
     "xt:android-native-volume",
+    "xt:android-native-buffering",
   ]
   for (const type of types) {
     document.addEventListener(type, (event: Event) => {
@@ -231,7 +252,9 @@ export interface NativeVodProgressOptions {
 export function launchAndroidNativeVodWithProgress(
   opts: NativeVodProgressOptions,
 ): boolean {
-  const { playlistId, contentKey, kind, id, progressExtras } = opts
+  const { playlistId, contentKey, kind, id } = opts
+  const extension = opts.url.split(/[?#]/)[0].match(/\.([a-zA-Z0-9]{1,8})$/)?.[1]
+  const progressExtras = { ...opts.progressExtras, ...(extension ? { extension } : {}) }
   const unsubscribe = subscribeAndroidNativeEvents((event) => {
     if (event.payload?.contentKey !== contentKey) return
     if (event.type === "xt:android-native-progress") {
@@ -247,7 +270,7 @@ export function launchAndroidNativeVodWithProgress(
         try { opts.onCompleted?.() } catch {}
       }
       unsubscribe()
-    } else if (event.type === "xt:android-native-error") {
+    } else if (event.type === "xt:android-native-error" && !event.payload.playerRetained) {
       unsubscribe()
     }
   })

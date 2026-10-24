@@ -973,7 +973,7 @@ async function startPlayback(options = {}) {
       title: movie.name,
       posterUrl: movie.logo || "",
       startMs: Math.max(0, resumePos) * 1000,
-      progressExtras: { title: movie.name, logo: movie.logo || null },
+      progressExtras: { name: movie.name, logo: movie.logo || null },
     })
     if (launched) return
   }
@@ -1054,6 +1054,7 @@ async function startPlayback(options = {}) {
       setProgress(activePlaylistId, "vod", movie.id, pos, dur, {
         name: movie.name,
         logo: movie.logo || null,
+        extension: detailSrc.split(/[?#]/)[0].match(/\.([a-zA-Z0-9]{1,8})$/)?.[1] || "mp4",
       })
     },
     recordPlaybackEndedSession: () => getMovieInsights().endSession("ended"),

@@ -81,6 +81,11 @@ export interface TvPlayVodInput {
 }
 
 export interface TvPlayEpisodeInput {
+  durationSeconds?: number
+  tmdbId?: number | null
+  imdbId?: string | null
+  metadataSeason?: number
+  metadataEpisode?: number
   playlistId: string
   seriesId: string | number
   season: number
@@ -704,6 +709,7 @@ export async function playVod(input: TvPlayVodInput, events: TvPlaybackEvents = 
           setProgress(input.playlistId, "vod", input.movieId, positionSeconds, durationSeconds || 0, {
             name: input.title,
             logo: input.logo ?? null,
+            extension: input.containerExt || "mp4",
           })
           if (state === "ended") markCompleted(input.playlistId, "vod", input.movieId, { duration: durationSeconds || 0 })
         },
@@ -729,9 +735,11 @@ export async function playEpisode(input: TvPlayEpisodeInput, events: TvPlaybackE
       title: input.title,
       logo: input.logo ?? undefined,
       resumeSeconds: input.resumeSeconds,
+      durationSeconds: input.durationSeconds,
     })
 
     const progressExtras = {
+      extension: input.containerExt || "mp4",
       seriesId: input.seriesId,
       season: input.season,
       episodeNum: input.episodeNum,
@@ -752,7 +760,16 @@ export async function playEpisode(input: TvPlayEpisodeInput, events: TvPlaybackE
       }),
     }
 
-    return startSession(descriptor, { events, progressTarget })
+    return startSession(descriptor, {
+      events, progressTarget,
+      playOptions: { episode: {
+        key: JSON.stringify([input.playlistId, String(input.episodeId)]),
+        imdbId: input.imdbId,
+        tmdbId: input.tmdbId,
+        season: input.metadataSeason ?? input.season,
+        episode: input.metadataEpisode ?? input.episodeNum,
+      } },
+    })
   })
 }
 

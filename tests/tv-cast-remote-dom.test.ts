@@ -18,15 +18,20 @@ const session = {
   liveContext: { playlistId: "p1", channelIds: ["1", "2"], index: 0 },
 }
 
+const clearSessionMock = vi.fn()
+const castSelectTrackMock = vi.fn(async (..._args: unknown[]) => true)
+const castSeekMock = vi.fn(async () => true)
 const castStopMock = vi.fn(async () => true)
 const castRetryLastMock = vi.fn(async () => true)
 let feedListener: ((state: any) => void) | null = null
 
 vi.mock("@/scripts/lib/tv-cast.js", () => ({
   getCastSession: () => session,
+  clearCastSession: () => clearSessionMock(),
+  castSelectTrack: (...args: unknown[]) => castSelectTrackMock(...args),
   castPause: vi.fn(async () => true),
   castResume: vi.fn(async () => true),
-  castSeek: vi.fn(async () => true),
+  castSeek: (...args: unknown[]) => castSeekMock(...(args as [])),
   castStop: (...args: unknown[]) => castStopMock(...(args as [])),
   castRetryLast: (...args: unknown[]) => castRetryLastMock(...(args as [])),
   castSetVolume: vi.fn(async () => true),
@@ -70,6 +75,7 @@ function pushState(state: Record<string, unknown>): void {
 }
 
 beforeEach(() => {
+  castSelectTrackMock.mockClear()
   castStopMock.mockClear()
   castRetryLastMock.mockClear()
   HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
@@ -87,6 +93,24 @@ afterEach(() => {
 })
 
 describe("cast remote dialog", () => {
+  it("controls current TV subtitles and audio without exposing stale tracks at idle", async () => {
+    pushState({ state: "playing", companion: true, playbackId: "film-1", tracksRevision: 3,
+      tracks: [{ id: "1:0", kind: "text", label: "English", selected: false },
+        { id: "2:0", kind: "audio", label: "Spanish", selected: false }] })
+    expect(role("tracks").classList.contains("hidden")).toBe(false)
+    for (const [field, kind, id] of [["subtitle-track", "text", "1:0"], ["subtitle-track", "text", ""], ["audio-track", "audio", "2:0"]]) {
+      role<HTMLSelectElement>(field).value = id
+      role(field).dispatchEvent(new Event("change"))
+      await settle()
+      expect(castSelectTrackMock).toHaveBeenLastCalledWith(expect.anything(), {
+        playbackId: "film-1", tracksRevision: 3, kind, id: id || null,
+      })
+    }
+    pushState({ state: "idle", companion: true })
+    expect(role<HTMLSelectElement>("subtitle-track").disabled).toBe(true)
+    expect(role<HTMLSelectElement>("audio-track").disabled).toBe(true)
+  })
+
   it("builds every element the controller queries", () => {
     for (const name of [
       "page-now",
@@ -226,5 +250,28 @@ describe("cast remote dialog", () => {
   it("adapts the footer actions for short viewports", () => {
     const footer = role("footer-stop").parentElement!
     expect(footer.className).toContain("short-viewport:flex-row")
+  })
+})
+
+
+describe("phone companion tools", () => {
+  it("submits an exact time through the same seek transport as the scrubber", () => {
+    session.isLive = false
+    document.dispatchEvent(new CustomEvent("xt:cast-session"))
+    pushState({ state: "playing", positionSeconds: 30, durationSeconds: 7200, seekable: true, companion: true })
+    role<HTMLInputElement>("exact-time").value = "1:23:45"
+    role("exact-seek").dispatchEvent(new Event("submit", { cancelable: true }))
+    expect(castSeekMock).toHaveBeenLastCalledWith(session, 5025)
+    session.isLive = true
+  })
+  it("disconnects without stopping the TV", () => {
+    role<HTMLButtonElement>("footer-disconnect").click()
+    expect(clearSessionMock).toHaveBeenCalledOnce()
+    expect(castStopMock).not.toHaveBeenCalled()
+  })
+  it("keeps the remote open while an enabled companion is idle", () => {
+    pushState({ state: "idle", companion: true })
+    expect(document.querySelector<HTMLDialogElement>("#tv-cast-remote")?.open).toBe(true)
+    expect(role("state").textContent).toContain("ready")
   })
 })

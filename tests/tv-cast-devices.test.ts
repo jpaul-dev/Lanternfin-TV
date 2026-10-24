@@ -9,6 +9,8 @@ import {
   touchTvDevice,
   validateDeviceInput,
   getCastSession,
+  syncCompanionSession,
+  parseCastStateValue,
   setCastSession,
   updateCastSession,
   clearCastSession,
@@ -452,5 +454,46 @@ describe("isLinkLocalHost", () => {
     ["living-room-tv.local", false],
   ])("host=%s -> linkLocal=%s", (host, expected) => {
     expect(isLinkLocalHost(host)).toBe(expected)
+  })
+})
+
+
+describe("native TV companion state", () => {
+  const session = { deviceId: "sony", deviceName: "Sony", host: "192.168.1.216", port: 47815, key: "paired-key", title: "Phone movie", isLive: false, startedAt: 1,
+    vodContext: { playlistId: "phone", vodId: "123" }, contentHref: "/movies/detail?id=123", logo: "https://example.test/poster.png" }
+  it("adopts a movie started on the TV and drops unrelated phone progress context", () => {
+    setCastSession(session)
+    syncCompanionSession({ companion: true, state: "playing", title: "TV movie", isLive: false, positionSeconds: 60 })
+    expect(getCastSession()?.title).toBe("TV movie")
+    expect(getCastSession()?.vodContext).toBeUndefined()
+    expect(getCastSession()?.contentHref).toBeUndefined()
+  })
+  it("separates distinct videos with the same title and never reuses their progress context", () => {
+    setCastSession({ ...session, companionPlaybackId: "first" })
+    syncCompanionSession({ companion: true, state: "playing", title: "Phone movie", playbackId: "second", positionSeconds: 60 })
+    expect(getCastSession()?.vodContext).toBeUndefined()
+    expect(getCastSession()?.companionPlaybackId).toBe("second")
+  })
+  it("brings over TV artwork without publishing a stream URL", () => {
+    setCastSession({ ...session, title: "", connectedOnly: true })
+    syncCompanionSession({ companion: true, state: "playing", title: "TV movie", logo: "https://example.test/cover.jpg", playbackId: "native-id", positionSeconds: 60 })
+    expect(getCastSession()).toMatchObject({ title: "TV movie", logo: "https://example.test/cover.jpg", connectedOnly: false })
+  })
+  it("preserves phone metadata when the sent title is still playing", () => {
+    setCastSession(session)
+    syncCompanionSession({ companion: true, state: "playing", title: "Phone movie", positionSeconds: 60 })
+    expect(getCastSession()?.vodContext).toEqual(session.vodContext)
+  })
+  it("remains connected and ready when the viewer returns to the TV library", () => {
+    setCastSession(session)
+    syncCompanionSession({ companion: true, state: "idle", positionSeconds: 0 })
+    expect(getCastSession()).toMatchObject({ deviceId: "sony", title: "", connectedOnly: true })
+  })
+  it("ignores legacy receiver title reports and refuses non-finite positions", () => {
+    setCastSession(session)
+    syncCompanionSession({ state: "playing", title: "Other", positionSeconds: 0 })
+    expect(getCastSession()?.title).toBe("Phone movie")
+    expect(parseCastStateValue({ state: "playing", positionSeconds: Infinity })).toBeNull()
+    expect(parseCastStateValue({ state: "playing", positionSeconds: 0, durationSeconds: NaN, seekable: false, companion: true })).toEqual({ state: "playing", positionSeconds: 0, seekable: false, companion: true })
   })
 })

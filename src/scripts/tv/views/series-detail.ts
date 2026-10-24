@@ -37,12 +37,18 @@ import {
   type DetailHeroFields,
 } from "@/scripts/tv/detail-enrich.ts"
 import { isGenericEpisodeTitle } from "@/scripts/lib/episode-title.ts"
+import { fetchSeasonEnrichment } from "@/scripts/lib/tmdb-enrich"
+import { providerSeasonsFromEpisodeMap } from "@/scripts/lib/tmdb-season-map"
+import { providerEpisodeDetails, fillEpisodeDetails, type EpisodeDetails } from "@/scripts/lib/episode-details"
+import { getTvdbProxyUrl } from "@/scripts/lib/fork-services.js"
+import { seriesMatch, chooseSeriesMatch } from "@/scripts/tv/ui/series-match"
 import {
   LANGUAGE_GROUPING_EVENT,
   CONTENT_LANGUAGE_EVENT,
   getLanguageGroupingEnabled,
+  isTmdbActive,
 } from "@/scripts/lib/app-settings.js"
-import { fmtImdbRating, ratingSortValue, formatPaddedHms } from "@/scripts/lib/format.ts"
+import { fmtImdbRating, ratingSortValue, parseHmsToSeconds } from "@/scripts/lib/format.ts"
 import { parseNamePrefix, languageTagLabel, prefixQualityTokens } from "@/scripts/lib/language-tags.ts"
 import { playEpisode } from "@/scripts/tv/playback"
 import { createDetailChrome, type DetailAction } from "@/scripts/tv/ui/detail"
@@ -50,7 +56,7 @@ import { createRail } from "@/scripts/tv/ui/rail"
 import { formatCardMeta, type PosterCardItem } from "@/scripts/tv/ui/card"
 import { registerFocusSection, keepFocusedInView, remPx } from "@/scripts/tv/focus"
 import { STAR_OUTLINE, STAR_FILLED, BOOKMARK_FILLED } from "@/scripts/lib/entry-card.ts"
-import { mountCachedImage } from "@/scripts/lib/img-cache.ts"
+import { mountCachedImage, releaseCachedImages } from "@/scripts/lib/img-cache.ts"
 import { ICON_PLAYER_PLAY, ICON_DOWNLOAD, ICON_CHECK } from "@/scripts/lib/icons"
 import { toast } from "@/scripts/lib/toast"
 import { confirmDialog } from "@/scripts/lib/confirm-dialog"
@@ -91,11 +97,7 @@ interface Creds {
   pass: string
 }
 
-interface EpisodeRow extends SeriesEpisodeEntry {
-  durationText: string
-  thumbUrl: string | null
-  plot: string
-}
+interface EpisodeRow extends SeriesEpisodeEntry, EpisodeDetails {}
 
 function episodeFocusKey(season: number, episodeNum: number): string {
   return `ep:${season}:${episodeNum}`
@@ -105,12 +107,6 @@ function episodeFocusKey(season: number, episodeNum: number): string {
 function parseDeepLinkNumber(raw: string | null): number | null {
   const parsed = Number(raw)
   return raw !== null && raw !== "" && Number.isFinite(parsed) ? parsed : null
-}
-
-function durationTextFromInfo(info: any): string {
-  if (info?.duration) return String(info.duration)
-  const seconds = Number(info?.duration_secs || 0)
-  return seconds > 0 ? formatPaddedHms(seconds) : ""
 }
 
 function collectRawEpisodes(seriesInfo: any): any[] {
@@ -179,15 +175,33 @@ const view: TvView = {
 
     const episodesScroller = document.createElement("div")
     episodesScroller.id = EPISODES_FOCUS_SECTION_ID
-    episodesScroller.className = "overflow-hidden"
+    episodesScroller.className = "min-w-0 overflow-y-auto"
+    episodesScroller.style.maxHeight = "28rem"
     const episodesTrack = document.createElement("div")
     episodesTrack.className = "flex flex-col gap-2"
     episodesScroller.appendChild(episodesTrack)
 
+    const episodeBrowser = document.createElement("section")
+    episodeBrowser.className = "grid grid-cols-2 items-start gap-6"
+    const episodePanel = document.createElement("aside")
+    episodePanel.className = "min-w-0 rounded-2xl bg-surface-2 p-4"
+    episodePanel.id = "tv-episode-preview"
+    let episodeImage = document.createElement("img")
+    episodeImage.alt = ""
+    episodeImage.className = "mb-3 aspect-video w-full rounded-xl object-cover"
+    const episodeTitle = document.createElement("h2")
+    episodeTitle.className = "text-lg font-semibold text-fg"
+    const episodeMeta = document.createElement("p")
+    episodeMeta.className = "my-2 text-xs text-fg-3"
+    const episodePlot = document.createElement("p")
+    episodePlot.className = "line-clamp-6 text-sm leading-relaxed text-fg-2"
+    episodePanel.append(episodeImage, episodeTitle, episodeMeta, episodePlot)
+    episodeBrowser.append(episodesScroller, episodePanel)
+
     const similarRail = createRail({ title: t("tv.detail.similar"), focusSectionId: SIMILAR_FOCUS_SECTION_ID })
     similarRail.setLoading()
 
-    chrome.sections.append(languageVariantsRow, seasonsSection, episodesScroller, similarRail.el)
+    chrome.sections.append(languageVariantsRow, seasonsSection, episodeBrowser, similarRail.el)
 
     const unregisterLanguageVariantsSection = registerFocusSection(
       LANGUAGE_VARIANTS_FOCUS_SECTION_ID,
@@ -216,6 +230,7 @@ const view: TvView = {
     let heroYearText = ""
     let enrichRequestId = 0
     let resolvedTmdbId: number | null = null
+    let resolvedImdbId: string | null = null
     let resolvedTvdbId: number | null = null
     let providerTmdbIdForTvdb: number | null = null
     let seasonEnrichRequestId = 0
@@ -276,6 +291,11 @@ const view: TvView = {
           logo: series.logo,
           containerExt: entry.containerExt,
           resumeSeconds,
+          durationSeconds: parseHmsToSeconds(entry.durationText) || undefined,
+          imdbId: resolvedImdbId,
+          tmdbId: resolvedTmdbId ?? providerTmdbIdForTvdb,
+          metadataSeason: entry.metadataSeason ?? entry.season,
+          metadataEpisode: entry.metadataEpisode ?? entry.episodeNum,
         },
         { onEnded: () => void refreshNextUp() }
       )
@@ -408,6 +428,16 @@ const view: TvView = {
         }
       )
 
+      actions.push({
+        id: "match-show", label: t("tv.episodes.match"),
+        onActivate: () => chooseSeriesMatch(activePlaylistId, seriesId, series!.name, () => {
+          if (destroyed) return
+          ++seasonEnrichRequestId
+          resolvedTmdbId = null; resolvedTvdbId = null; resolvedImdbId = null
+          if (seriesInfoRaw) applySeriesInfo(seriesInfoRaw)
+          void enrichHero(++enrichRequestId)
+        }),
+      })
       chrome.setActions(actions)
 
       if (!focusedPrimaryOnce && focusedDeepLinkOnce) {
@@ -420,6 +450,20 @@ const view: TvView = {
           target.focus()
         })
       }
+    }
+
+    function showEpisodeDetails(entry: EpisodeRow): void {
+      episodeTitle.textContent = `S${entry.season} · E${entry.episodeNum} · ${entry.title || t("series.episode.fallback", { n: entry.episodeNum })}`
+      episodeMeta.textContent = [entry.durationText, entry.airDate, entry.ratingText ? `★ ${entry.ratingText}` : ""].filter(Boolean).join(" · ")
+      episodePlot.textContent = entry.plot || t("detail.noDescription")
+      // A slow image from the previous selection must not overwrite the current episode.
+      const nextImage = episodeImage.cloneNode(false) as HTMLImageElement
+      nextImage.removeAttribute("src")
+      nextImage.hidden = !entry.thumbUrl
+      releaseCachedImages(episodeImage)
+      episodeImage.replaceWith(nextImage)
+      episodeImage = nextImage
+      if (entry.thumbUrl) mountCachedImage(episodeImage, entry.thumbUrl, "poster")
     }
 
     function buildEpisodeButton(entry: EpisodeRow): HTMLButtonElement {
@@ -464,12 +508,18 @@ const view: TvView = {
       const textWrap = document.createElement("div")
       textWrap.className = "min-w-0 flex-1"
       const titleEl = document.createElement("div")
-      titleEl.className = "truncate text-sm font-medium text-fg"
+      titleEl.className = "line-clamp-2 text-sm font-medium text-fg"
       titleEl.textContent = `E${entry.episodeNum} · ${entry.title || t("series.episode.fallback", { n: entry.episodeNum })}`
       const metaEl = document.createElement("div")
       metaEl.className = "truncate text-xs text-fg-3"
-      metaEl.textContent = entry.durationText
-      textWrap.append(titleEl, metaEl)
+      metaEl.textContent = [entry.durationText, entry.airDate].filter(Boolean).join(" · ")
+      const summary = document.createElement("p")
+      summary.className = "mt-1 line-clamp-2 text-xs text-fg-2"
+      summary.textContent = entry.plot
+      textWrap.append(titleEl, metaEl, summary)
+      button.setAttribute("aria-describedby", episodePanel.id)
+      button.addEventListener("focus", () => showEpisodeDetails(entry))
+      button.addEventListener("pointerenter", () => showEpisodeDetails(entry))
 
       button.append(thumbWrap, textWrap)
       button.addEventListener("click", () => {
@@ -509,8 +559,10 @@ const view: TvView = {
       const previouslyFocusedKey =
         focused instanceof HTMLElement && episodesTrack.contains(focused) ? focused.dataset.focusKey : null
 
+      releaseCachedImages(episodesTrack)
       episodesTrack.replaceChildren()
       const seasonEpisodes = episodesForCurrentSeason()
+      episodePanel.hidden = !seasonEpisodes.length
       if (!seasonEpisodes.length) {
         const empty = document.createElement("p")
         empty.className = "px-2 text-fg-3"
@@ -519,6 +571,7 @@ const view: TvView = {
         return
       }
       for (const entry of seasonEpisodes) episodesTrack.appendChild(buildEpisodeButton(entry))
+      showEpisodeDetails(seasonEpisodes.find((entry) => episodeFocusKey(entry.season, entry.episodeNum) === previouslyFocusedKey) || seasonEpisodes[0])
 
       if (previouslyFocusedKey) {
         episodesTrack.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(previouslyFocusedKey)}"]`)?.focus()
@@ -552,6 +605,8 @@ const view: TvView = {
     function applySeriesInfo(data: any): void {
       seriesInfoRaw = data
       const info = data?.info || {}
+      const imdb = String(info.imdb_id || info.imdb || "").trim()
+      resolvedImdbId = /^tt\d{7,12}$/.test(imdb) ? imdb : null
 
       const apiName = info.name || info.title || ""
       if (apiName && series && (!series.name || series.name === stubName())) series.name = apiName
@@ -570,12 +625,9 @@ const view: TvView = {
       const rawById = new Map(collectRawEpisodes(data).map((raw) => [String(raw.id), raw]))
       episodes = flattenSeriesEpisodes(data).map((entry) => {
         const raw = rawById.get(String(entry.id))
-        const rawInfo = raw?.info || {}
         return {
           ...entry,
-          durationText: durationTextFromInfo(rawInfo),
-          thumbUrl: rawInfo.movie_image || null,
-          plot: String(rawInfo.plot || ""),
+          ...providerEpisodeDetails(raw),
         }
       })
 
@@ -641,13 +693,32 @@ const view: TvView = {
     // seasons TMDb files as one flat run and providers can leave episode titles/thumbs empty.
     async function enrichSeasonFromTvdb(seasonNumber: number): Promise<void> {
       if (!series || !activePlaylistId) return
+      const requestId = ++seasonEnrichRequestId
+      const tmdbId = resolvedTmdbId ?? providerTmdbIdForTvdb
+      if (isTmdbActive() && tmdbId) {
+        const season = await fetchSeasonEnrichment(tmdbId, seasonNumber, {
+          providerSeasons: providerSeasonsFromEpisodeMap(seriesInfoRaw?.episodes || {}),
+        })
+        if (destroyed || requestId !== seasonEnrichRequestId) return
+        const byNumber = new Map((season?.episodes || []).map((episode) => [episode.episodeNumber, episode]))
+        episodes = episodes.map((entry) => {
+          const fallback = entry.season === seasonNumber ? byNumber.get(entry.episodeNum) : null
+          if (!fallback) return entry
+          return {
+            ...entry,
+            ...fillEpisodeDetails(entry, fallback),
+            title: isGenericEpisodeTitle(entry.title, { seriesName: series?.name }) && fallback.name ? fallback.name : entry.title,
+          }
+        })
+        if (currentSeason === seasonNumber) renderEpisodes()
+      }
+      if (!getTvdbProxyUrl()) return
       const seasonRef: TvdbSeasonRef = resolvedTvdbId
         ? { tvdbId: resolvedTvdbId }
         : { tmdbId: resolvedTmdbId ?? providerTmdbIdForTvdb }
       if (!seasonRef.tvdbId && !seasonRef.tmdbId) return
       const seasonEpisodes = episodes.filter((entry) => entry.season === seasonNumber)
       if (!seasonEpisodes.length || !seasonEpisodes.some(episodeNeedsTvdbFill)) return
-      const requestId = ++seasonEnrichRequestId
       const tvdbEpisodes = await resolveTvdbSeason(seasonRef, seasonNumber)
       if (destroyed || requestId !== seasonEnrichRequestId) return
       patchSeasonEpisodesFromTvdb(seasonNumber, tvdbEpisodes)
@@ -657,7 +728,9 @@ const view: TvView = {
     async function enrichHero(requestId: number): Promise<void> {
       if (!series || !activePlaylistId) return
       const info = seriesInfoRaw?.info || {}
-      const providerTmdbId = parseProviderTmdbId(info) ?? series.tmdb ?? null
+      const override = seriesMatch(activePlaylistId, seriesId)
+      const providerTmdbId = override ?? parseProviderTmdbId(info) ?? series.tmdb ?? null
+      if (override) resolvedImdbId = null
       providerTmdbIdForTvdb = providerTmdbId
       try {
         const details = await resolveTitleEnrichmentDetailed({
@@ -672,6 +745,7 @@ const view: TvView = {
         resolvedTmdbId = details?.tmdbId ?? null
         resolvedTvdbId = details?.tvdbId ?? null
         const enrichment = details?.enrichment ?? null
+        resolvedImdbId = resolvedImdbId || enrichment?.imdbId || null
         if (enrichment) {
           applyHeroFields(fillHeroGaps(currentHeroFields(), enrichment))
           if (!series.logo && enrichment.posterUrl) series.logo = enrichment.posterUrl
@@ -859,6 +933,7 @@ const view: TvView = {
 
     return () => {
       destroyed = true
+      releaseCachedImages(episodeBrowser)
       document.removeEventListener("xt:favorites-changed", onFavoritesChanged)
       document.removeEventListener("xt:watchlist-changed", onWatchlistChanged)
       document.removeEventListener("xt:progress-changed", onProgressChanged)

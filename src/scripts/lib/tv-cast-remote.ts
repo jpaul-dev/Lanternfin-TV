@@ -9,9 +9,11 @@ import { toast } from "@/scripts/lib/toast.js"
 import { log } from "@/scripts/lib/log.js"
 import {
   getCastSession,
+  clearCastSession,
   castPause,
   castResume,
   castSeek,
+  castSelectTrack,
   castStop,
   castRetryLast,
   castSetVolume,
@@ -43,6 +45,8 @@ import {
   ICON_VOLUME,
   ICON_VOLUME_OFF,
 } from "@/scripts/lib/icons.js"
+
+import { parseCompanionTime, boundedCompanionSeek } from "./companion-time"
 
 const DIALOG_ID = "tv-cast-remote"
 const SEEK_STEP_LARGE_SECONDS = 30
@@ -148,6 +152,19 @@ function buildSkeleton(dialog: HTMLDialogElement): void {
           <div data-role="metadata-genre-row" class="hidden text-xs"></div>
         </div>
 
+        <details data-role="tracks" class="hidden rounded-xl border border-line p-3">
+          <summary class="cursor-pointer text-sm font-medium min-h-8">Audio &amp; subtitles</summary>
+          <div class="mt-2 flex flex-col gap-3">
+            <label class="text-xs text-fg-3">Subtitles
+              <select data-role="subtitle-track" class="field-input mt-1 w-full" disabled aria-label="TV subtitles"></select>
+            </label>
+            <label class="text-xs text-fg-3">Audio language
+              <select data-role="audio-track" class="field-input mt-1 w-full" disabled aria-label="TV audio language"></select>
+            </label>
+            <p data-role="track-message" class="text-xs text-fg-3" role="status">Languages included in the current video.</p>
+          </div>
+        </details>
+
         <button type="button" data-role="picker-entry" class="hidden w-full min-h-12 items-center gap-3 rounded-lg border border-line px-3 text-start hover:bg-surface-2 focus-visible:bg-surface-2">
           <span class="shrink-0 text-fg-3" aria-hidden="true">${ICON_LIST_DETAILS}</span>
           <span data-role="picker-entry-label" class="flex-1 min-w-0 truncate text-sm"></span>
@@ -156,12 +173,19 @@ function buildSkeleton(dialog: HTMLDialogElement): void {
 
       <div class="relative flex shrink-0 flex-col gap-3 border-t border-line bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] short-viewport:gap-2 short-viewport:pt-2">
         <div data-role="scrubber" class="flex flex-col gap-1.5">
-          <input data-role="seek-range" type="range" min="0" max="0" step="1" value="0" class="h-1.5 w-full cursor-pointer accent-accent" />
+          <input data-role="seek-range" disabled type="range" min="0" max="0" step="1" value="0" class="h-1.5 w-full cursor-pointer accent-accent" />
           <div class="flex items-center justify-between text-xs tabular-nums text-fg-3">
             <span data-role="position-time"></span>
             <span data-role="duration-time"></span>
           </div>
         </div>
+
+        <form data-role="exact-seek" class="flex items-center gap-2">
+          <label for="companion-time" class="text-xs text-fg-3 shrink-0">Go to time</label>
+          <input id="companion-time" data-role="exact-time" disabled class="field-input min-w-0 w-full" placeholder="1:23:45" aria-label="Seconds, minutes:seconds, or hours:minutes:seconds" autocomplete="off" />
+          <button data-role="exact-go" disabled type="submit" class="btn">Go</button>
+        </form>
+        <p data-role="seek-message" class="hidden text-xs text-accent" role="status"></p>
 
         <div data-role="live-elapsed" class="hidden items-center gap-1.5 text-xs text-fg-3">
           <span data-role="live-elapsed-label"></span>
@@ -183,6 +207,7 @@ function buildSkeleton(dialog: HTMLDialogElement): void {
 
         <div class="flex flex-col gap-2 short-viewport:flex-row">
           <button type="button" data-role="footer-open" class="btn hidden short-viewport:flex-1"></button>
+          <button type="button" data-role="footer-disconnect" class="btn short-viewport:flex-1" title="Disconnect the phone. Keep the TV playing.">Use this phone</button>
           <button type="button" data-role="footer-stop" class="btn-danger short-viewport:flex-1"></button>
         </div>
       </div>
@@ -193,6 +218,10 @@ function buildSkeleton(dialog: HTMLDialogElement): void {
 }
 
 interface RemoteRefs {
+  tracks: HTMLElement
+  subtitleTrack: HTMLSelectElement
+  audioTrack: HTMLSelectElement
+  trackMessage: HTMLElement
   pageNow: HTMLElement
   pageChannels: HTMLElement
   wash: HTMLElement
@@ -213,6 +242,10 @@ interface RemoteRefs {
   metadataSkeleton: HTMLElement
   scrubber: HTMLElement
   seekRange: HTMLInputElement
+  exactSeek: HTMLFormElement
+  exactTime: HTMLInputElement
+  exactGo: HTMLButtonElement
+  seekMessage: HTMLElement
   positionTime: HTMLElement
   durationTime: HTMLElement
   liveElapsed: HTMLElement
@@ -245,6 +278,10 @@ interface RemoteRefs {
 function collectRefs(dialog: HTMLDialogElement): RemoteRefs {
   const query = <T extends HTMLElement>(role: string) => dialog.querySelector<T>(`[data-role="${role}"]`)!
   return {
+    tracks: query("tracks"),
+    subtitleTrack: query<HTMLSelectElement>("subtitle-track"),
+    audioTrack: query<HTMLSelectElement>("audio-track"),
+    trackMessage: query("track-message"),
     pageNow: query("page-now"),
     pageChannels: query("page-channels"),
     wash: query("wash"),
@@ -265,6 +302,10 @@ function collectRefs(dialog: HTMLDialogElement): RemoteRefs {
     metadataSkeleton: query("metadata-skeleton"),
     scrubber: query("scrubber"),
     seekRange: query<HTMLInputElement>("seek-range"),
+    exactSeek: query<HTMLFormElement>("exact-seek"),
+    exactTime: query<HTMLInputElement>("exact-time"),
+    exactGo: query<HTMLButtonElement>("exact-go"),
+    seekMessage: query("seek-message"),
     positionTime: query("position-time"),
     durationTime: query("duration-time"),
     liveElapsed: query("live-elapsed"),
@@ -338,7 +379,7 @@ function applySession(refs: RemoteRefs, session: CastSession): void {
 
   // Posters and series artwork are content worth showing; a channel logo is not, so live
   // keeps the thumbnail. Short viewports never get the poster - the controls need the room.
-  const wantsPoster = !!session.logo && !session.isLive && !!(session.vodContext || session.seriesContext)
+  const wantsPoster = !!session.logo && !session.isLive
   refs.poster.classList.toggle("hidden", !wantsPoster)
   refs.poster.classList.toggle("flex", wantsPoster)
   refs.artwork.classList.toggle("hidden", wantsPoster)
@@ -365,6 +406,7 @@ function applySession(refs: RemoteRefs, session: CastSession): void {
   }
 
   const connectedOnly = isConnectedOnlyRemoteSession(session)
+  refs.exactSeek.classList.toggle("hidden", session.isLive || connectedOnly)
   refs.scrubber.classList.toggle("hidden", session.isLive || connectedOnly)
   refs.back30.classList.toggle("hidden", session.isLive || connectedOnly)
   refs.forward30.classList.toggle("hidden", session.isLive || connectedOnly)
@@ -386,7 +428,9 @@ function applySession(refs: RemoteRefs, session: CastSession): void {
   refs.next.setAttribute("aria-label", `${nextLabel} (N)`)
   refs.next.title = `${nextLabel} (N)`
 
-  refs.footerOpen.classList.toggle("hidden", !session.contentHref)
+  refs.footerOpen.classList.remove("hidden")
+  refs.footerOpen.textContent = "Browse library"
+  refs.footerOpen.title = "Browse on this phone while staying connected to the TV"
   if (session.contentHref) {
     refs.footerOpen.textContent = t("cast.pill.openContent", { title: session.title || t("common.untitled") })
   }
@@ -581,6 +625,7 @@ export function openCastRemote(): void {
   let lastKnownVolume = 1
   let lastKnownMuted = false
   let scrubbing = false
+  let detached = false
   let liveElapsedTicker: ReturnType<typeof setInterval> | null = null
   let stopArmed = false
   let stopArmTimeout: ReturnType<typeof setTimeout> | null = null
@@ -983,12 +1028,54 @@ export function openCastRemote(): void {
   void syncPickerEntry()
 
   const debouncedSetVolume = debounce((level: number, muted: boolean) => {
+    if (detached) return
     castSetVolume(device(), level, muted)
       .then(() => pokeCastStateFeed())
       .catch((err) => log.warn("[xt:tv-cast-remote] set volume failed:", err))
   }, VOLUME_DEBOUNCE_MS)
 
+  let trackState: CastState | null = null
+  let trackBusy = false
+  function renderTracks(): void {
+    const state = trackState
+    refs.tracks.classList.toggle("hidden", !state?.companion)
+    for (const [kind, select] of [["text", refs.subtitleTrack], ["audio", refs.audioTrack]] as const) {
+      const tracks = state?.tracks?.filter(track => track.kind === kind) ?? []
+      const options = [["", tracks.length ? (kind === "text" ? "Subtitles off" : "Automatic") :
+        (kind === "text" ? "No subtitles in this video" : "No audio tracks available")], ...tracks.map(track => [track.id, track.label])]
+      const signature = JSON.stringify(options)
+      if (select.dataset.options !== signature) {
+        select.replaceChildren(...options.map(([value, label]) => new Option(label, value)))
+        select.dataset.options = signature
+      }
+      select.disabled = trackBusy || !tracks.length || !state?.playbackId || state.tracksRevision === undefined ||
+        ["idle", "loading", "error", "ended"].includes(state.state)
+      if (!trackBusy) select.value = kind === "audio" && state?.audioAutomatic ? "" : tracks.find(track => track.selected)?.id ?? ""
+    }
+  }
+  async function onTrackChange(event: Event): Promise<void> {
+    const select = event.target as HTMLSelectElement
+    const state = trackState
+    if (trackBusy || select.disabled || !state?.playbackId || state.tracksRevision === undefined) return
+    trackBusy = true
+    const id = select.value || null
+    renderTracks()
+    refs.trackMessage.textContent = "Updating on TV…"
+    try {
+      await castSelectTrack(device(), { playbackId: state.playbackId, tracksRevision: state.tracksRevision,
+        kind: select === refs.subtitleTrack ? "text" : "audio", id })
+      if (!detached) refs.trackMessage.textContent = "Selection sent. The TV’s current tracks appear here."
+    } catch {
+      if (!detached) refs.trackMessage.textContent = "The video or its tracks may have changed. Check the selection and try again."
+    } finally {
+      trackBusy = false
+      if (!detached) { renderTracks(); pokeCastStateFeed() }
+    }
+  }
+
   function onFeedState(state: CastState): void {
+    trackState = state
+    renderTracks()
     const idleTeardownAllowed = idleTeardownGuard.allowsTeardown({
       stateValue: state.state,
       sessionStartedAtMs: currentSession.startedAtMs ?? currentSession.startedAt,
@@ -996,9 +1083,16 @@ export function openCastRemote(): void {
       playPending: isCastPlaySettling(),
     })
     if (state.state === "idle") {
+      if (state.companion) { refs.stateEl.textContent = "Connected · ready to play"; setBusy(false); return }
       if (idleTeardownAllowed) settleClose()
       return
     }
+    const canSeek = !["loading", "idle", "error", "ended"].includes(state.state) && !currentSession.isLive && state.seekable !== false && (state.durationSeconds ?? 0) > 0
+    refs.seekRange.disabled = !canSeek
+    refs.exactTime.disabled = !canSeek
+    refs.exactGo.disabled = !canSeek
+    refs.back30.disabled = !canSeek
+    refs.forward30.disabled = !canSeek
     if (state.volume !== undefined) lastKnownVolume = state.volume
     if (state.muted !== undefined) lastKnownMuted = state.muted
     applyState(refs, state)
@@ -1028,14 +1122,29 @@ export function openCastRemote(): void {
   })
 
   function seekTo(seconds: number): void {
-    const clamped = Math.max(0, seconds)
+    const clamped = boundedCompanionSeek(seconds, Number(refs.seekRange.max), !currentSession.isLive && !refs.seekRange.disabled)
+    if (clamped === null) return
     lastKnownPositionSeconds = clamped
     suppressPositionUntil = Date.now() + SEEK_SUPPRESS_MS
     refs.seekRange.value = String(clamped)
     refs.positionTime.textContent = formatClock(clamped)
     castSeek(device(), clamped)
       .then(() => pokeCastStateFeed())
-      .catch((err) => log.warn("[xt:tv-cast-remote] seek failed:", err))
+      .catch(() => { refs.seekMessage.textContent = "The TV did not receive that seek. Try again."; refs.seekMessage.classList.remove("hidden"); pokeCastStateFeed() })
+  }
+
+  function onExactSeek(event: Event): void {
+    event.preventDefault()
+    const seconds = parseCompanionTime(refs.exactTime.value)
+    const duration = Number(refs.seekRange.max)
+    if (seconds === null || seconds > duration || refs.seekRange.disabled) {
+      refs.seekMessage.textContent = "Enter a time within this video: seconds, m:ss, or h:mm:ss."
+      refs.seekMessage.classList.remove("hidden")
+      return
+    }
+    refs.seekMessage.textContent = `Jumping to ${formatClock(seconds)}`
+    refs.seekMessage.classList.remove("hidden")
+    seekTo(seconds)
   }
 
   function togglePlayPause(): void {
@@ -1131,8 +1240,14 @@ export function openCastRemote(): void {
       toggleMute()
       return
     }
+    if (target.closest('[data-role="footer-disconnect"]')) {
+      clearCastSession()
+      toast({ title: "Ready to play on this phone. The TV keeps playing." })
+      settleClose()
+      return
+    }
     if (target.closest('[data-role="footer-open"]')) {
-      if (currentSession.contentHref) window.location.assign(currentSession.contentHref)
+      window.location.assign(currentSession.contentHref || "/")
       settleClose()
       return
     }
@@ -1217,11 +1332,15 @@ export function openCastRemote(): void {
   }
 
   function detach(): void {
+    detached = true
     stopLiveElapsedTicker()
     clearStopArmTimeout()
     channelPanel?.destroy()
     channelPanel = null
     feedUnsubscribe()
+    refs.subtitleTrack.removeEventListener("change", onTrackChange)
+    refs.audioTrack.removeEventListener("change", onTrackChange)
+    refs.exactSeek.removeEventListener("submit", onExactSeek)
     dialog.removeEventListener("click", onClick)
     dialog.removeEventListener("keydown", onKeyDown)
     refs.seekRange.removeEventListener("pointerdown", onSeekPointerDown)
@@ -1238,6 +1357,9 @@ export function openCastRemote(): void {
     detach()
   }
 
+  refs.subtitleTrack.addEventListener("change", onTrackChange)
+  refs.audioTrack.addEventListener("change", onTrackChange)
+  refs.exactSeek.addEventListener("submit", onExactSeek)
   dialog.addEventListener("click", onClick)
   dialog.addEventListener("keydown", onKeyDown)
   refs.seekRange.addEventListener("pointerdown", onSeekPointerDown)

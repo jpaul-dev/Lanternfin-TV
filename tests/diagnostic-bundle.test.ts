@@ -156,6 +156,12 @@ function baseBundleInput(overrides: Partial<BundleInput> = {}): BundleInput {
 }
 
 describe("buildBundleManifest", () => {
+  it("includes native exit history when present without requiring it on other platforms", () => {
+    const nativePlayback = { diagnosticsRevision: 1, events: [{ event: "END_EARLY", positionMs: 60_000, durationMs: 60_000, catalogDurationMs: 7_200_000 }] }
+    const manifest = buildBundleManifest(baseBundleInput({ nativePlayback }))
+    expect(JSON.parse(manifest.find(file => file.name === "native-playback.json")!.text)).toEqual(nativePlayback)
+    expect(buildBundleManifest(baseBundleInput()).some(file => file.name === "native-playback.json")).toBe(false)
+  })
   it("returns the exact file set and order without a diagnostic result", () => {
     const manifest = buildBundleManifest(baseBundleInput())
     expect(manifest.map((file) => file.name)).toEqual([

@@ -1,3 +1,4 @@
+import { openHomeSettings } from "@/scripts/lib/home-ui"
 // TV Settings: a single scrollable row list covering playlists, display, playback, receiver and support.
 import type { TvView, TvViewContext } from "@/scripts/tv/router"
 import { navigate } from "astro:transitions/client"
@@ -7,6 +8,8 @@ import { getEntries, getActiveEntry, isTauri } from "@/scripts/lib/creds.js"
 import { renderPlaylistRow, getPlaylistListEmptyCopy } from "@/scripts/lib/playlist-rows.js"
 import { attachDialogSpatialNav } from "@/scripts/lib/dialog-spatial-nav"
 import { confirmDialog } from "@/scripts/lib/confirm-dialog"
+import { openPhoneCompanion, companionAvailable, companionEnabled } from "@/scripts/lib/phone-companion"
+import { openMetadataSettings } from "@/scripts/tv/ui/metadata-settings"
 import {
   createSettingsList,
   openChoiceDialog,
@@ -34,6 +37,7 @@ import {
   setLanguageGroupingEnabled,
   getContentLanguage,
   setContentLanguage,
+  isTmdbActive,
 } from "@/scripts/lib/app-settings.js"
 import { getOffsetSetting, setOffsetSetting } from "@/scripts/lib/epg-data.js"
 import { LANGUAGE_TOKENS, languageTagLabel } from "@/scripts/lib/language-tags.ts"
@@ -168,7 +172,12 @@ const view: TvView = {
       if (state.destroyed || !list) return
       state.playlistId = activeEntry?._id || ""
 
-      const rows: SettingsRow[] = []
+      const rows: SettingsRow[] = [{ id: "lanternfin-home", label: "Lanternfin Home", value: "Shared accounts and watch progress", kind: "action", onActivate: openHomeSettings }]
+      if (companionAvailable()) rows.push({
+        id: "phone-companion", icon: ICON_DEVICE_TV, label: "Phone companion",
+        value: companionEnabled() ? "Ready to connect" : "Pair a phone · control this TV",
+        kind: "action", onActivate: () => void openPhoneCompanion(),
+      })
 
       rows.push({
         id: "playlists",
@@ -177,6 +186,15 @@ const view: TvView = {
         value: activeEntry?.title || t("list.noPlaylistSelected"),
         kind: "action",
         onActivate: () => void openPlaylistsDialog(),
+      })
+
+      rows.push({
+        id: "metadata",
+        icon: ICON_LIST_DETAILS,
+        label: t("settings.tmdb.title"),
+        value: t(isTmdbActive() ? "settings.tmdb.on" : "settings.tmdb.off"),
+        kind: "action",
+        onActivate: () => openMetadataSettings(() => void renderRows()),
       })
 
       rows.push({
@@ -328,6 +346,15 @@ const view: TvView = {
         kind: "action",
         onActivate: () => void exportDiagnostics(),
       })
+
+      if (window.AndroidVideo?.showPlaybackDiagnostics) {
+        rows.push({
+          id: "playback-diagnostics",
+          label: "Playback diagnostics",
+          kind: "action",
+          onActivate: () => window.AndroidVideo?.showPlaybackDiagnostics?.(),
+        })
+      }
 
       rows.push({
         id: "clear-cache",
@@ -805,6 +832,7 @@ const view: TvView = {
     }
 
     function buildShell(): void {
+      document.querySelector<HTMLDialogElement>("#phone-companion")?.close()
       root.replaceChildren()
 
       const heading = document.createElement("h1")

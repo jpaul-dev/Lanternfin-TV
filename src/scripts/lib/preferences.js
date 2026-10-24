@@ -1,6 +1,8 @@
 // Per-playlist favorites + recently-played + playback progress + view
 // preferences (hidden categories, sort order), persisted alongside creds.
 import { Store } from "@tauri-apps/plugin-store"
+import { homeReady, homeEnabled } from "./home-client"
+import { mergeHomeProgress, shareProgress } from "./home-library"
 import { getProgressRetentionDays } from "@/scripts/lib/app-settings.js"
 import { normalizeVideoScale, VIDEO_SCALE_MODES } from "@/scripts/lib/video-scale.ts"
 import {
@@ -461,8 +463,12 @@ function dehydrate() {
 export function ensureLoaded() {
   if (loadPromise) return loadPromise
   loadPromise = (async () => {
+    await homeReady()
+    if (homeEnabled()) { const { getState } = await import("./creds.js"); await getState() }
     const raw = await readRaw()
-    hydrate(raw)
+    const shared = mergeHomeProgress(raw)
+    hydrate(shared)
+    if (homeEnabled() && JSON.stringify(raw) !== JSON.stringify(shared)) await writeRaw(dehydrate())
   })()
   return loadPromise
 }
@@ -918,6 +924,7 @@ export function setProgress(playlistId, kind, id, position, duration, extras) {
     completed,
   }
   bucket[String(id)] = next
+  shareProgress(playlistId, kind, id, next)
   trimBucket(bucket)
   scheduleSave()
 
@@ -963,6 +970,7 @@ export function markCompleted(playlistId, kind, id, extras) {
     completed: true,
   }
   bucket[String(id)] = next
+  shareProgress(playlistId, kind, id, next)
   trimBucket(bucket)
   scheduleSave()
   dispatch(EVT_PROGRESS_CHANGED, {
@@ -989,6 +997,7 @@ export function clearProgress(playlistId, kind, id) {
   const bucket = e[progKey(kind)]
   if (!(String(id) in bucket)) return
   delete bucket[String(id)]
+  shareProgress(playlistId, kind, id, null)
   scheduleSave()
   dispatch(EVT_PROGRESS_CHANGED, { playlistId, kind, id, removed: true })
 }
@@ -1009,6 +1018,8 @@ export async function clearViewingHistory() {
     entry.recLive = []
     entry.recVod = []
     entry.recSeries = []
+    for (const id of Object.keys(entry.progVod)) shareProgress(playlistId, "vod", id, null)
+    for (const id of Object.keys(entry.progEpisode)) shareProgress(playlistId, "episode", id, null)
     entry.progVod = Object.create(null)
     entry.progEpisode = Object.create(null)
     removed += count
@@ -1836,3 +1847,13 @@ export async function restorePrefs(snapshot) {
   hydrate(snapshot && typeof snapshot === "object" ? snapshot : {})
   await writeRaw(dehydrate())
 }
+
+if (typeof document !== "undefined") document.addEventListener("lf:home-changed", async () => {
+  if (!loadPromise || !homeEnabled()) return
+  await loadPromise
+  const current = dehydrate(), next = mergeHomeProgress(current)
+  if (JSON.stringify(current) === JSON.stringify(next)) return
+  hydrate(next)
+  scheduleSave()
+  for (const playlistId of Object.keys(next)) dispatch(EVT_PROGRESS_CHANGED, { playlistId, shared: true })
+})
